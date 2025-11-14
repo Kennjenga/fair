@@ -72,3 +72,4 @@ All error responses follow this format:
 
 The API uses URL versioning. The current version is `v1`. Future versions will be available at `/api/v2`, `/api/v3`, etc.
 
+

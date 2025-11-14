@@ -63,3 +63,4 @@ The system automatically tracks executed migrations in the `migrations` table:
 3. Include both UP and DOWN sections
 4. Run `npm run migrate` to execute it
 
+

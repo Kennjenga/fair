@@ -40,3 +40,4 @@ export interface QueryResult<T = QueryRow> {
   }>;
 }
 
+
