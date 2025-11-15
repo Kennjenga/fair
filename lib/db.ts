@@ -2,20 +2,45 @@ import { Pool, PoolClient, QueryResult } from 'pg';
 import type { QueryRow } from '@/types/database';
 
 /**
- * Database connection pool configuration
- * Uses environment variables for connection details
+ * Get database configuration
+ * This function ensures password is always a proper string
  */
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432', 10),
-  database: process.env.DB_NAME || 'fair_db',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
-  // Connection pool settings
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
-});
+function getDbConfig() {
+  // Get password and ensure it's a string
+  // Handle cases where it might be undefined, null, or other types
+  let password: string = '';
+  
+  if (process.env.DB_PASSWORD !== undefined && process.env.DB_PASSWORD !== null) {
+    // Convert to string and trim whitespace
+    password = String(process.env.DB_PASSWORD).trim();
+  }
+
+  return {
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5432', 10),
+    database: process.env.DB_NAME || 'fair_db',
+    user: process.env.DB_USER || 'postgres',
+    password: password, // Always a string
+    // Connection pool settings
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+  };
+}
+
+/**
+ * Database connection pool
+ * Created lazily to ensure environment variables are loaded
+ */
+let pool: Pool | null = null;
+
+function getPool(): Pool {
+  if (!pool) {
+    const config = getDbConfig();
+    pool = new Pool(config);
+  }
+  return pool;
+}
 
 /**
  * Execute a query using the connection pool
@@ -27,9 +52,10 @@ export async function query<T extends QueryRow = QueryRow>(
   text: string,
   params?: unknown[]
 ): Promise<QueryResult<T>> {
+  const poolInstance = getPool();
   const start = Date.now();
   try {
-    const result = await pool.query(text, params);
+    const result = await poolInstance.query(text, params);
     const duration = Date.now() - start;
     console.log('Executed query', { text, duration, rows: result.rowCount });
     return result;
@@ -45,7 +71,8 @@ export async function query<T extends QueryRow = QueryRow>(
  * @returns Promise with PoolClient
  */
 export async function getClient(): Promise<PoolClient> {
-  const client = await pool.connect();
+  const poolInstance = getPool();
+  const client = await poolInstance.connect();
   return client;
 }
 
@@ -76,9 +103,12 @@ export async function transaction<T>(
  * Should be called when shutting down the application
  */
 export async function closePool(): Promise<void> {
-  await pool.end();
+  if (pool) {
+    await pool.end();
+    pool = null;
+  }
 }
 
-// Export the pool for advanced usage
-export { pool };
+// Export getPool for advanced usage (but prefer using query/getClient functions)
+export { getPool as pool };
 

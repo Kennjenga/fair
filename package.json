@@ -7,22 +7,35 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "migrate": "ts-node scripts/migrate.ts up",
-    "migrate:status": "ts-node scripts/migrate.ts status",
-    "migrate:rollback": "ts-node scripts/migrate.ts rollback"
+    "migrate": "tsx scripts/migrate.ts up",
+    "migrate:status": "tsx scripts/migrate.ts status",
+    "migrate:rollback": "tsx scripts/migrate.ts rollback",
+    "init-super-admin": "tsx scripts/init-super-admin.ts",
+    "generate-jwt-secret": "tsx scripts/generate-jwt-secret.ts"
   },
   "dependencies": {
+    "@getbrevo/brevo": "^1.0.0",
     "@types/pg": "^8.15.6",
+    "bcrypt": "^5.1.1",
+    "csv-parser": "^3.0.0",
     "dotenv": "^17.2.3",
+    "ethers": "^6.13.0",
+    "jsonwebtoken": "^9.0.2",
     "next": "16.0.3",
+    "nodemailer": "^6.9.8",
     "pg": "^8.16.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "recharts": "^2.12.7",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-react": "^5.30.2"
+    "swagger-ui-react": "^5.30.2",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/bcrypt": "^5.0.2",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/nodemailer": "^6.4.14",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -30,6 +43,7 @@
     "eslint-config-next": "16.0.3",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
+    "tsx": "^4.7.0",
     "typescript": "^5"
   }
 }

@@ -21,10 +21,10 @@ export default function SwaggerPage() {
 
   if (!spec) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-[#f8fafc]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading API documentation...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1e40af] mx-auto"></div>
+          <p className="mt-4 text-[#64748b]">Loading API documentation...</p>
         </div>
       </div>
     );
