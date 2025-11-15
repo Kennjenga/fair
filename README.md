@@ -120,7 +120,7 @@ const result = await query<User>('SELECT * FROM users WHERE id = $1', [1]);
 
 ### API Documentation
 
-**Swagger UI:** Visit [http://localhost:3000/api/docs](http://localhost:3000/api/docs) for interactive API documentation.
+**Swagger UI:** Visit [http://localhost:3000/docs](http://localhost:3000/docs) for interactive API documentation.
 
 **OpenAPI JSON:** Available at [http://localhost:3000/api/docs](http://localhost:3000/api/docs) (JSON format)
 
