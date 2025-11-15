@@ -1,11 +1,12 @@
 import { query, transaction } from '@/lib/db';
 import { hashPassword, verifyPassword } from '@/lib/auth/password';
 import type { AdminRole } from '@/types/auth';
+import type { QueryRow } from '@/types/database';
 
 /**
  * Admin database record
  */
-export interface AdminRecord {
+export interface AdminRecord extends QueryRow {
   admin_id: string;
   email: string;
   password_hash: string;

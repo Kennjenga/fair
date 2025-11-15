@@ -1,10 +1,11 @@
 import { query } from '@/lib/db';
 import { generateSecureToken } from '@/lib/utils/token';
+import type { QueryRow } from '@/types/database';
 
 /**
  * Password reset token database record
  */
-export interface PasswordResetTokenRecord {
+export interface PasswordResetTokenRecord extends QueryRow {
   token_id: string;
   admin_id: string;
   token: string;

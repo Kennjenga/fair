@@ -1,11 +1,12 @@
 import { query, transaction } from '@/lib/db';
 import { generateSecureToken, hashToken } from '@/lib/utils/token';
 import type { Token, TokenDeliveryStatus } from '@/types/token';
+import type { QueryRow } from '@/types/database';
 
 /**
  * Token database record
  */
-export interface TokenRecord {
+export interface TokenRecord extends QueryRow {
   token_id: string;
   token: string;
   poll_id: string;

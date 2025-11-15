@@ -37,7 +37,8 @@ async function checkConnection() {
     const row = result.rows[0];
     
     console.log('\n✓ Connection successful!');
-    console.log(`  PostgreSQL Version: ${row.version?.split(' ')[0]} ${row.version?.split(' ')[1]}`);
+    const version = typeof row.version === 'string' ? row.version : '';
+    console.log(`  PostgreSQL Version: ${version.split(' ')[0]} ${version.split(' ')[1]}`);
     console.log(`  Current Database: ${row.current_database}`);
     console.log(`  Current User: ${row.current_user}`);
     

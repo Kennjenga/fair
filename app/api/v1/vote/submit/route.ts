@@ -365,9 +365,9 @@ export async function POST(req: NextRequest) {
       {
         tokenHash,
         judgeEmail,
-        teamIdTarget: voteOptions.teamIdTarget || null,
-        teams: voteOptions.teams || null,
-        rankings: voteOptions.rankings || null,
+        teamIdTarget: voteOptions.teamIdTarget || undefined,
+        teams: voteOptions.teams || undefined,
+        rankings: voteOptions.rankings || undefined,
         txHash,
       }
     );

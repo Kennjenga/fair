@@ -1,10 +1,11 @@
 import { query } from '@/lib/db';
 import type { PollJudge } from '@/types/judge';
+import type { QueryRow } from '@/types/database';
 
 /**
  * Poll judge database record
  */
-export interface JudgeRecord {
+export interface JudgeRecord extends QueryRow {
   poll_id: string;
   email: string;
   name: string | null;

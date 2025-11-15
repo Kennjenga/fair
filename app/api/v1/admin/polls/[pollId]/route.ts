@@ -95,7 +95,7 @@ export async function PATCH(
         startTime?: Date;
         endTime?: Date;
         votingMode?: 'single' | 'multiple' | 'ranked';
-        votingPermissions?: 'judges_only' | 'voters_and_judges';
+        votingPermissions?: 'voters_only' | 'judges_only' | 'voters_and_judges';
         voterWeight?: number;
         judgeWeight?: number;
         rankPointsConfig?: Record<string, number>;

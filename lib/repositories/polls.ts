@@ -1,17 +1,18 @@
 import { query } from '@/lib/db';
 import type { Poll } from '@/types/poll';
+import type { QueryRow } from '@/types/database';
 
 /**
  * Poll database record
  */
-export interface PollRecord {
+export interface PollRecord extends QueryRow {
   poll_id: string;
   hackathon_id: string;
   name: string;
   start_time: Date;
   end_time: Date;
   voting_mode: 'single' | 'multiple' | 'ranked';
-  voting_permissions: 'judges_only' | 'voters_and_judges';
+  voting_permissions: 'voters_only' | 'judges_only' | 'voters_and_judges';
   voter_weight: number;
   judge_weight: number;
   rank_points_config: Record<string, number>;
@@ -33,7 +34,7 @@ export async function createPoll(
   endTime: Date,
   createdBy: string,
   votingMode: 'single' | 'multiple' | 'ranked' = 'single',
-  votingPermissions: 'judges_only' | 'voters_and_judges' = 'voters_and_judges',
+  votingPermissions: 'voters_only' | 'judges_only' | 'voters_and_judges' = 'voters_and_judges',
   voterWeight: number = 1.0,
   judgeWeight: number = 1.0,
   rankPointsConfig: Record<string, number> = { '1': 10, '2': 7, '3': 5, '4': 3, '5': 1 },
@@ -142,7 +143,7 @@ export async function updatePoll(
     startTime?: Date;
     endTime?: Date;
     votingMode?: 'single' | 'multiple' | 'ranked';
-    votingPermissions?: 'judges_only' | 'voters_and_judges';
+    votingPermissions?: 'voters_only' | 'judges_only' | 'voters_and_judges';
     voterWeight?: number;
     judgeWeight?: number;
     rankPointsConfig?: Record<string, number>;

@@ -1,10 +1,11 @@
 import { query } from '@/lib/db';
 import type { Vote, VoteRanking } from '@/types/vote';
+import type { QueryRow } from '@/types/database';
 
 /**
  * Vote database record
  */
-export interface VoteRecord {
+export interface VoteRecord extends QueryRow {
   vote_id: string;
   poll_id: string;
   token_hash: string | null;

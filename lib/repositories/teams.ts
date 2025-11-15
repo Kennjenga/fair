@@ -1,10 +1,11 @@
 import { query } from '@/lib/db';
 import type { Team, TeamMetadata } from '@/types/team';
+import type { QueryRow } from '@/types/database';
 
 /**
  * Team database record
  */
-export interface TeamRecord {
+export interface TeamRecord extends QueryRow {
   team_id: string;
   team_name: string;
   hackathon_id: string;

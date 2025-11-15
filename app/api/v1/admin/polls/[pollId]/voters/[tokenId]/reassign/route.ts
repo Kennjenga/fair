@@ -60,11 +60,11 @@ export async function POST(
       
       const validated = reassignVoterSchema.parse(body);
       
-      // Check new team exists and belongs to poll
+      // Check new team exists and belongs to the same hackathon as the poll
       const newTeam = await getTeamById(validated.newTeamId);
-      if (!newTeam || newTeam.poll_id !== pollId) {
+      if (!newTeam || newTeam.hackathon_id !== poll.hackathon_id) {
         return NextResponse.json(
-          { error: 'Team not found' },
+          { error: 'Team not found or does not belong to the same hackathon' },
           { status: 404 }
         );
       }
@@ -110,5 +110,6 @@ export async function POST(
     }
   })(req);
 }
+
 
 

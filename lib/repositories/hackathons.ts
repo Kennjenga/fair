@@ -1,10 +1,11 @@
 import { query } from '@/lib/db';
 import type { Hackathon } from '@/types/hackathon';
+import type { QueryRow } from '@/types/database';
 
 /**
  * Hackathon database record
  */
-export interface HackathonRecord {
+export interface HackathonRecord extends QueryRow {
   hackathon_id: string;
   name: string;
   description: string | null;
