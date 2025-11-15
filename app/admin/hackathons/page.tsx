@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 /**
- * Admin dashboard page
+ * Hackathons list page
  */
-export default function AdminDashboard() {
+export default function HackathonsPage() {
   const router = useRouter();
   const [admin, setAdmin] = useState<{ adminId: string; email: string; role: string } | null>(null);
   const [hackathons, setHackathons] = useState<any[]>([]);
@@ -73,7 +73,9 @@ export default function AdminDashboard() {
       {/* Header */}
       <header className="bg-white border-b border-[#e2e8f0]">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-[#1e40af]">FAIR Admin Dashboard</h1>
+          <Link href="/admin/dashboard" className="text-2xl font-bold text-[#1e40af]">
+            FAIR Admin Dashboard
+          </Link>
           <div className="flex items-center gap-4">
             <span className="text-[#64748b]">{admin?.email}</span>
             <button
@@ -94,15 +96,6 @@ export default function AdminDashboard() {
             className="bg-[#1e40af] text-white px-6 py-2 rounded-lg font-semibold hover:bg-[#1e3a8a] transition-colors"
           >
             Create New Hackathon
-          </Link>
-        </div>
-
-        <div className="mb-4">
-          <Link
-            href="/admin/hackathons"
-            className="text-[#1e40af] hover:text-[#1e3a8a] text-sm"
-          >
-            View All Hackathons →
           </Link>
         </div>
 

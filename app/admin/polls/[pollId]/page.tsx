@@ -16,8 +16,14 @@ export default function PollManagementPage() {
   const [poll, setPoll] = useState<any>(null);
   const [teams, setTeams] = useState<any[]>([]);
   const [tokens, setTokens] = useState<any[]>([]);
+  const [judges, setJudges] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'teams' | 'voters' | 'results'>('overview');
+  
+  // Judge management states
+  const [showAddJudge, setShowAddJudge] = useState(false);
+  const [judgeEmail, setJudgeEmail] = useState('');
+  const [judgeName, setJudgeName] = useState('');
+  const [activeTab, setActiveTab] = useState<'overview' | 'teams' | 'voters' | 'judges' | 'results'>('overview');
   
   // Modal states
   const [showAddTeam, setShowAddTeam] = useState(false);
@@ -71,7 +77,7 @@ export default function PollManagementPage() {
     if (!pollId) return;
     
     try {
-      const [pollRes, teamsRes, tokensRes] = await Promise.all([
+      const [pollRes, teamsRes, tokensRes, judgesRes] = await Promise.all([
         fetch(`/api/v1/admin/polls/${pollId}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
@@ -79,6 +85,9 @@ export default function PollManagementPage() {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch(`/api/v1/admin/polls/${pollId}/voters`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`/api/v1/admin/polls/${pollId}/judges`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -93,10 +102,12 @@ export default function PollManagementPage() {
       const pollData = await pollRes.json();
       const teamsData = await teamsRes.json();
       const tokensData = await tokensRes.json();
+      const judgesData = await judgesRes.json();
 
       setPoll(pollData.poll);
       setTeams(teamsData.teams || []);
       setTokens(tokensData.tokens || []);
+      setJudges(judgesData.judges || []);
       
       // Set timeline for editing
       if (pollData.poll) {
@@ -419,7 +430,7 @@ export default function PollManagementPage() {
         {/* Tabs */}
         <div className="border-b border-[#e2e8f0] mb-6">
           <nav className="flex gap-4">
-            {(['overview', 'teams', 'voters', 'results'] as const).map((tab) => (
+            {(['overview', 'teams', 'voters', 'judges', 'results'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -629,6 +640,167 @@ export default function PollManagementPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'judges' && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-[#0f172a]">Judges</h2>
+              <button
+                onClick={() => {
+                  setShowAddJudge(true);
+                  setJudgeEmail('');
+                  setJudgeName('');
+                }}
+                className="bg-[#1e40af] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#1e3a8a] transition-colors"
+              >
+                Add Judge
+              </button>
+            </div>
+
+            {judges.length === 0 ? (
+              <p className="text-[#64748b]">No judges added yet. Add judges to allow them to vote on this poll.</p>
+            ) : (
+              <div className="space-y-2">
+                {judges.map((judge) => (
+                  <div
+                    key={judge.email}
+                    className="flex justify-between items-center p-3 border border-[#e2e8f0] rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium text-[#0f172a]">{judge.email}</p>
+                      {judge.name && (
+                        <p className="text-sm text-[#64748b]">{judge.name}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Remove ${judge.email} as a judge?`)) return;
+                        
+                        const token = localStorage.getItem('auth_token');
+                        if (!token) return;
+
+                        try {
+                          const response = await fetch(
+                            `/api/v1/admin/polls/${pollId}/judges/${encodeURIComponent(judge.email)}`,
+                            {
+                              method: 'DELETE',
+                              headers: { Authorization: `Bearer ${token}` },
+                            }
+                          );
+
+                          if (response.ok) {
+                            setJudges(judges.filter(j => j.email !== judge.email));
+                            setSuccess('Judge removed successfully');
+                          } else {
+                            const data = await response.json();
+                            setError(data.error || 'Failed to remove judge');
+                          }
+                        } catch (err) {
+                          setError('An error occurred');
+                        }
+                      }}
+                      className="px-3 py-1 text-sm text-[#dc2626] hover:text-[#b91c1c] border border-[#dc2626] rounded hover:bg-red-50 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add Judge Modal */}
+            {showAddJudge && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                  <h3 className="text-xl font-semibold text-[#0f172a] mb-4">Add Judge</h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                        Email *
+                      </label>
+                      <input
+                        type="email"
+                        value={judgeEmail}
+                        onChange={(e) => setJudgeEmail(e.target.value)}
+                        className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                        placeholder="judge@example.com"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                        Name (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={judgeName}
+                        onChange={(e) => setJudgeName(e.target.value)}
+                        className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                        placeholder="Judge Name"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4 mt-6">
+                    <button
+                      onClick={async () => {
+                        if (!judgeEmail) {
+                          setError('Email is required');
+                          return;
+                        }
+
+                        const token = localStorage.getItem('auth_token');
+                        if (!token) return;
+
+                        try {
+                          const response = await fetch(`/api/v1/admin/polls/${pollId}/judges`, {
+                            method: 'POST',
+                            headers: {
+                              Authorization: `Bearer ${token}`,
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              email: judgeEmail,
+                              name: judgeName || undefined,
+                            }),
+                          });
+
+                          const data = await response.json();
+
+                          if (response.ok) {
+                            setJudges([...judges, data.judge]);
+                            setShowAddJudge(false);
+                            setJudgeEmail('');
+                            setJudgeName('');
+                            setSuccess('Judge added successfully');
+                          } else {
+                            setError(data.error || 'Failed to add judge');
+                          }
+                        } catch (err) {
+                          setError('An error occurred');
+                        }
+                      }}
+                      className="flex-1 bg-[#1e40af] text-white py-2 rounded-lg font-semibold hover:bg-[#1e3a8a] transition-colors"
+                    >
+                      Add Judge
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddJudge(false);
+                        setJudgeEmail('');
+                        setJudgeName('');
+                      }}
+                      className="flex-1 bg-[#64748b] text-white py-2 rounded-lg font-semibold hover:bg-[#475569] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

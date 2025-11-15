@@ -7,7 +7,7 @@ import type { Team, TeamMetadata } from '@/types/team';
 export interface TeamRecord {
   team_id: string;
   team_name: string;
-  poll_id: string;
+  hackathon_id: string;
   metadata: TeamMetadata | null;
   project_name: string | null;
   project_description: string | null;
@@ -21,7 +21,7 @@ export interface TeamRecord {
  * Create a team
  */
 export async function createTeam(
-  pollId: string,
+  hackathonId: string,
   teamName: string,
   metadata?: TeamMetadata,
   projectInfo?: {
@@ -35,7 +35,7 @@ export async function createTeam(
   const result = await query<{
     team_id: string;
     team_name: string;
-    poll_id: string;
+    hackathon_id: string;
     metadata: string | TeamMetadata | null;
     project_name: string | null;
     project_description: string | null;
@@ -44,11 +44,11 @@ export async function createTeam(
     github_url: string | null;
     created_at: Date;
   }>(
-    `INSERT INTO teams (poll_id, team_name, metadata, project_name, project_description, pitch, live_site_url, github_url)
+    `INSERT INTO teams (hackathon_id, team_name, metadata, project_name, project_description, pitch, live_site_url, github_url)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING *`,
     [
-      pollId,
+      hackathonId,
       teamName,
       metadata ? JSON.stringify(metadata) : null,
       projectInfo?.projectName || null,
@@ -73,7 +73,7 @@ export async function getTeamById(teamId: string): Promise<TeamRecord | null> {
   const result = await query<{
     team_id: string;
     team_name: string;
-    poll_id: string;
+    hackathon_id: string;
     metadata: string | TeamMetadata | null;
     project_name: string | null;
     project_description: string | null;
@@ -98,16 +98,16 @@ export async function getTeamById(teamId: string): Promise<TeamRecord | null> {
 }
 
 /**
- * Get team by name and poll ID
+ * Get team by name and hackathon ID
  */
 export async function getTeamByName(
-  pollId: string,
+  hackathonId: string,
   teamName: string
 ): Promise<TeamRecord | null> {
   const result = await query<{
     team_id: string;
     team_name: string;
-    poll_id: string;
+    hackathon_id: string;
     metadata: string | TeamMetadata | null;
     project_name: string | null;
     project_description: string | null;
@@ -116,8 +116,8 @@ export async function getTeamByName(
     github_url: string | null;
     created_at: Date;
   }>(
-    'SELECT * FROM teams WHERE poll_id = $1 AND team_name = $2',
-    [pollId, teamName]
+    'SELECT * FROM teams WHERE hackathon_id = $1 AND team_name = $2',
+    [hackathonId, teamName]
   );
   
   if (!result.rows[0]) {
@@ -132,13 +132,13 @@ export async function getTeamByName(
 }
 
 /**
- * Get all teams for a poll
+ * Get teams by hackathon ID
  */
-export async function getTeamsByPoll(pollId: string): Promise<TeamRecord[]> {
+export async function getTeamsByHackathon(hackathonId: string): Promise<TeamRecord[]> {
   const result = await query<{
     team_id: string;
     team_name: string;
-    poll_id: string;
+    hackathon_id: string;
     metadata: string | TeamMetadata | null;
     project_name: string | null;
     project_description: string | null;
@@ -147,8 +147,8 @@ export async function getTeamsByPoll(pollId: string): Promise<TeamRecord[]> {
     github_url: string | null;
     created_at: Date;
   }>(
-    'SELECT * FROM teams WHERE poll_id = $1 ORDER BY team_name ASC',
-    [pollId]
+    'SELECT * FROM teams WHERE hackathon_id = $1 ORDER BY team_name ASC',
+    [hackathonId]
   );
   
   return result.rows.map(row => ({
@@ -158,17 +158,47 @@ export async function getTeamsByPoll(pollId: string): Promise<TeamRecord[]> {
 }
 
 /**
+ * Get teams by poll ID (joins through hackathon)
+ */
+export async function getTeamsByPoll(pollId: string): Promise<TeamRecord[]> {
+  const result = await query<{
+    team_id: string;
+    team_name: string;
+    hackathon_id: string;
+    metadata: string | TeamMetadata | null;
+    project_name: string | null;
+    project_description: string | null;
+    pitch: string | null;
+    live_site_url: string | null;
+    github_url: string | null;
+    created_at: Date;
+  }>(
+    `SELECT t.* FROM teams t
+     INNER JOIN polls p ON t.hackathon_id = p.hackathon_id
+     WHERE p.poll_id = $1
+     ORDER BY t.team_name ASC`,
+    [pollId]
+  );
+  
+  return result.rows.map(row => ({
+    ...row,
+    metadata: typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata,
+  }));
+}
+
+
+/**
  * Bulk create teams
  */
 export async function bulkCreateTeams(
-  pollId: string,
+  hackathonId: string,
   teams: Array<{ teamName: string; metadata?: TeamMetadata }>
 ): Promise<TeamRecord[]> {
   const createdTeams: TeamRecord[] = [];
   
   for (const team of teams) {
     try {
-      const created = await createTeam(pollId, team.teamName, team.metadata);
+      const created = await createTeam(hackathonId, team.teamName, team.metadata);
       createdTeams.push(created);
     } catch (error) {
       // Skip duplicate teams (unique constraint violation)
@@ -266,7 +296,7 @@ export async function updateTeam(
   const result = await query<{
     team_id: string;
     team_name: string;
-    poll_id: string;
+    hackathon_id: string;
     metadata: string | TeamMetadata | null;
     project_name: string | null;
     project_description: string | null;

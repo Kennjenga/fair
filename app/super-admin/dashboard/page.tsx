@@ -97,7 +97,7 @@ export default function SuperAdminDashboard() {
       <div className="container mx-auto px-4 py-8">
         {/* Statistics */}
         {dashboard?.stats && (
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
             <div 
               className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
               onClick={async () => {
@@ -124,6 +124,10 @@ export default function SuperAdminDashboard() {
               <div className="text-xs text-[#0891b2] mt-2">Click to view all</div>
             </div>
             <div className="bg-white rounded-lg shadow p-6">
+              <div className="text-3xl font-bold text-[#7c3aed]">{dashboard.stats.totalHackathons || 0}</div>
+              <div className="text-sm text-[#64748b] mt-1">Hackathons</div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6">
               <div className="text-3xl font-bold text-[#0891b2]">{dashboard.stats.activePolls}</div>
               <div className="text-sm text-[#64748b] mt-1">Active Polls</div>
             </div>
@@ -138,6 +142,34 @@ export default function SuperAdminDashboard() {
             <div className="bg-white rounded-lg shadow p-6">
               <div className="text-3xl font-bold text-[#d97706]">{dashboard.stats.totalAdmins}</div>
               <div className="text-sm text-[#64748b] mt-1">Admins</div>
+            </div>
+          </div>
+        )}
+
+        {/* Recent Hackathons */}
+        {dashboard?.recentHackathons && dashboard.recentHackathons.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 className="text-xl font-semibold text-[#0f172a] mb-4">Recent Hackathons</h2>
+            <div className="grid md:grid-cols-3 gap-4">
+              {dashboard.recentHackathons.map((hackathon: any) => (
+                <Link
+                  key={hackathon.hackathonId}
+                  href={`/admin/hackathons/${hackathon.hackathonId}`}
+                  className="border border-[#e2e8f0] rounded-lg p-4 hover:bg-[#f8fafc] transition-colors"
+                >
+                  <div className="font-medium text-[#0f172a] mb-2">{hackathon.name}</div>
+                  {hackathon.description && (
+                    <div className="text-sm text-[#64748b] mb-2 line-clamp-2">{hackathon.description}</div>
+                  )}
+                  {(hackathon.startDate || hackathon.endDate) && (
+                    <div className="text-xs text-[#64748b]">
+                      {hackathon.startDate && new Date(hackathon.startDate).toLocaleDateString()}
+                      {hackathon.startDate && hackathon.endDate && ' - '}
+                      {hackathon.endDate && new Date(hackathon.endDate).toLocaleDateString()}
+                    </div>
+                  )}
+                </Link>
+              ))}
             </div>
           </div>
         )}
@@ -202,6 +234,13 @@ export default function SuperAdminDashboard() {
                     <div className="font-medium text-[#0f172a]">{poll.name}</div>
                     <div className="text-sm text-[#64748b]">
                       {new Date(poll.startTime).toLocaleDateString()} - {new Date(poll.endTime).toLocaleDateString()}
+                    </div>
+                    <div className="text-xs text-[#64748b] mt-1">
+                      Mode: {poll.votingMode} • {
+                        poll.votingPermissions === 'voters_only' ? 'Voters Only' :
+                        poll.votingPermissions === 'judges_only' ? 'Judges Only' :
+                        'Voters & Judges'
+                      }
                     </div>
                     <div className="text-xs text-[#0891b2] mt-1">Click to view details</div>
                   </div>
@@ -411,6 +450,30 @@ export default function SuperAdminDashboard() {
                         {pollDetails.poll.require_team_name_gate ? 'Yes' : 'No'}
                       </div>
                     </div>
+                    <div>
+                      <span className="font-medium text-[#64748b]">Voting Mode:</span>
+                      <div className="text-[#0f172a] capitalize">
+                        {pollDetails.poll.voting_mode || 'single'}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="font-medium text-[#64748b]">Voting Permissions:</span>
+                      <div className="text-[#0f172a]">
+                        {
+                          pollDetails.poll.voting_permissions === 'voters_only' ? 'Voters Only' :
+                          pollDetails.poll.voting_permissions === 'judges_only' ? 'Judges Only' :
+                          'Voters & Judges'
+                        }
+                      </div>
+                    </div>
+                    {pollDetails.poll.voting_mode === 'ranked' && (
+                      <div>
+                        <span className="font-medium text-[#64748b]">Rank Points Config:</span>
+                        <div className="text-[#0f172a] text-xs">
+                          {JSON.stringify(pollDetails.poll.rank_points_config || {})}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -438,8 +501,25 @@ export default function SuperAdminDashboard() {
                     <h3 className="text-lg font-semibold text-[#0f172a] mb-3">Teams ({pollDetails.teams.length})</h3>
                     <div className="space-y-2 max-h-40 overflow-y-auto">
                       {pollDetails.teams.map((team: any) => {
-                        const teamVoters = pollDetails.tokens.filter((t: any) => t.team_id === team.team_id);
-                        const teamVotes = pollDetails.results?.voteCounts?.find((vc: any) => vc.teamId === team.team_id)?.voteCount || 0;
+                        // Tokens API returns teamId (camelCase), teams have team_id
+                        const teamVoters = pollDetails.tokens.filter((t: any) => 
+                          (t.teamId || t.team_id) === team.team_id
+                        );
+                        // Get vote count from results.teams array (new structure)
+                        const teamResult = pollDetails.results?.teams?.find((r: any) => 
+                          r.teamId === team.team_id || r.team_id === team.team_id
+                        );
+                        // Calculate vote count: use voteCount if available, otherwise sum voterVotes and judgeVotes
+                        let teamVotes = 0;
+                        if (teamResult) {
+                          if (teamResult.voteCount !== undefined) {
+                            teamVotes = typeof teamResult.voteCount === 'number' ? teamResult.voteCount : parseInt(teamResult.voteCount || 0, 10);
+                          } else {
+                            const voterVotes = typeof teamResult.voterVotes === 'number' ? teamResult.voterVotes : parseInt(teamResult.voterVotes || 0, 10);
+                            const judgeVotes = typeof teamResult.judgeVotes === 'number' ? teamResult.judgeVotes : parseInt(teamResult.judgeVotes || 0, 10);
+                            teamVotes = voterVotes + judgeVotes;
+                          }
+                        }
                         return (
                           <div key={team.team_id} className="border border-[#e2e8f0] rounded-lg p-3 flex justify-between items-center">
                             <div>
@@ -459,24 +539,37 @@ export default function SuperAdminDashboard() {
                 {pollDetails.results && (
                   <div>
                     <h3 className="text-lg font-semibold text-[#0f172a] mb-3">Vote Results</h3>
+                    <div className="mb-3 text-sm text-[#64748b]">
+                      Total: {pollDetails.results.totalVotes || 0} votes ({pollDetails.results.voterVotes || 0} voter, {pollDetails.results.judgeVotes || 0} judge)
+                    </div>
                     <div className="space-y-2">
-                      {pollDetails.results.voteCounts?.map((vc: any) => {
-                        const team = pollDetails.teams.find((t: any) => t.team_id === vc.teamId);
-                        const percentage = pollDetails.results.totalVotes > 0 
-                          ? ((vc.voteCount / pollDetails.results.totalVotes) * 100).toFixed(1)
-                          : '0';
+                      {pollDetails.results.teams?.map((result: any) => {
+                        const team = pollDetails.teams.find((t: any) => t.team_id === result.teamId);
+                        const totalScore = typeof result.totalScore === 'number' ? result.totalScore : parseFloat(result.totalScore || 0);
+                        const voterScore = typeof result.voterScore === 'number' ? result.voterScore : parseFloat(result.voterScore || 0);
+                        const judgeScore = typeof result.judgeScore === 'number' ? result.judgeScore : parseFloat(result.judgeScore || 0);
+                        const maxScore = Math.max(...(pollDetails.results.teams || []).map((r: any) => {
+                          const score = typeof r.totalScore === 'number' ? r.totalScore : parseFloat(r.totalScore || 0);
+                          return score;
+                        }), 1);
+                        const percentage = maxScore > 0 ? ((totalScore / maxScore) * 100).toFixed(1) : '0';
                         return (
-                          <div key={vc.teamId} className="border border-[#e2e8f0] rounded-lg p-3">
+                          <div key={result.teamId} className="border border-[#e2e8f0] rounded-lg p-3">
                             <div className="flex justify-between items-center mb-2">
-                              <div className="font-medium text-[#0f172a]">{team?.team_name || 'Unknown Team'}</div>
+                              <div className="font-medium text-[#0f172a]">{result.teamName || team?.team_name || 'Unknown Team'}</div>
                               <div className="text-sm text-[#64748b]">
-                                {vc.voteCount} vote(s) ({percentage}%)
+                                Score: {totalScore.toFixed(2)}
+                                {(voterScore > 0 || judgeScore > 0) && (
+                                  <span className="ml-2 text-xs">
+                                    (V: {voterScore.toFixed(2)}, J: {judgeScore.toFixed(2)})
+                                  </span>
+                                )}
                               </div>
                             </div>
                             <div className="w-full bg-[#e2e8f0] rounded-full h-2">
                               <div 
                                 className="bg-[#059669] h-2 rounded-full transition-all"
-                                style={{ width: `${percentage}%` }}
+                                style={{ width: `${Math.min(100, parseFloat(percentage))}%` }}
                               />
                             </div>
                           </div>

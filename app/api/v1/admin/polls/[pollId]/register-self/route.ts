@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/auth/middleware';
 import { getPollById } from '@/lib/repositories/polls';
 import { findAdminById } from '@/lib/repositories/admins';
-import { getTeamByName } from '@/lib/repositories/teams';
 import { createToken } from '@/lib/repositories/tokens';
 import { sendVotingTokenEmail } from '@/lib/email/brevo';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
@@ -75,8 +74,10 @@ export async function POST(
         );
       }
 
-      // Find team
-      const team = await getTeamByName(pollId, teamName);
+      // Find team - teams belong to hackathons, use getTeamsByPoll which joins through hackathon
+      const { getTeamsByPoll } = await import('@/lib/repositories/teams');
+      const teams = await getTeamsByPoll(pollId);
+      const team = teams.find(t => t.team_name === teamName);
       if (!team) {
         return NextResponse.json(
           { error: `Team "${teamName}" not found in poll` },

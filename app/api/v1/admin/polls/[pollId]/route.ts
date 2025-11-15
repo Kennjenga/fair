@@ -94,6 +94,11 @@ export async function PATCH(
         name?: string;
         startTime?: Date;
         endTime?: Date;
+        votingMode?: 'single' | 'multiple' | 'ranked';
+        votingPermissions?: 'judges_only' | 'voters_and_judges';
+        voterWeight?: number;
+        judgeWeight?: number;
+        rankPointsConfig?: Record<string, number>;
         allowSelfVote?: boolean;
         requireTeamNameGate?: boolean;
         isPublicResults?: boolean;
@@ -116,6 +121,11 @@ export async function PATCH(
         updates.endTime = newEndTime;
       }
       
+      if (validated.votingMode) updates.votingMode = validated.votingMode;
+      if (validated.votingPermissions) updates.votingPermissions = validated.votingPermissions;
+      if (validated.voterWeight !== undefined) updates.voterWeight = validated.voterWeight;
+      if (validated.judgeWeight !== undefined) updates.judgeWeight = validated.judgeWeight;
+      if (validated.rankPointsConfig) updates.rankPointsConfig = validated.rankPointsConfig;
       if (validated.allowSelfVote !== undefined) updates.allowSelfVote = validated.allowSelfVote;
       if (validated.requireTeamNameGate !== undefined) updates.requireTeamNameGate = validated.requireTeamNameGate;
       if (validated.isPublicResults !== undefined) updates.isPublicResults = validated.isPublicResults;

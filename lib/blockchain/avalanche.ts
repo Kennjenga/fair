@@ -32,12 +32,28 @@ function getWallet(): ethers.Wallet | null {
 
 /**
  * Vote data structure for blockchain
+ * Supports all voting modes: single, multiple, and ranked
  */
 export interface VoteData {
   pollId: string;
-  teamIdTarget: string;
+  voteType: 'voter' | 'judge';
+  votingMode: 'single' | 'multiple' | 'ranked';
   timestamp: number;
   voteHash: string;
+  // Single vote mode
+  teamIdTarget?: string;
+  // Multiple vote mode
+  teams?: string[];
+  // Ranked vote mode
+  rankings?: Array<{
+    teamId: string;
+    rank: number;
+    points: number;
+    reason?: string;
+  }>;
+  // Metadata
+  judgeEmail?: string;
+  tokenHash?: string;
 }
 
 /**
@@ -60,35 +76,51 @@ export function createVoteHash(
 
 /**
  * Submit a vote transaction to Avalanche blockchain
+ * Stores vote data in a readable JSON format in the transaction data
  * @param voteData - Vote data to submit
  * @returns Transaction hash
  */
 export async function submitVoteToBlockchain(voteData: VoteData): Promise<string> {
   const wallet = getWallet();
   
+  // Prepare readable vote data for blockchain
+  const readableVoteData = {
+    pollId: voteData.pollId,
+    voteType: voteData.voteType,
+    votingMode: voteData.votingMode,
+    timestamp: voteData.timestamp,
+    voteHash: voteData.voteHash,
+    ...(voteData.teamIdTarget && { teamIdTarget: voteData.teamIdTarget }),
+    ...(voteData.teams && { teams: voteData.teams }),
+    ...(voteData.rankings && { rankings: voteData.rankings }),
+    ...(voteData.judgeEmail && { judgeEmail: voteData.judgeEmail }),
+    // Don't include tokenHash for privacy, but include a hash if needed for verification
+    version: '1.0',
+    protocol: 'FAIR_VOTING',
+  };
+  
   if (!wallet) {
     // If wallet not configured, generate a mock transaction hash for development
     // In production, this should always be configured
     console.warn('Blockchain wallet not configured. Generating mock transaction hash.');
     const mockHash = crypto.createHash('sha256')
-      .update(`${voteData.pollId}:${voteData.teamIdTarget}:${voteData.timestamp}:${Date.now()}`)
+      .update(JSON.stringify(readableVoteData) + Date.now())
       .digest('hex');
     return `0x${mockHash.substring(0, 64)}`; // Ethereum-style hash
   }
 
   try {
-    // Create a simple transaction with vote data encoded
-    // In a production system, you might use a smart contract
-    // For MVP, we'll encode the data in the transaction data field
+    // Encode the vote data as JSON string, then encode it for the transaction
+    // This makes it readable when decoded from the blockchain
+    const jsonData = JSON.stringify(readableVoteData);
     
+    // Encode as bytes so it can be stored in transaction data
+    // We'll use ABI encoding with the JSON string
     const data = ethers.AbiCoder.defaultAbiCoder().encode(
-      ['string', 'string', 'string', 'uint256', 'string'],
+      ['string', 'string'],
       [
-        voteData.pollId,
-        voteData.teamIdTarget,
-        voteData.voteHash,
-        voteData.timestamp,
-        'FAIR_VOTE' // Identifier
+        'FAIR_VOTE', // Identifier prefix
+        jsonData // Readable JSON data
       ]
     );
 
@@ -111,7 +143,7 @@ export async function submitVoteToBlockchain(voteData: VoteData): Promise<string
     console.error('Blockchain transaction failed:', error);
     // Fallback to mock hash if transaction fails
     const mockHash = crypto.createHash('sha256')
-      .update(`${voteData.pollId}:${voteData.teamIdTarget}:${voteData.timestamp}:${Date.now()}`)
+      .update(JSON.stringify(readableVoteData) + Date.now())
       .digest('hex');
     return `0x${mockHash.substring(0, 64)}`;
   }
@@ -139,6 +171,46 @@ export async function verifyTransaction(txHash: string): Promise<boolean> {
   } catch (error) {
     console.error('Transaction verification failed:', error);
     return false;
+  }
+}
+
+/**
+ * Read vote data from a blockchain transaction
+ * Decodes the readable JSON data stored in the transaction
+ * @param txHash - Transaction hash to read
+ * @returns Decoded vote data or null if not found/invalid
+ */
+export async function readVoteFromBlockchain(txHash: string): Promise<VoteData | null> {
+  try {
+    const provider = getProvider();
+    const tx = await provider.getTransaction(txHash);
+    
+    if (!tx || !tx.data) {
+      return null;
+    }
+    
+    // Decode the transaction data
+    try {
+      const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
+        ['string', 'string'],
+        tx.data
+      );
+      
+      // Check if it's a FAIR_VOTE transaction
+      if (decoded[0] !== 'FAIR_VOTE') {
+        return null;
+      }
+      
+      // Parse the JSON data
+      const voteData = JSON.parse(decoded[1]);
+      return voteData as VoteData;
+    } catch (decodeError) {
+      console.error('Failed to decode transaction data:', decodeError);
+      return null;
+    }
+  } catch (error) {
+    console.error('Failed to read transaction from blockchain:', error);
+    return null;
   }
 }
 

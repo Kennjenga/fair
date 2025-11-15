@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/auth/middleware';
 import { registerVotersSchema } from '@/lib/validation/schemas';
 import { getPollById } from '@/lib/repositories/polls';
-import { getTeamByName } from '@/lib/repositories/teams';
 import { bulkCreateTokens, getTokensByPoll } from '@/lib/repositories/tokens';
 import { sendVotingTokenEmail } from '@/lib/email/brevo';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
@@ -108,9 +107,13 @@ export async function POST(
       const validated = registerVotersSchema.parse(body);
       
       // Resolve team IDs from team names
+      // Teams belong to hackathons, so we need to get teams by hackathon
       const votersWithTeamIds = await Promise.all(
         validated.voters.map(async (voter) => {
-          const team = await getTeamByName(pollId, voter.teamName);
+          // getTeamByName now takes hackathonId, but we can use getTeamsByPoll which joins through hackathon
+          const { getTeamsByPoll } = await import('@/lib/repositories/teams');
+          const teams = await getTeamsByPoll(pollId);
+          const team = teams.find(t => t.team_name === voter.teamName);
           if (!team) {
             throw new Error(`Team "${voter.teamName}" not found in poll`);
           }

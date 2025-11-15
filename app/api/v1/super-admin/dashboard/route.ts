@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withSuperAdmin } from '@/lib/auth/middleware';
 import { getAllPolls } from '@/lib/repositories/polls';
+import { getAllHackathons } from '@/lib/repositories/hackathons';
 import { getAllAdmins } from '@/lib/repositories/admins';
 import { query } from '@/lib/db';
 import type { AuthenticatedRequest } from '@/lib/auth/middleware';
@@ -20,12 +21,14 @@ export async function GET(req: NextRequest) {
       // Get platform statistics
       const [
         pollsResult,
+        hackathonsResult,
         adminsResult,
         votesResult,
         tokensResult,
         activePollsResult,
       ] = await Promise.all([
         query<{ count: string }>('SELECT COUNT(*) as count FROM polls'),
+        query<{ count: string }>('SELECT COUNT(*) as count FROM hackathons'),
         query<{ count: string }>('SELECT COUNT(*) as count FROM admins'),
         query<{ count: string }>('SELECT COUNT(*) as count FROM votes'),
         query<{ count: string }>('SELECT COUNT(*) as count FROM tokens'),
@@ -38,15 +41,38 @@ export async function GET(req: NextRequest) {
       
       const stats = {
         totalPolls: parseInt(pollsResult.rows[0].count, 10),
+        totalHackathons: parseInt(hackathonsResult.rows[0].count, 10),
         totalAdmins: parseInt(adminsResult.rows[0].count, 10),
         totalVotes: parseInt(votesResult.rows[0].count, 10),
         totalTokens: parseInt(tokensResult.rows[0].count, 10),
         activePolls: parseInt(activePollsResult.rows[0].count, 10),
       };
       
-      // Get recent polls
+      // Get recent polls with hackathon info
       const polls = await getAllPolls();
-      const recentPolls = polls.slice(0, 10);
+      const recentPolls = polls.slice(0, 10).map(p => ({
+        pollId: p.poll_id,
+        hackathonId: p.hackathon_id,
+        name: p.name,
+        startTime: p.start_time,
+        endTime: p.end_time,
+        votingMode: p.voting_mode,
+        votingPermissions: p.voting_permissions,
+        createdBy: p.created_by,
+        createdAt: p.created_at,
+      }));
+      
+      // Get all hackathons
+      const hackathons = await getAllHackathons();
+      const recentHackathons = hackathons.slice(0, 5).map(h => ({
+        hackathonId: h.hackathon_id,
+        name: h.name,
+        description: h.description,
+        startDate: h.start_date,
+        endDate: h.end_date,
+        createdBy: h.created_by,
+        createdAt: h.created_at,
+      }));
       
       // Get all admins
       const admins = await getAllAdmins();
@@ -68,14 +94,8 @@ export async function GET(req: NextRequest) {
       
       return NextResponse.json({
         stats,
-        recentPolls: recentPolls.map(p => ({
-          pollId: p.poll_id,
-          name: p.name,
-          startTime: p.start_time,
-          endTime: p.end_time,
-          createdBy: p.created_by,
-          createdAt: p.created_at,
-        })),
+        recentPolls,
+        recentHackathons,
         admins: admins.map(a => ({
           adminId: a.admin_id,
           email: a.email,

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPollById } from '@/lib/repositories/polls';
-import { getVoteCountsByPoll, getVotesByPoll } from '@/lib/repositories/votes';
+import { getVotesByPoll } from '@/lib/repositories/votes';
 import { getTeamsByPoll } from '@/lib/repositories/teams';
+import { calculatePollResults } from '@/lib/utils/results';
 import { getExplorerUrl } from '@/lib/blockchain/avalanche';
 import { withAdmin } from '@/lib/auth/middleware';
 import type { AuthenticatedRequest } from '@/lib/auth/middleware';
@@ -82,40 +83,70 @@ export async function GET(
       );
     }
     
-    // Get vote counts
-    const voteCounts = await getVoteCountsByPoll(pollId);
-    
-    // Get all votes with transaction hashes
+    // Get all votes
     const votes = await getVotesByPoll(pollId);
+    
+    // Get teams for reference
+    const teams = await getTeamsByPoll(pollId);
+    
+    // Create team name map
+    const teamNameMap = new Map(teams.map(t => [t.team_id, t.team_name]));
+    
+    // Calculate results based on voting mode
+    // Pass number of teams for ranked voting point calculation
+    const teamResults = calculatePollResults(poll, votes, teams.length);
+    
+    // Add team names to results and include all fields
+    const resultsWithNames = teamResults.map(result => ({
+      teamId: result.teamId,
+      teamName: teamNameMap.get(result.teamId) || 'Unknown',
+      totalScore: result.totalScore,
+      voterScore: result.voterPoints,
+      judgeScore: result.judgePoints,
+      voteCount: result.voterVotes + result.judgeVotes, // Total vote count for single/multiple modes
+      rankedPoints: result.totalScore, // For ranked mode
+      voterVotes: result.voterVotes,
+      judgeVotes: result.judgeVotes,
+    })).sort((a, b) => b.totalScore - a.totalScore);
+    
+    // Get votes with transaction hashes for blockchain verification
     const votesWithExplorer = votes
       .filter(v => v.tx_hash)
       .map(v => ({
         voteId: v.vote_id,
-        teamIdTarget: v.team_id_target,
+        voteType: v.vote_type,
+        votingMode: poll.voting_mode,
         timestamp: v.timestamp,
         txHash: v.tx_hash,
         explorerUrl: v.tx_hash ? getExplorerUrl(v.tx_hash) : null,
+        // Include vote details for reference
+        teamIdTarget: v.team_id_target,
+        teams: v.teams,
+        rankings: v.rankings,
       }));
     
-    // Get teams for reference
-    const teams = await getTeamsByPoll(pollId);
+    // Separate voter and judge vote counts
+    const voterVotes = votes.filter(v => v.vote_type === 'voter').length;
+    const judgeVotes = votes.filter(v => v.vote_type === 'judge').length;
     
     return NextResponse.json({
       poll: {
         pollId: poll.poll_id,
         name: poll.name,
+        votingMode: poll.voting_mode,
+        votingPermissions: poll.voting_permissions,
+        voterWeight: poll.voter_weight,
+        judgeWeight: poll.judge_weight,
         startTime: poll.start_time,
         endTime: poll.end_time,
         isPublicResults: poll.is_public_results,
       },
       results: {
-        voteCounts,
+        teams: resultsWithNames,
         totalVotes: votes.length,
+        voterVotes,
+        judgeVotes,
         votes: votesWithExplorer,
-        teams: teams.map(t => ({
-          teamId: t.team_id,
-          teamName: t.team_name,
-        })),
       },
     });
   } catch (error) {

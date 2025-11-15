@@ -6,9 +6,15 @@ import type { Poll } from '@/types/poll';
  */
 export interface PollRecord {
   poll_id: string;
+  hackathon_id: string;
   name: string;
   start_time: Date;
   end_time: Date;
+  voting_mode: 'single' | 'multiple' | 'ranked';
+  voting_permissions: 'judges_only' | 'voters_and_judges';
+  voter_weight: number;
+  judge_weight: number;
+  rank_points_config: Record<string, number>;
   allow_self_vote: boolean;
   require_team_name_gate: boolean;
   is_public_results: boolean;
@@ -21,22 +27,34 @@ export interface PollRecord {
  * Create a new poll
  */
 export async function createPoll(
+  hackathonId: string,
   name: string,
   startTime: Date,
   endTime: Date,
   createdBy: string,
+  votingMode: 'single' | 'multiple' | 'ranked' = 'single',
+  votingPermissions: 'judges_only' | 'voters_and_judges' = 'voters_and_judges',
+  voterWeight: number = 1.0,
+  judgeWeight: number = 1.0,
+  rankPointsConfig: Record<string, number> = { '1': 10, '2': 7, '3': 5, '4': 3, '5': 1 },
   allowSelfVote: boolean = false,
   requireTeamNameGate: boolean = true,
   isPublicResults: boolean = false
 ): Promise<PollRecord> {
   const result = await query<PollRecord>(
-    `INSERT INTO polls (name, start_time, end_time, created_by, allow_self_vote, require_team_name_gate, is_public_results)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO polls (hackathon_id, name, start_time, end_time, created_by, voting_mode, voting_permissions, voter_weight, judge_weight, rank_points_config, allow_self_vote, require_team_name_gate, is_public_results)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      RETURNING *`,
-    [name, startTime, endTime, createdBy, allowSelfVote, requireTeamNameGate, isPublicResults]
+    [hackathonId, name, startTime, endTime, createdBy, votingMode, votingPermissions, voterWeight, judgeWeight, JSON.stringify(rankPointsConfig), allowSelfVote, requireTeamNameGate, isPublicResults]
   );
   
-  return result.rows[0];
+  // Parse JSONB fields
+  const poll = result.rows[0];
+  if (poll.rank_points_config && typeof poll.rank_points_config === 'string') {
+    poll.rank_points_config = JSON.parse(poll.rank_points_config);
+  }
+  
+  return poll;
 }
 
 /**
@@ -48,7 +66,17 @@ export async function getPollById(pollId: string): Promise<PollRecord | null> {
     [pollId]
   );
   
-  return result.rows[0] || null;
+  if (!result.rows[0]) {
+    return null;
+  }
+  
+  // Parse JSONB fields
+  const poll = result.rows[0];
+  if (poll.rank_points_config && typeof poll.rank_points_config === 'string') {
+    poll.rank_points_config = JSON.parse(poll.rank_points_config);
+  }
+  
+  return poll;
 }
 
 /**
@@ -60,7 +88,31 @@ export async function getPollsByAdmin(adminId: string): Promise<PollRecord[]> {
     [adminId]
   );
   
-  return result.rows;
+  // Parse JSONB fields
+  return result.rows.map(poll => {
+    if (poll.rank_points_config && typeof poll.rank_points_config === 'string') {
+      poll.rank_points_config = JSON.parse(poll.rank_points_config);
+    }
+    return poll;
+  });
+}
+
+/**
+ * Get polls by hackathon ID
+ */
+export async function getPollsByHackathon(hackathonId: string): Promise<PollRecord[]> {
+  const result = await query<PollRecord>(
+    'SELECT * FROM polls WHERE hackathon_id = $1 ORDER BY created_at DESC',
+    [hackathonId]
+  );
+  
+  // Parse JSONB fields
+  return result.rows.map(poll => {
+    if (poll.rank_points_config && typeof poll.rank_points_config === 'string') {
+      poll.rank_points_config = JSON.parse(poll.rank_points_config);
+    }
+    return poll;
+  });
 }
 
 /**
@@ -71,7 +123,13 @@ export async function getAllPolls(): Promise<PollRecord[]> {
     'SELECT * FROM polls ORDER BY created_at DESC'
   );
   
-  return result.rows;
+  // Parse JSONB fields
+  return result.rows.map(poll => {
+    if (poll.rank_points_config && typeof poll.rank_points_config === 'string') {
+      poll.rank_points_config = JSON.parse(poll.rank_points_config);
+    }
+    return poll;
+  });
 }
 
 /**
@@ -83,6 +141,11 @@ export async function updatePoll(
     name?: string;
     startTime?: Date;
     endTime?: Date;
+    votingMode?: 'single' | 'multiple' | 'ranked';
+    votingPermissions?: 'judges_only' | 'voters_and_judges';
+    voterWeight?: number;
+    judgeWeight?: number;
+    rankPointsConfig?: Record<string, number>;
     allowSelfVote?: boolean;
     requireTeamNameGate?: boolean;
     isPublicResults?: boolean;
@@ -103,6 +166,26 @@ export async function updatePoll(
   if (updates.endTime !== undefined) {
     fields.push(`end_time = $${paramIndex++}`);
     values.push(updates.endTime);
+  }
+  if (updates.votingMode !== undefined) {
+    fields.push(`voting_mode = $${paramIndex++}`);
+    values.push(updates.votingMode);
+  }
+  if (updates.votingPermissions !== undefined) {
+    fields.push(`voting_permissions = $${paramIndex++}`);
+    values.push(updates.votingPermissions);
+  }
+  if (updates.voterWeight !== undefined) {
+    fields.push(`voter_weight = $${paramIndex++}`);
+    values.push(updates.voterWeight);
+  }
+  if (updates.judgeWeight !== undefined) {
+    fields.push(`judge_weight = $${paramIndex++}`);
+    values.push(updates.judgeWeight);
+  }
+  if (updates.rankPointsConfig !== undefined) {
+    fields.push(`rank_points_config = $${paramIndex++}`);
+    values.push(JSON.stringify(updates.rankPointsConfig));
   }
   if (updates.allowSelfVote !== undefined) {
     fields.push(`allow_self_vote = $${paramIndex++}`);
@@ -127,7 +210,13 @@ export async function updatePoll(
     values
   );
   
-  return result.rows[0];
+  // Parse JSONB fields
+  const poll = result.rows[0];
+  if (poll.rank_points_config && typeof poll.rank_points_config === 'string') {
+    poll.rank_points_config = JSON.parse(poll.rank_points_config);
+  }
+  
+  return poll;
 }
 
 /**

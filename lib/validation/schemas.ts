@@ -13,9 +13,84 @@ export const loginSchema = z.object({
 });
 
 /**
+ * Create hackathon schema
+ */
+export const createHackathonSchema = z.object({
+  name: z.string().min(1, 'Hackathon name is required').max(255, 'Hackathon name too long'),
+  description: z.string().max(5000, 'Description too long').optional(),
+  startDate: z.string().refine(
+    (val) => {
+      if (!val) return true;
+      const date = new Date(val);
+      return !isNaN(date.getTime());
+    },
+    { message: 'Invalid start date format' }
+  ).optional(),
+  endDate: z.string().refine(
+    (val) => {
+      if (!val) return true;
+      const date = new Date(val);
+      return !isNaN(date.getTime());
+    },
+    { message: 'Invalid end date format' }
+  ).optional(),
+}).refine(
+  (data) => {
+    if (data.startDate && data.endDate) {
+      const startDate = new Date(data.startDate);
+      const endDate = new Date(data.endDate);
+      return endDate > startDate;
+    }
+    return true;
+  },
+  {
+    message: 'End date must be after start date',
+    path: ['endDate'],
+  }
+);
+
+/**
+ * Update hackathon schema
+ */
+export const updateHackathonSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().max(5000).optional(),
+  startDate: z.string().refine(
+    (val) => {
+      if (!val) return true;
+      const date = new Date(val);
+      return !isNaN(date.getTime());
+    },
+    { message: 'Invalid start date format' }
+  ).optional(),
+  endDate: z.string().refine(
+    (val) => {
+      if (!val) return true;
+      const date = new Date(val);
+      return !isNaN(date.getTime());
+    },
+    { message: 'Invalid end date format' }
+  ).optional(),
+}).refine(
+  (data) => {
+    if (data.startDate && data.endDate) {
+      const startDate = new Date(data.startDate);
+      const endDate = new Date(data.endDate);
+      return endDate > startDate;
+    }
+    return true;
+  },
+  {
+    message: 'End date must be after start date',
+    path: ['endDate'],
+  }
+);
+
+/**
  * Create poll schema
  */
 export const createPollSchema = z.object({
+  hackathonId: z.string().uuid('Invalid hackathon ID'),
   name: z.string().min(1, 'Poll name is required').max(255, 'Poll name too long'),
   startTime: z.string().refine(
     (val) => {
@@ -31,6 +106,11 @@ export const createPollSchema = z.object({
     },
     { message: 'Invalid end time format' }
   ),
+  votingMode: z.enum(['single', 'multiple', 'ranked']).optional().default('single'),
+  votingPermissions: z.enum(['voters_only', 'judges_only', 'voters_and_judges']).optional().default('voters_and_judges'),
+  voterWeight: z.number().min(0).optional().default(1.0),
+  judgeWeight: z.number().min(0).optional().default(1.0),
+  rankPointsConfig: z.record(z.string(), z.number()).optional(),
   allowSelfVote: z.boolean().optional().default(false),
   requireTeamNameGate: z.boolean().optional().default(true),
   isPublicResults: z.boolean().optional().default(false),
@@ -68,6 +148,11 @@ export const updatePollSchema = z.object({
     },
     { message: 'Invalid end time format' }
   ).optional(),
+  votingMode: z.enum(['single', 'multiple', 'ranked']).optional(),
+  votingPermissions: z.enum(['voters_only', 'judges_only', 'voters_and_judges']).optional(),
+  voterWeight: z.number().min(0).optional(),
+  judgeWeight: z.number().min(0).optional(),
+  rankPointsConfig: z.record(z.string(), z.number()).optional(),
   allowSelfVote: z.boolean().optional(),
   requireTeamNameGate: z.boolean().optional(),
   isPublicResults: z.boolean().optional(),
@@ -141,12 +226,71 @@ export const registerVotersSchema = z.object({
 });
 
 /**
+ * Vote ranking schema
+ */
+export const voteRankingSchema = z.object({
+  teamId: z.string().uuid('Invalid team ID'),
+  rank: z.number().int().min(1, 'Rank must be at least 1'),
+  points: z.number().optional(), // Will be calculated server-side
+  reason: z.string().max(1000, 'Reason too long').optional(),
+});
+
+/**
  * Submit vote schema
+ * Supports three voting modes: single, multiple, ranked
  */
 export const submitVoteSchema = z.object({
-  token: z.string().min(1, 'Token is required'),
-  teamName: z.string().min(1, 'Team name is required'),
-  teamIdTarget: z.string().uuid('Invalid team ID'),
+  token: z.string().optional(), // Required for voter votes
+  judgeEmail: z.string().email('Invalid email address').optional(), // Required for judge votes
+  pollId: z.string().uuid('Invalid poll ID').optional(), // Required for judge votes
+  teamName: z.string().optional(), // Required if requireTeamNameGate is true
+  // Single vote mode
+  teamIdTarget: z.string().uuid('Invalid team ID').optional(),
+  // Multiple vote mode
+  teams: z.array(z.string().uuid('Invalid team ID')).optional(),
+  // Ranked vote mode
+  rankings: z.array(voteRankingSchema).optional(),
+}).refine(
+  (data) => {
+    // Must have either token (voter) or judgeEmail (judge)
+    return !!(data.token || data.judgeEmail);
+  },
+  {
+    message: 'Either token (for voters) or judgeEmail (for judges) is required',
+    path: ['token'],
+  }
+).refine(
+  (data) => {
+    // If judgeEmail is provided, pollId is required
+    if (data.judgeEmail && !data.pollId) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: 'pollId is required when judgeEmail is provided',
+    path: ['pollId'],
+  }
+).refine(
+  (data) => {
+    // Must have exactly one voting method
+    const hasSingle = !!data.teamIdTarget;
+    const hasMultiple = !!data.teams && data.teams.length > 0;
+    const hasRanked = !!data.rankings && data.rankings.length > 0;
+    const count = [hasSingle, hasMultiple, hasRanked].filter(Boolean).length;
+    return count === 1;
+  },
+  {
+    message: 'Must provide exactly one: teamIdTarget (single), teams (multiple), or rankings (ranked)',
+  }
+);
+
+/**
+ * Create judge schema
+ */
+export const createJudgeSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  name: z.string().max(255, 'Name too long').optional(),
 });
 
 /**

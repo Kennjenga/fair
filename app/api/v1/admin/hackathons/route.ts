@@ -1,35 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/auth/middleware';
-import { createPollSchema, updatePollSchema } from '@/lib/validation/schemas';
-import { createPoll, getPollsByAdmin, getAllPolls, updatePoll, deletePoll } from '@/lib/repositories/polls';
+import { createHackathonSchema, updateHackathonSchema } from '@/lib/validation/schemas';
+import { createHackathon, getHackathonsByAdmin, getAllHackathons, updateHackathon, deleteHackathon } from '@/lib/repositories/hackathons';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
 import type { AuthenticatedRequest } from '@/lib/auth/middleware';
 
 /**
  * @swagger
- * /api/v1/admin/polls:
+ * /api/v1/admin/hackathons:
  *   get:
- *     summary: Get all polls for admin
+ *     summary: Get all hackathons for admin
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of polls
+ *         description: List of hackathons
  */
 export async function GET(req: NextRequest) {
   return withAdmin(async (req: AuthenticatedRequest) => {
     try {
       const admin = req.admin!;
       
-      // Regular admins only see their own polls, super admins see all
-      const polls = admin.role === 'super_admin'
-        ? await getAllPolls()
-        : await getPollsByAdmin(admin.adminId);
+      // Regular admins only see their own hackathons, super admins see all
+      const hackathons = admin.role === 'super_admin'
+        ? await getAllHackathons()
+        : await getHackathonsByAdmin(admin.adminId);
       
-      return NextResponse.json({ polls });
+      return NextResponse.json({ hackathons });
     } catch (error) {
-      console.error('Get polls error:', error);
+      console.error('Get hackathons error:', error);
       return NextResponse.json(
         { error: 'Internal server error' },
         { status: 500 }
@@ -40,9 +40,9 @@ export async function GET(req: NextRequest) {
 
 /**
  * @swagger
- * /api/v1/admin/polls:
+ * /api/v1/admin/hackathons:
  *   post:
- *     summary: Create a new poll
+ *     summary: Create a new hackathon
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
@@ -51,10 +51,10 @@ export async function GET(req: NextRequest) {
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/CreatePollRequest'
+ *             $ref: '#/components/schemas/CreateHackathonRequest'
  *     responses:
  *       201:
- *         description: Poll created
+ *         description: Hackathon created
  */
 export async function POST(req: NextRequest) {
   return withAdmin(async (req: AuthenticatedRequest) => {
@@ -63,36 +63,28 @@ export async function POST(req: NextRequest) {
       const body = await req.json();
       
       // Validate request
-      const validated = createPollSchema.parse(body);
+      const validated = createHackathonSchema.parse(body);
       
-      // Create poll
-      const poll = await createPoll(
-        validated.hackathonId,
+      // Create hackathon
+      const hackathon = await createHackathon(
         validated.name,
-        new Date(validated.startTime),
-        new Date(validated.endTime),
         admin.adminId,
-        validated.votingMode || 'single',
-        validated.votingPermissions || 'voters_and_judges',
-        validated.voterWeight || 1.0,
-        validated.judgeWeight || 1.0,
-        validated.rankPointsConfig || { '1': 10, '2': 7, '3': 5, '4': 3, '5': 1 },
-        validated.allowSelfVote,
-        validated.requireTeamNameGate,
-        validated.isPublicResults
+        validated.description,
+        validated.startDate ? new Date(validated.startDate) : undefined,
+        validated.endDate ? new Date(validated.endDate) : undefined
       );
       
       // Log audit
       await logAudit(
-        'poll_created',
+        'hackathon_created',
         admin.adminId,
-        poll.poll_id,
+        null,
         admin.role,
-        { pollName: poll.name },
+        { hackathonName: hackathon.name },
         getClientIp(req.headers)
       );
       
-      return NextResponse.json({ poll }, { status: 201 });
+      return NextResponse.json({ hackathon }, { status: 201 });
     } catch (error) {
       if (error instanceof Error && error.name === 'ZodError') {
         return NextResponse.json(
@@ -101,7 +93,7 @@ export async function POST(req: NextRequest) {
         );
       }
       
-      console.error('Create poll error:', error);
+      console.error('Create hackathon error:', error);
       return NextResponse.json(
         { error: 'Internal server error' },
         { status: 500 }

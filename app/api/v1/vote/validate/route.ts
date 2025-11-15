@@ -3,7 +3,8 @@ import { findTokenByPlainToken } from '@/lib/repositories/tokens';
 import { getPollById } from '@/lib/repositories/polls';
 import { getTeamById } from '@/lib/repositories/teams';
 import { hashToken } from '@/lib/utils/token';
-import { hasTokenVoted } from '@/lib/repositories/votes';
+import { hasTokenVoted, getVoteByTokenHash } from '@/lib/repositories/votes';
+import { getExplorerUrl } from '@/lib/blockchain/avalanche';
 
 /**
  * @swagger
@@ -84,17 +85,7 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    // Check if token has already voted
-    const tokenHash = hashToken(token);
-    const alreadyVoted = await hasTokenVoted(tokenHash);
-    if (alreadyVoted) {
-      return NextResponse.json(
-        { error: 'Token has already been used to vote' },
-        { status: 400 }
-      );
-    }
-    
-    // Get all teams for the poll
+    // Get all teams for the poll (needed for both new and existing votes)
     const { getTeamsByPoll } = await import('@/lib/repositories/teams');
     const teams = await getTeamsByPoll(tokenRecord.poll_id);
     
@@ -106,12 +97,58 @@ export async function POST(req: NextRequest) {
       ? teams
       : teams.filter(t => t.team_id !== tokenRecord.team_id);
     
+    // Check if token has already voted
+    const tokenHash = hashToken(token);
+    const existingVote = await getVoteByTokenHash(tokenHash);
+    
+    if (existingVote) {
+      // Token has already voted - return existing vote information
+      return NextResponse.json({
+        valid: true,
+        alreadyVoted: true,
+        poll: {
+          pollId: poll.poll_id,
+          name: poll.name,
+          votingMode: poll.voting_mode,
+          votingPermissions: poll.voting_permissions,
+          requireTeamNameGate: poll.require_team_name_gate,
+          allowSelfVote: poll.allow_self_vote,
+          rankPointsConfig: poll.rank_points_config,
+        },
+        voterTeam: voterTeam ? {
+          teamId: voterTeam.team_id,
+          teamName: voterTeam.team_name,
+        } : null,
+        availableTeams: teams.map(t => ({
+          teamId: t.team_id,
+          teamName: t.team_name,
+        })),
+        existingVote: {
+          voteId: existingVote.vote_id,
+          voteType: existingVote.vote_type,
+          votingMode: poll.voting_mode,
+          teamIdTarget: existingVote.team_id_target,
+          teams: existingVote.teams,
+          rankings: existingVote.rankings,
+          timestamp: existingVote.timestamp,
+          txHash: existingVote.tx_hash,
+          explorerUrl: existingVote.tx_hash ? getExplorerUrl(existingVote.tx_hash) : null,
+        },
+      });
+    }
+    
+    // Token has not voted yet - return poll and teams for voting
     return NextResponse.json({
       valid: true,
+      alreadyVoted: false,
       poll: {
         pollId: poll.poll_id,
         name: poll.name,
+        votingMode: poll.voting_mode,
+        votingPermissions: poll.voting_permissions,
         requireTeamNameGate: poll.require_team_name_gate,
+        allowSelfVote: poll.allow_self_vote,
+        rankPointsConfig: poll.rank_points_config,
       },
       voterTeam: voterTeam ? {
         teamId: voterTeam.team_id,
