@@ -1,15 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 /**
- * Poll management page
+ * Poll management page content
  */
-export default function PollManagementPage() {
+function PollManagementPageContent() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const pollId = params?.pollId as string;
   
   const [admin, setAdmin] = useState<{ adminId: string; email: string; role: string } | null>(null);
@@ -93,6 +94,30 @@ export default function PollManagementPage() {
     setAdmin(parsed);
     fetchPollData(token);
   }, [pollId, router]);
+
+  // Handle edit query parameter
+  useEffect(() => {
+    if (poll && searchParams?.get('edit') === 'true') {
+      // Populate edit form with current poll data
+      setEditPollName(poll.name);
+      const start = new Date(poll.start_time);
+      const end = new Date(poll.end_time);
+      setEditPollStartTime(start.toISOString().slice(0, 16));
+      setEditPollEndTime(end.toISOString().slice(0, 16));
+      setEditPollVotingMode(poll.voting_mode || 'single');
+      setEditPollVotingPermissions(poll.voting_permissions || 'voters_and_judges');
+      setEditPollVoterWeight(poll.voter_weight?.toString() || '1.0');
+      setEditPollJudgeWeight(poll.judge_weight?.toString() || '1.0');
+      setEditPollAllowSelfVote(poll.allow_self_vote || false);
+      setEditPollRequireTeamNameGate(poll.require_team_name_gate !== false);
+      setEditPollIsPublicResults(poll.is_public_results || false);
+      setEditPollMaxRankedPositions(poll.max_ranked_positions?.toString() || '');
+      setEditPollVotingSequence(poll.voting_sequence || 'simultaneous');
+      setShowEditPoll(true);
+      // Remove query param from URL
+      router.replace(`/admin/polls/${pollId}`, { scroll: false });
+    }
+  }, [poll, searchParams, pollId, router]);
 
   const fetchPollData = async (token: string) => {
     if (!pollId) return;
@@ -675,17 +700,64 @@ export default function PollManagementPage() {
                           Team: {team?.team_name || 'Unknown'} • Status: {token.deliveryStatus || 'queued'} • {token.used ? 'Voted' : 'Not Voted'}
                         </div>
                       </div>
-                      <button
-                        onClick={() => {
-                          setReassigningVoter(token);
-                          setSelectedReassignTeam(token.team_id);
-                          setReassignTeamSearchQuery(team?.team_name || '');
-                          setShowReassignVoter(true);
-                        }}
-                        className="px-3 py-1 text-sm text-[#0891b2] hover:text-[#0e7490] border border-[#0891b2] rounded hover:bg-[#f0f9ff] transition-colors"
-                      >
-                        Reassign
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setReassigningVoter(token);
+                            setSelectedReassignTeam(token.team_id);
+                            setReassignTeamSearchQuery(team?.team_name || '');
+                            setShowReassignVoter(true);
+                          }}
+                          className="px-3 py-1 text-sm text-[#0891b2] hover:text-[#0e7490] border border-[#0891b2] rounded hover:bg-[#f0f9ff] transition-colors"
+                        >
+                          Reassign
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`Are you sure you want to remove "${token.email}"? This will invalidate their token and delete their vote if they have already voted. This action cannot be undone.`)) {
+                              return;
+                            }
+                            
+                            const token2 = localStorage.getItem('auth_token');
+                            if (!token2) return;
+                            
+                            setSubmitting(true);
+                            setError('');
+                            setSuccess('');
+                            
+                            try {
+                              const response = await fetch(`/api/v1/admin/polls/${pollId}/voters/${token.tokenId}`, {
+                                method: 'DELETE',
+                                headers: { Authorization: `Bearer ${token2}` },
+                              });
+                              
+                              const data = await response.json();
+                              
+                              if (!response.ok) {
+                                setError(data.error || 'Failed to remove voter');
+                                setSubmitting(false);
+                                return;
+                              }
+                              
+                              setSuccess('Voter removed successfully. Token invalidated and votes deleted.');
+                              // Refresh tokens list
+                              const tokensRes = await fetch(`/api/v1/admin/polls/${pollId}/voters`, {
+                                headers: { Authorization: `Bearer ${token2}` },
+                              });
+                              const tokensData = await tokensRes.json();
+                              setTokens(tokensData.tokens || []);
+                            } catch (err) {
+                              setError('Failed to remove voter');
+                            } finally {
+                              setSubmitting(false);
+                            }
+                          }}
+                          disabled={submitting}
+                          className="px-3 py-1 text-sm text-red-600 hover:text-red-800 border border-red-600 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -2001,5 +2073,20 @@ export default function PollManagementPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Poll management page (with Suspense wrapper for useSearchParams)
+ */
+export default function PollManagementPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
+        <div className="text-[#64748b]">Loading...</div>
+      </div>
+    }>
+      <PollManagementPageContent />
+    </Suspense>
   );
 }

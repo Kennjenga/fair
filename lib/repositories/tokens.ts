@@ -197,3 +197,14 @@ export async function getTokensByTeam(teamId: string): Promise<TokenRecord[]> {
   return result.rows;
 }
 
+/**
+ * Delete token (and invalidate it)
+ * This will also cascade delete votes if foreign key constraints are set up
+ */
+export async function deleteToken(tokenId: string): Promise<void> {
+  await query(
+    'DELETE FROM tokens WHERE token_id = $1',
+    [tokenId]
+  );
+}
+
