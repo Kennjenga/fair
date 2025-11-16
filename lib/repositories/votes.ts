@@ -210,3 +210,58 @@ export async function updateVoteTxHash(
   return result.rows[0];
 }
 
+/**
+ * Update an existing vote
+ * Used when vote editing is enabled
+ */
+export async function updateVote(
+  voteId: string,
+  options: {
+    teamIdTarget?: string | null;
+    teams?: string[] | null;
+    rankings?: VoteRanking[] | null;
+    txHash?: string | null;
+  }
+): Promise<VoteRecord> {
+  const fields: string[] = [];
+  const values: unknown[] = [];
+  let paramIndex = 1;
+  
+  if (options.teamIdTarget !== undefined) {
+    fields.push(`team_id_target = $${paramIndex++}`);
+    values.push(options.teamIdTarget);
+  }
+  if (options.teams !== undefined) {
+    fields.push(`teams = $${paramIndex++}`);
+    values.push(options.teams ? JSON.stringify(options.teams) : null);
+  }
+  if (options.rankings !== undefined) {
+    fields.push(`rankings = $${paramIndex++}`);
+    values.push(options.rankings ? JSON.stringify(options.rankings) : null);
+  }
+  if (options.txHash !== undefined) {
+    fields.push(`tx_hash = $${paramIndex++}`);
+    values.push(options.txHash);
+  }
+  
+  // Update timestamp to reflect when vote was changed
+  fields.push(`timestamp = CURRENT_TIMESTAMP`);
+  values.push(voteId);
+  
+  const result = await query<VoteRecord>(
+    `UPDATE votes SET ${fields.join(', ')} WHERE vote_id = $${paramIndex} RETURNING *`,
+    values
+  );
+  
+  // Parse JSONB fields
+  const vote = result.rows[0];
+  if (vote.teams && typeof vote.teams === 'string') {
+    vote.teams = JSON.parse(vote.teams);
+  }
+  if (vote.rankings && typeof vote.rankings === 'string') {
+    vote.rankings = JSON.parse(vote.rankings);
+  }
+  
+  return vote;
+}
+

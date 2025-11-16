@@ -130,6 +130,33 @@ export async function GET(
     const voterVotes = votes.filter(v => v.vote_type === 'voter').length;
     const judgeVotes = votes.filter(v => v.vote_type === 'judge').length;
     
+    // Check quorum requirements
+    const quorumStatus = {
+      voterQuorumMet: true,
+      judgeQuorumMet: true,
+      voterQuorumRequired: poll.min_voter_participation || null,
+      judgeQuorumRequired: poll.min_judge_participation || null,
+      voterQuorumActual: voterVotes,
+      judgeQuorumActual: judgeVotes,
+      quorumMet: true,
+    };
+    
+    // Check voter quorum if required
+    if (poll.min_voter_participation !== null && poll.min_voter_participation !== undefined) {
+      quorumStatus.voterQuorumMet = voterVotes >= poll.min_voter_participation;
+      if (!quorumStatus.voterQuorumMet) {
+        quorumStatus.quorumMet = false;
+      }
+    }
+    
+    // Check judge quorum if required
+    if (poll.min_judge_participation !== null && poll.min_judge_participation !== undefined) {
+      quorumStatus.judgeQuorumMet = judgeVotes >= poll.min_judge_participation;
+      if (!quorumStatus.judgeQuorumMet) {
+        quorumStatus.quorumMet = false;
+      }
+    }
+    
     return NextResponse.json({
       poll: {
         pollId: poll.poll_id,
@@ -148,6 +175,7 @@ export async function GET(
         voterVotes,
         judgeVotes,
         votes: votesWithExplorer,
+        quorumStatus,
       },
     });
   } catch (error) {

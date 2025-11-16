@@ -4,7 +4,7 @@ import { findTokenByPlainToken, markTokenAsUsed } from '@/lib/repositories/token
 import { getPollById } from '@/lib/repositories/polls';
 import { getTeamById, getTeamsByPoll } from '@/lib/repositories/teams';
 import { hashToken } from '@/lib/utils/token';
-import { hasTokenVoted, hasJudgeVoted, createVote, getVoteByTokenHash } from '@/lib/repositories/votes';
+import { hasTokenVoted, hasJudgeVoted, createVote, getVoteByTokenHash, getVoteByJudgeEmail, updateVote } from '@/lib/repositories/votes';
 import { isJudgeForPoll } from '@/lib/repositories/judges';
 import { processRankings } from '@/lib/utils/ranked-voting';
 import { createVoteHash, submitVoteToBlockchain, getExplorerUrl } from '@/lib/blockchain/avalanche';
@@ -41,6 +41,8 @@ export async function POST(req: NextRequest) {
     let tokenHash: string | null = null;
     let judgeEmail: string | null = null;
     let voterTeamId: string | null = null;
+    let existingVote: any = null; // Store existing voter vote for potential editing
+    let judgeExistingVote: any = null; // Store existing judge vote for potential editing
     
     // Determine if this is a voter or judge vote
     if (validated.token) {
@@ -87,28 +89,31 @@ export async function POST(req: NextRequest) {
       voterTeamId = tokenRecord.team_id;
       
       // Check if token has already voted
-      const existingVote = await getVoteByTokenHash(tokenHash);
+      existingVote = await getVoteByTokenHash(tokenHash);
       if (existingVote) {
-        // Return existing vote instead of error
-        return NextResponse.json({
-          voteId: existingVote.vote_id,
-          txHash: existingVote.tx_hash || null,
-          explorerUrl: existingVote.tx_hash ? getExplorerUrl(existingVote.tx_hash) : null,
-          timestamp: existingVote.timestamp.toISOString(),
-          message: 'You have already voted. Here is your existing vote.',
-          alreadyVoted: true,
-          existingVote: {
+        // If vote editing is not allowed, return existing vote
+        if (!poll.allow_vote_editing) {
+          return NextResponse.json({
             voteId: existingVote.vote_id,
-            voteType: existingVote.vote_type,
-            votingMode: poll.voting_mode,
-            teamIdTarget: existingVote.team_id_target,
-            teams: existingVote.teams,
-            rankings: existingVote.rankings,
-            timestamp: existingVote.timestamp,
-            txHash: existingVote.tx_hash,
+            txHash: existingVote.tx_hash || null,
             explorerUrl: existingVote.tx_hash ? getExplorerUrl(existingVote.tx_hash) : null,
-          },
-        });
+            timestamp: existingVote.timestamp.toISOString(),
+            message: 'You have already voted. Vote editing is not allowed for this poll.',
+            alreadyVoted: true,
+            existingVote: {
+              voteId: existingVote.vote_id,
+              voteType: existingVote.vote_type,
+              votingMode: poll.voting_mode,
+              teamIdTarget: existingVote.team_id_target,
+              teams: existingVote.teams,
+              rankings: existingVote.rankings,
+              timestamp: existingVote.timestamp,
+              txHash: existingVote.tx_hash,
+              explorerUrl: existingVote.tx_hash ? getExplorerUrl(existingVote.tx_hash) : null,
+            },
+          });
+        }
+        // Vote editing is allowed - we'll update the vote later in the flow
       }
       
       // Verify team name if required
@@ -154,12 +159,16 @@ export async function POST(req: NextRequest) {
         }
         
         // Check if judge has already voted
-        const alreadyVoted = await hasJudgeVoted(validated.pollId, validated.judgeEmail);
-        if (alreadyVoted) {
-          return NextResponse.json(
-            { error: 'You have already voted for this poll' },
-            { status: 400 }
-          );
+        judgeExistingVote = await getVoteByJudgeEmail(validated.pollId, validated.judgeEmail);
+        if (judgeExistingVote) {
+          // If vote editing is not allowed, return error
+          if (!poll.allow_vote_editing) {
+            return NextResponse.json(
+              { error: 'You have already voted for this poll. Vote editing is not allowed.' },
+              { status: 400 }
+            );
+          }
+          // Vote editing is allowed - we'll update the vote later in the flow
         }
       }
     } else {
@@ -170,8 +179,12 @@ export async function POST(req: NextRequest) {
     }
     
     // Check if poll is active
+    // For voters_first sequence, allow judges to vote after end_time
+    // (voter period is considered over, so judges can vote)
     const now = new Date();
-    if (now < poll.start_time || now > poll.end_time) {
+    const isJudgeVoteAfterPeriod = voteType === 'judge' && poll.voting_sequence === 'voters_first' && now > poll.end_time;
+    
+    if (now < poll.start_time || (!isJudgeVoteAfterPeriod && now > poll.end_time)) {
       return NextResponse.json(
         { error: 'Poll is not currently active' },
         { status: 400 }
@@ -358,22 +371,46 @@ export async function POST(req: NextRequest) {
       // Continue even if blockchain fails - vote is still recorded in database
     }
     
-    // Create vote record
-    const vote = await createVote(
-      poll.poll_id,
-      voteType,
-      {
-        tokenHash,
-        judgeEmail,
-        teamIdTarget: voteOptions.teamIdTarget || undefined,
-        teams: voteOptions.teams || undefined,
-        rankings: voteOptions.rankings || undefined,
-        txHash,
-      }
-    );
+    // Check if vote already exists (for vote editing)
+    let vote;
+    let isVoteUpdate = false;
     
-    // Mark token as used if it's a voter vote
-    if (validated.token) {
+    if (voteType === 'voter' && existingVote) {
+      // Update existing voter vote
+      vote = await updateVote(existingVote.vote_id, {
+        teamIdTarget: voteOptions.teamIdTarget || null,
+        teams: voteOptions.teams || null,
+        rankings: voteOptions.rankings || null,
+        txHash,
+      });
+      isVoteUpdate = true;
+    } else if (voteType === 'judge' && judgeExistingVote) {
+      // Update existing judge vote
+      vote = await updateVote(judgeExistingVote.vote_id, {
+        teamIdTarget: voteOptions.teamIdTarget || null,
+        teams: voteOptions.teams || null,
+        rankings: voteOptions.rankings || null,
+        txHash,
+      });
+      isVoteUpdate = true;
+    } else {
+      // Create new vote record
+      vote = await createVote(
+        poll.poll_id,
+        voteType,
+        {
+          tokenHash,
+          judgeEmail,
+          teamIdTarget: voteOptions.teamIdTarget || undefined,
+          teams: voteOptions.teams || undefined,
+          rankings: voteOptions.rankings || undefined,
+          txHash,
+        }
+      );
+    }
+    
+    // Mark token as used if it's a voter vote (only on first vote, not on update)
+    if (validated.token && !isVoteUpdate) {
       const tokenRecord = await findTokenByPlainToken(validated.token);
       if (tokenRecord) {
         await markTokenAsUsed(tokenRecord.token_id);
@@ -382,7 +419,7 @@ export async function POST(req: NextRequest) {
     
     // Log audit
     await logAudit(
-      'vote_submitted',
+      isVoteUpdate ? 'vote_updated' : 'vote_submitted',
       null,
       poll.poll_id,
       null,
@@ -391,6 +428,7 @@ export async function POST(req: NextRequest) {
         voteType,
         votingMode: poll.voting_mode,
         txHash,
+        isUpdate: isVoteUpdate,
       },
       getClientIp(req.headers)
     );
@@ -399,8 +437,9 @@ export async function POST(req: NextRequest) {
       voteId: vote.vote_id,
       txHash: txHash || null,
       explorerUrl: txHash ? getExplorerUrl(txHash) : null,
-      timestamp: new Date().toISOString(),
-      message: 'Vote submitted successfully',
+      timestamp: vote.timestamp.toISOString(),
+      message: isVoteUpdate ? 'Vote updated successfully' : 'Vote submitted successfully',
+      isUpdate: isVoteUpdate,
     });
   } catch (error) {
     if (error instanceof Error && error.name === 'ZodError') {

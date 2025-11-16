@@ -118,6 +118,9 @@ export const createPollSchema = z.object({
   votingSequence: z.enum(['simultaneous', 'voters_first']).optional().default('simultaneous'),
   parentPollId: z.string().uuid('Invalid parent poll ID').nullable().optional(), // For tie-breaker polls
   isTieBreaker: z.boolean().optional().default(false),
+  allowVoteEditing: z.boolean().optional().default(false), // Whether voters and judges can change their votes after submission
+  minVoterParticipation: z.number().int().positive().nullable().optional(), // Minimum number of voters required (null = no requirement)
+  minJudgeParticipation: z.number().int().positive().nullable().optional(), // Minimum number of judges required (null = no requirement)
 }).refine(
   (data) => {
     const startDate = new Date(data.startTime);
@@ -174,6 +177,9 @@ export const updatePollSchema = z.object({
   isPublicResults: z.boolean().optional(),
   maxRankedPositions: z.number().int().positive().nullable().optional(),
   votingSequence: z.enum(['simultaneous', 'voters_first']).optional(),
+  allowVoteEditing: z.boolean().optional(), // Whether voters and judges can change their votes after submission
+  minVoterParticipation: z.number().int().positive().nullable().optional(), // Minimum number of voters required (null = no requirement)
+  minJudgeParticipation: z.number().int().positive().nullable().optional(), // Minimum number of judges required (null = no requirement)
 }).refine(
       (data) => {
     // Only validate if both times are provided

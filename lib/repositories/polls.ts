@@ -23,6 +23,9 @@ export interface PollRecord extends QueryRow {
   voting_sequence: 'simultaneous' | 'voters_first'; // Voting sequence control
   parent_poll_id?: string | null; // For tie-breaker polls
   is_tie_breaker: boolean; // Whether this is a tie-breaker poll
+  allow_vote_editing: boolean; // Whether voters and judges can change their votes after submission
+  min_voter_participation?: number | null; // Minimum number of voters required (null = no requirement)
+  min_judge_participation?: number | null; // Minimum number of judges required (null = no requirement)
   created_by: string;
   created_at: Date;
   updated_at: Date;
@@ -48,13 +51,16 @@ export async function createPoll(
   maxRankedPositions?: number | null,
   votingSequence: 'simultaneous' | 'voters_first' = 'simultaneous',
   parentPollId?: string | null,
-  isTieBreaker: boolean = false
+  isTieBreaker: boolean = false,
+  allowVoteEditing: boolean = false,
+  minVoterParticipation?: number | null,
+  minJudgeParticipation?: number | null
 ): Promise<PollRecord> {
   const result = await query<PollRecord>(
-    `INSERT INTO polls (hackathon_id, name, start_time, end_time, created_by, voting_mode, voting_permissions, voter_weight, judge_weight, rank_points_config, allow_self_vote, require_team_name_gate, is_public_results, max_ranked_positions, voting_sequence, parent_poll_id, is_tie_breaker)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+    `INSERT INTO polls (hackathon_id, name, start_time, end_time, created_by, voting_mode, voting_permissions, voter_weight, judge_weight, rank_points_config, allow_self_vote, require_team_name_gate, is_public_results, max_ranked_positions, voting_sequence, parent_poll_id, is_tie_breaker, allow_vote_editing, min_voter_participation, min_judge_participation)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
      RETURNING *`,
-    [hackathonId, name, startTime, endTime, createdBy, votingMode, votingPermissions, voterWeight, judgeWeight, JSON.stringify(rankPointsConfig), allowSelfVote, requireTeamNameGate, isPublicResults, maxRankedPositions || null, votingSequence, parentPollId || null, isTieBreaker]
+    [hackathonId, name, startTime, endTime, createdBy, votingMode, votingPermissions, voterWeight, judgeWeight, JSON.stringify(rankPointsConfig), allowSelfVote, requireTeamNameGate, isPublicResults, maxRankedPositions || null, votingSequence, parentPollId || null, isTieBreaker, allowVoteEditing, minVoterParticipation || null, minJudgeParticipation || null]
   );
   
   // Parse JSONB fields
@@ -162,6 +168,9 @@ export async function updatePoll(
     votingSequence?: 'simultaneous' | 'voters_first';
     parentPollId?: string | null;
     isTieBreaker?: boolean;
+    allowVoteEditing?: boolean;
+    minVoterParticipation?: number | null;
+    minJudgeParticipation?: number | null;
   }
 ): Promise<PollRecord> {
   const fields: string[] = [];
@@ -227,6 +236,18 @@ export async function updatePoll(
   if (updates.isTieBreaker !== undefined) {
     fields.push(`is_tie_breaker = $${paramIndex++}`);
     values.push(updates.isTieBreaker);
+  }
+  if (updates.allowVoteEditing !== undefined) {
+    fields.push(`allow_vote_editing = $${paramIndex++}`);
+    values.push(updates.allowVoteEditing);
+  }
+  if (updates.minVoterParticipation !== undefined) {
+    fields.push(`min_voter_participation = $${paramIndex++}`);
+    values.push(updates.minVoterParticipation);
+  }
+  if (updates.minJudgeParticipation !== undefined) {
+    fields.push(`min_judge_participation = $${paramIndex++}`);
+    values.push(updates.minJudgeParticipation);
   }
   
   fields.push(`updated_at = CURRENT_TIMESTAMP`);

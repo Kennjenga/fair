@@ -25,6 +25,9 @@ export default function CreatePollPage() {
     isPublicResults: false,
     maxRankedPositions: '' as string | '',
     votingSequence: 'simultaneous' as 'simultaneous' | 'voters_first',
+    allowVoteEditing: false,
+    minVoterParticipation: '' as string | '',
+    minJudgeParticipation: '' as string | '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -100,6 +103,9 @@ export default function CreatePollPage() {
           allowSelfVote: formData.allowSelfVote,
           requireTeamNameGate: formData.requireTeamNameGate,
           isPublicResults: formData.isPublicResults,
+          allowVoteEditing: formData.allowVoteEditing,
+          minVoterParticipation: formData.minVoterParticipation ? parseInt(formData.minVoterParticipation) : null,
+          minJudgeParticipation: formData.minJudgeParticipation ? parseInt(formData.minJudgeParticipation) : null,
           maxRankedPositions: formData.votingMode === 'ranked' && formData.maxRankedPositions 
             ? parseInt(formData.maxRankedPositions, 10) 
             : null,
@@ -379,6 +385,63 @@ export default function CreatePollPage() {
                   <label htmlFor="isPublicResults" className="ml-2 text-sm text-[#0f172a]">
                     Make results public (anyone can view results without authentication)
                   </label>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    id="allowVoteEditing"
+                    type="checkbox"
+                    checked={formData.allowVoteEditing}
+                    onChange={(e) => setFormData({ ...formData, allowVoteEditing: e.target.checked })}
+                    className="w-4 h-4 text-[#1e40af] border-[#94a3b8] rounded focus:ring-[#1e40af]"
+                  />
+                  <label htmlFor="allowVoteEditing" className="ml-2 text-sm text-[#0f172a]">
+                    Allow vote editing (voters and judges can change their votes after submission)
+                  </label>
+                </div>
+              </div>
+
+              {/* Quorum Requirements */}
+              <div className="space-y-4 pt-4 border-t border-[#e2e8f0]">
+                <h3 className="text-lg font-semibold text-[#0f172a]">Quorum Requirements</h3>
+                <p className="text-sm text-[#64748b]">
+                  Set minimum participation thresholds. Leave empty for no requirement.
+                </p>
+                
+                <div>
+                  <label htmlFor="minVoterParticipation" className="block text-sm font-medium text-[#0f172a] mb-1">
+                    Minimum Voter Participation
+                  </label>
+                  <input
+                    id="minVoterParticipation"
+                    type="number"
+                    min="1"
+                    value={formData.minVoterParticipation}
+                    onChange={(e) => setFormData({ ...formData, minVoterParticipation: e.target.value })}
+                    className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                    placeholder="Leave empty for no requirement"
+                  />
+                  <p className="text-xs text-[#64748b] mt-1">
+                    Minimum number of voters who must vote for results to be valid
+                  </p>
+                </div>
+
+                <div>
+                  <label htmlFor="minJudgeParticipation" className="block text-sm font-medium text-[#0f172a] mb-1">
+                    Minimum Judge Participation
+                  </label>
+                  <input
+                    id="minJudgeParticipation"
+                    type="number"
+                    min="1"
+                    value={formData.minJudgeParticipation}
+                    onChange={(e) => setFormData({ ...formData, minJudgeParticipation: e.target.value })}
+                    className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                    placeholder="Leave empty for no requirement"
+                  />
+                  <p className="text-xs text-[#64748b] mt-1">
+                    Minimum number of judges who must vote for results to be valid
+                  </p>
                 </div>
               </div>
 

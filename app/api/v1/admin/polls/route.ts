@@ -83,7 +83,10 @@ export async function POST(req: NextRequest) {
         validated.maxRankedPositions,
         validated.votingSequence || 'simultaneous',
         validated.parentPollId,
-        validated.isTieBreaker || false
+        validated.isTieBreaker || false,
+        validated.allowVoteEditing || false,
+        validated.minVoterParticipation,
+        validated.minJudgeParticipation
       );
       
       // Log audit

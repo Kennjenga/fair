@@ -69,6 +69,9 @@ function PollManagementPageContent() {
   const [editPollIsPublicResults, setEditPollIsPublicResults] = useState(false);
   const [editPollMaxRankedPositions, setEditPollMaxRankedPositions] = useState('');
   const [editPollVotingSequence, setEditPollVotingSequence] = useState<'simultaneous' | 'voters_first'>('simultaneous');
+  const [editPollAllowVoteEditing, setEditPollAllowVoteEditing] = useState(false);
+  const [editPollMinVoterParticipation, setEditPollMinVoterParticipation] = useState('');
+  const [editPollMinJudgeParticipation, setEditPollMinJudgeParticipation] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -113,11 +116,35 @@ function PollManagementPageContent() {
       setEditPollIsPublicResults(poll.is_public_results || false);
       setEditPollMaxRankedPositions(poll.max_ranked_positions?.toString() || '');
       setEditPollVotingSequence(poll.voting_sequence || 'simultaneous');
+      setEditPollAllowVoteEditing(poll.allow_vote_editing || false);
+      setEditPollMinVoterParticipation(poll.min_voter_participation?.toString() || '');
+      setEditPollMinJudgeParticipation(poll.min_judge_participation?.toString() || '');
       setShowEditPoll(true);
       // Remove query param from URL
       router.replace(`/admin/polls/${pollId}`, { scroll: false });
     }
   }, [poll, searchParams, pollId, router]);
+
+  // Handle active tab based on voting permissions
+  // If current tab is hidden, switch to a valid tab
+  useEffect(() => {
+    if (!poll) return;
+    
+    // Get voting permissions - check both snake_case and camelCase
+    const votingPermissions = poll.voting_permissions || (poll as any).votingPermissions;
+    if (!votingPermissions) return;
+    
+    const shouldShowTab = (tab: string) => {
+      if (tab === 'voters' && votingPermissions === 'judges_only') return false;
+      if (tab === 'judges' && votingPermissions === 'voters_only') return false;
+      return true;
+    };
+    
+    if (!shouldShowTab(activeTab)) {
+      // Switch to overview if current tab is hidden
+      setActiveTab('overview');
+    }
+  }, [poll, activeTab]);
 
   const fetchPollData = async (token: string) => {
     if (!pollId) return;
@@ -441,6 +468,9 @@ function PollManagementPageContent() {
                   setEditPollIsPublicResults(poll.is_public_results || false);
                   setEditPollMaxRankedPositions(poll.max_ranked_positions?.toString() || '');
                   setEditPollVotingSequence(poll.voting_sequence || 'simultaneous');
+                  setEditPollAllowVoteEditing(poll.allow_vote_editing || false);
+                  setEditPollMinVoterParticipation(poll.min_voter_participation?.toString() || '');
+                  setEditPollMinJudgeParticipation(poll.min_judge_participation?.toString() || '');
                   setShowEditPoll(true);
                 }}
                 className="p-2 text-[#1e40af] hover:text-[#1e3a8a] hover:bg-blue-50 rounded transition-colors"
@@ -466,19 +496,46 @@ function PollManagementPageContent() {
         {/* Tabs */}
         <div className="border-b border-[#e2e8f0] mb-6">
           <nav className="flex gap-4">
-            {(['overview', 'teams', 'voters', 'judges', 'results'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-                  activeTab === tab
-                    ? 'border-[#1e40af] text-[#1e40af]'
-                    : 'border-transparent text-[#64748b] hover:text-[#0f172a]'
-                }`}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
+            {(['overview', 'teams', 'voters', 'judges', 'results'] as const)
+              .filter((tab) => {
+                // Filter tabs based on voting permissions
+                // Only filter if poll is loaded and has voting_permissions
+                if (!poll) {
+                  return true; // Show all tabs while loading
+                }
+                
+                // Get voting permissions - check both snake_case and camelCase
+                const votingPermissions = poll.voting_permissions || (poll as any).votingPermissions;
+                
+                if (!votingPermissions) {
+                  return true; // Show all tabs if voting_permissions is not set
+                }
+                
+                // Hide voters tab if poll is judges only
+                if (tab === 'voters' && votingPermissions === 'judges_only') {
+                  return false;
+                }
+                
+                // Hide judges tab if poll is voters only
+                if (tab === 'judges' && votingPermissions === 'voters_only') {
+                  return false;
+                }
+                
+                return true;
+              })
+              .map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+                    activeTab === tab
+                      ? 'border-[#1e40af] text-[#1e40af]'
+                      : 'border-transparent text-[#64748b] hover:text-[#0f172a]'
+                  }`}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
           </nav>
         </div>
 
@@ -629,7 +686,7 @@ function PollManagementPageContent() {
           </div>
         )}
 
-        {activeTab === 'voters' && (
+        {activeTab === 'voters' && poll && (poll.voting_permissions || (poll as any).votingPermissions) !== 'judges_only' && (
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-[#0f172a]">Voters</h2>
@@ -691,13 +748,24 @@ function PollManagementPageContent() {
             ) : (
               <div className="space-y-2">
                 {tokens.map((token) => {
-                  const team = teams.find(t => t.team_id === token.team_id);
+                  const team = teams.find(t => t.team_id === token.team_id || t.team_id === token.teamId);
+                  // Format delivery status for display
+                  const getDeliveryStatusDisplay = (status: string | undefined) => {
+                    if (!status || status === 'queued') return { text: 'Email not sent', color: 'text-yellow-600' };
+                    if (status === 'sent') return { text: 'Email sent', color: 'text-green-600' };
+                    if (status === 'delivered') return { text: 'Email delivered', color: 'text-green-700' };
+                    if (status === 'failed' || status === 'bounced') return { text: 'Email failed', color: 'text-red-600' };
+                    return { text: 'Unknown', color: 'text-gray-600' };
+                  };
+                  const deliveryStatus = getDeliveryStatusDisplay(token.deliveryStatus);
                   return (
                     <div key={token.tokenId} className="border border-[#e2e8f0] rounded-lg p-4 flex justify-between items-center">
                       <div className="flex-1">
                         <div className="font-medium text-[#0f172a]">{token.email}</div>
                         <div className="text-sm text-[#64748b] mt-1">
-                          Team: {team?.team_name || 'Unknown'} • Status: {token.deliveryStatus || 'queued'} • {token.used ? 'Voted' : 'Not Voted'}
+                          Team: <span className="font-medium">{team?.team_name || 'Unknown'}</span> • 
+                          <span className={`ml-1 ${deliveryStatus.color}`}>{deliveryStatus.text}</span> • 
+                          {token.used ? <span className="text-green-600 ml-1">Voted</span> : <span className="text-gray-500 ml-1">Not Voted</span>}
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -766,7 +834,7 @@ function PollManagementPageContent() {
           </div>
         )}
 
-        {activeTab === 'judges' && (
+        {activeTab === 'judges' && poll && (poll.voting_permissions || (poll as any).votingPermissions) !== 'voters_only' && (
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-[#0f172a]">Judges</h2>
@@ -1453,6 +1521,60 @@ function PollManagementPageContent() {
                     Make results public (anyone can view results without authentication)
                   </label>
                 </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={editPollAllowVoteEditing}
+                    onChange={(e) => setEditPollAllowVoteEditing(e.target.checked)}
+                    className="w-4 h-4 text-[#1e40af] border-[#94a3b8] rounded focus:ring-[#1e40af]"
+                  />
+                  <label className="ml-2 text-sm text-[#0f172a]">
+                    Allow vote editing (voters and judges can change their votes after submission)
+                  </label>
+                </div>
+              </div>
+
+              {/* Quorum Requirements */}
+              <div className="space-y-4 pt-4 border-t border-[#e2e8f0]">
+                <h3 className="text-lg font-semibold text-[#0f172a]">Quorum Requirements</h3>
+                <p className="text-sm text-[#64748b]">
+                  Set minimum participation thresholds. Leave empty for no requirement.
+                </p>
+                
+                <div>
+                  <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                    Minimum Voter Participation
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editPollMinVoterParticipation}
+                    onChange={(e) => setEditPollMinVoterParticipation(e.target.value)}
+                    className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                    placeholder="Leave empty for no requirement"
+                  />
+                  <p className="text-xs text-[#64748b] mt-1">
+                    Minimum number of voters who must vote for results to be valid
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                    Minimum Judge Participation
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editPollMinJudgeParticipation}
+                    onChange={(e) => setEditPollMinJudgeParticipation(e.target.value)}
+                    className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                    placeholder="Leave empty for no requirement"
+                  />
+                  <p className="text-xs text-[#64748b] mt-1">
+                    Minimum number of judges who must vote for results to be valid
+                  </p>
+                </div>
               </div>
 
               {error && (
@@ -1517,6 +1639,10 @@ function PollManagementPageContent() {
                       if (editPollVotingPermissions === 'voters_and_judges') {
                         updateData.votingSequence = editPollVotingSequence;
                       }
+
+                      updateData.allowVoteEditing = editPollAllowVoteEditing;
+                      updateData.minVoterParticipation = editPollMinVoterParticipation ? parseInt(editPollMinVoterParticipation, 10) : null;
+                      updateData.minJudgeParticipation = editPollMinJudgeParticipation ? parseInt(editPollMinJudgeParticipation, 10) : null;
 
                       const response = await fetch(`/api/v1/admin/polls/${pollId}`, {
                         method: 'PATCH',

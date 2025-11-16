@@ -44,8 +44,12 @@ export async function POST(req: NextRequest) {
     }
     
     // Check if poll is active
+    // For voters_first sequence, allow judges to vote after end_time
+    // (voter period is considered over, so judges can vote)
     const now = new Date();
-    if (now < poll.start_time || now > poll.end_time) {
+    const isVotersFirstAfterPeriod = poll.voting_sequence === 'voters_first' && now > poll.end_time;
+    
+    if (now < poll.start_time || (!isVotersFirstAfterPeriod && now > poll.end_time)) {
       return NextResponse.json(
         { error: 'Poll is not currently active' },
         { status: 400 }
@@ -56,24 +60,32 @@ export async function POST(req: NextRequest) {
     const teams = await getTeamsByPoll(pollId);
     
     // Check voting sequence - if voters_first, ensure voters have finished
+    // However, if the voting period has ended, judges can vote regardless
     if (poll.voting_sequence === 'voters_first') {
-      // Get all voter tokens and votes
-      const { getTokensByPoll } = await import('@/lib/repositories/tokens');
-      const { getVotesByPoll } = await import('@/lib/repositories/votes');
+      // Check if voting period has ended
+      const votingPeriodEnded = now > poll.end_time;
       
-      const tokens = await getTokensByPoll(pollId);
-      const voterVotes = await getVotesByPoll(pollId, 'voter');
-      
-      // If there are voters registered but not all have voted, block judges
-      if (tokens.length > 0 && voterVotes.length < tokens.length) {
-        return NextResponse.json(
-          { 
-            error: 'Judges cannot vote yet. Waiting for all voters to complete their votes.',
-            waitingFor: `${voterVotes.length}/${tokens.length} voters have voted`
-          },
-          { status: 403 }
-        );
+      // Only enforce waiting for voters if the voting period is still active
+      if (!votingPeriodEnded) {
+        // Get all voter tokens and votes
+        const { getTokensByPoll } = await import('@/lib/repositories/tokens');
+        const { getVotesByPoll } = await import('@/lib/repositories/votes');
+        
+        const tokens = await getTokensByPoll(pollId);
+        const voterVotes = await getVotesByPoll(pollId, 'voter');
+        
+        // If there are voters registered but not all have voted, block judges
+        if (tokens.length > 0 && voterVotes.length < tokens.length) {
+          return NextResponse.json(
+            { 
+              error: 'Judges cannot vote yet. Waiting for all voters to complete their votes.',
+              waitingFor: `${voterVotes.length}/${tokens.length} voters have voted`
+            },
+            { status: 403 }
+          );
+        }
       }
+      // If voting period has ended, allow judges to vote even if not all voters have voted
     }
     
     // Check if judge has already voted

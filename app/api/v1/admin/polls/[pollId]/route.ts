@@ -104,6 +104,9 @@ export async function PATCH(
         isPublicResults?: boolean;
         maxRankedPositions?: number | null;
         votingSequence?: 'simultaneous' | 'voters_first';
+        allowVoteEditing?: boolean;
+        minVoterParticipation?: number | null;
+        minJudgeParticipation?: number | null;
       } = {};
       
       if (validated.name) updates.name = validated.name;
@@ -133,6 +136,9 @@ export async function PATCH(
       if (validated.isPublicResults !== undefined) updates.isPublicResults = validated.isPublicResults;
       if (validated.maxRankedPositions !== undefined) updates.maxRankedPositions = validated.maxRankedPositions;
       if (validated.votingSequence !== undefined) updates.votingSequence = validated.votingSequence;
+      if (validated.allowVoteEditing !== undefined) updates.allowVoteEditing = validated.allowVoteEditing;
+      if (validated.minVoterParticipation !== undefined) updates.minVoterParticipation = validated.minVoterParticipation;
+      if (validated.minJudgeParticipation !== undefined) updates.minJudgeParticipation = validated.minJudgeParticipation;
       
       // Update poll (allows extending duration after poll has ended)
       const poll = await updatePoll(pollId, updates);
