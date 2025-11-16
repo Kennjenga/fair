@@ -172,8 +172,10 @@ export const updatePollSchema = z.object({
   allowSelfVote: z.boolean().optional(),
   requireTeamNameGate: z.boolean().optional(),
   isPublicResults: z.boolean().optional(),
+  maxRankedPositions: z.number().int().positive().nullable().optional(),
+  votingSequence: z.enum(['simultaneous', 'voters_first']).optional(),
 }).refine(
-  (data) => {
+      (data) => {
     // Only validate if both times are provided
     if (data.startTime && data.endTime) {
       const startDate = new Date(data.startTime);
@@ -185,6 +187,18 @@ export const updatePollSchema = z.object({
   {
     message: 'End time must be after start time',
     path: ['endTime'],
+  }
+).refine(
+  (data) => {
+    // maxRankedPositions only makes sense for ranked voting mode
+    if (data.maxRankedPositions !== null && data.maxRankedPositions !== undefined && data.votingMode && data.votingMode !== 'ranked') {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: 'maxRankedPositions can only be set for ranked voting mode',
+    path: ['maxRankedPositions'],
   }
 );
 
