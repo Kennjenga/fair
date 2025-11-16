@@ -10,10 +10,17 @@ import Link from 'next/link';
 function VotePageContent() {
   const searchParams = useSearchParams();
   const tokenFromUrl = searchParams.get('token');
+  const pollIdFromUrl = searchParams.get('pollId');
+  const judgeEmailFromUrl = searchParams.get('judgeEmail');
+
+  // Determine if this is a voter or judge
+  const isJudge = !!(pollIdFromUrl && judgeEmailFromUrl);
+  const isVoter = !!tokenFromUrl;
 
   const [step, setStep] = useState<'token' | 'verify' | 'vote' | 'confirm'>('token');
   const [token, setToken] = useState(tokenFromUrl || '');
   const [teamName, setTeamName] = useState('');
+  const [showProjectInfo, setShowProjectInfo] = useState(false); // Toggle for project information
   
   // Voting state - supports all three modes
   const [selectedTeamId, setSelectedTeamId] = useState(''); // Single mode
@@ -31,8 +38,56 @@ function VotePageContent() {
   useEffect(() => {
     if (tokenFromUrl) {
       handleTokenSubmit();
+    } else if (pollIdFromUrl && judgeEmailFromUrl) {
+      handleJudgeValidate();
     }
   }, []);
+
+  const handleJudgeValidate = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/v1/vote/validate-judge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ pollId: pollIdFromUrl, judgeEmail: judgeEmailFromUrl }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Invalid judge access');
+        setLoading(false);
+        return;
+      }
+
+      // Check if judge has already voted
+      if (data.alreadyVoted && data.existingVote) {
+        setPollData(data.poll);
+        setAvailableTeams(data.availableTeams || []);
+        setExistingVote(data.existingVote);
+        setStep('confirm');
+        setVoteResult({
+          ...data.existingVote,
+          alreadyVoted: true,
+        });
+        setLoading(false);
+        return;
+      }
+
+      setPollData(data.poll);
+      setAvailableTeams(data.availableTeams || []);
+      setExistingVote(null);
+      setStep('vote'); // Judges skip team name verification
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleTokenSubmit = async () => {
     if (!token) {
@@ -137,10 +192,15 @@ function VotePageContent() {
     setLoading(true);
     setError('');
 
-    let votePayload: any = {
-      token,
-      teamName: voterTeam?.teamName,
-    };
+    let votePayload: any = isJudge 
+      ? {
+          judgeEmail: judgeEmailFromUrl,
+          pollId: pollIdFromUrl,
+        }
+      : {
+          token,
+          teamName: voterTeam?.teamName,
+        };
 
     // Build payload based on voting mode
     if (pollData?.votingMode === 'single') {
@@ -163,6 +223,15 @@ function VotePageContent() {
         setLoading(false);
         return;
       }
+      
+      // Check max ranked positions limit
+      const maxPositions = pollData?.maxRankedPositions;
+      if (maxPositions && rankings.length > maxPositions) {
+        setError(`Please rank only top ${maxPositions} teams`);
+        setLoading(false);
+        return;
+      }
+      
       // Ensure all ranks are unique and sequential
       const ranks = rankings.map(r => r.rank).sort((a, b) => a - b);
       const uniqueRanks = new Set(ranks);
@@ -171,6 +240,17 @@ function VotePageContent() {
         setLoading(false);
         return;
       }
+      
+      // For judges, ensure all rankings have reasons
+      if (isJudge) {
+        const missingReasons = rankings.filter(r => !r.reason || r.reason.trim() === '');
+        if (missingReasons.length > 0) {
+          setError('Judges must provide reasons for all rankings');
+          setLoading(false);
+          return;
+        }
+      }
+      
       votePayload.rankings = rankings;
     }
 
@@ -227,7 +307,14 @@ function VotePageContent() {
             <h1 className="text-3xl font-bold text-[#1e40af] mb-2">
               FAIR Voting Portal
             </h1>
-            <p className="text-[#64748b]">Cast your anonymous vote</p>
+            <p className="text-[#64748b]">
+              {isJudge ? 'Judge Voting Portal' : 'Cast your anonymous vote'}
+            </p>
+            {isJudge && (
+              <p className="text-sm text-[#dc2626] mt-2">
+                ⚠️ As a judge, you must provide reasons for all rankings
+              </p>
+            )}
           </div>
 
           {error && (
@@ -236,8 +323,8 @@ function VotePageContent() {
             </div>
           )}
 
-          {/* Step 1: Token Entry */}
-          {step === 'token' && (
+          {/* Step 1: Token Entry - Only for voters */}
+          {step === 'token' && !isJudge && (
             <div className="space-y-4">
               <div>
                 <label htmlFor="token" className="block text-sm font-medium text-[#0f172a] mb-1">
@@ -264,9 +351,16 @@ function VotePageContent() {
               </button>
             </div>
           )}
+          
+          {/* Loading state for judges */}
+          {step === 'token' && isJudge && loading && (
+            <div className="text-center py-8">
+              <div className="text-[#64748b]">Validating judge access...</div>
+            </div>
+          )}
 
-          {/* Step 2: Team Name Verification */}
-          {step === 'verify' && (
+          {/* Step 2: Team Name Verification - Only for voters */}
+          {step === 'verify' && !isJudge && (
             <div className="space-y-4">
               <p className="text-[#0f172a] mb-4">
                 Please enter your team name to verify your identity:
@@ -300,32 +394,87 @@ function VotePageContent() {
                 <h2 className="text-xl font-semibold text-[#0f172a] mb-2">
                   {pollData?.name}
                 </h2>
-                <p className="text-[#64748b] mb-4">
+                <p className="text-[#64748b] mb-2">
                   Select the team you want to vote for.
-                  {!pollData?.allowSelfVote && ' You cannot vote for your own team.'}
+                  {!pollData?.allowSelfVote && !isJudge && ' You cannot vote for your own team.'}
                 </p>
+                
+                {/* Project Info Toggle */}
+                <div className="flex items-center gap-2 mb-4">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showProjectInfo}
+                      onChange={(e) => setShowProjectInfo(e.target.checked)}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-[#64748b]">Show project information</span>
+                  </label>
+                </div>
               </div>
 
               <div className="space-y-2">
                 {availableTeams.map((team) => (
-                  <label
+                  <div
                     key={team.teamId}
-                    className={`block p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                    className={`p-4 border-2 rounded-lg transition-colors ${
                       selectedTeamId === team.teamId
                         ? 'border-[#1e40af] bg-blue-50'
                         : 'border-[#e2e8f0] hover:border-[#94a3b8]'
                     }`}
                   >
-                    <input
-                      type="radio"
-                      name="team"
-                      value={team.teamId}
-                      checked={selectedTeamId === team.teamId}
-                      onChange={(e) => setSelectedTeamId(e.target.value)}
-                      className="mr-3"
-                    />
-                    <span className="font-medium text-[#0f172a]">{team.teamName}</span>
-                  </label>
+                    <label className="flex items-start cursor-pointer">
+                      <input
+                        type="radio"
+                        name="team"
+                        value={team.teamId}
+                        checked={selectedTeamId === team.teamId}
+                        onChange={(e) => setSelectedTeamId(e.target.value)}
+                        className="mt-1 mr-3"
+                      />
+                      <div className="flex-1">
+                        <span className="font-medium text-[#0f172a] block">{team.teamName}</span>
+                        
+                        {/* Project Information (toggleable) */}
+                        {showProjectInfo && (team.projectName || team.projectDescription || team.pitch || team.liveSiteUrl || team.githubUrl) && (
+                          <div className="mt-2 p-3 bg-[#f8fafc] rounded border border-[#e2e8f0]">
+                            {team.projectName && (
+                              <div className="mb-2">
+                                <span className="text-sm font-semibold text-[#0f172a]">Project: </span>
+                                <span className="text-sm text-[#64748b]">{team.projectName}</span>
+                              </div>
+                            )}
+                            {team.projectDescription && (
+                              <div className="mb-2">
+                                <span className="text-sm font-semibold text-[#0f172a]">Description: </span>
+                                <span className="text-sm text-[#64748b]">{team.projectDescription}</span>
+                              </div>
+                            )}
+                            {team.pitch && (
+                              <div className="mb-2">
+                                <span className="text-sm font-semibold text-[#0f172a]">Pitch: </span>
+                                <span className="text-sm text-[#64748b]">{team.pitch}</span>
+                              </div>
+                            )}
+                            {team.liveSiteUrl && (
+                              <div className="mb-1">
+                                <a href={team.liveSiteUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-[#0891b2] hover:underline">
+                                  🔗 Live Site
+                                </a>
+                              </div>
+                            )}
+                            {team.githubUrl && (
+                              <div>
+                                <a href={team.githubUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-[#0891b2] hover:underline">
+                                  💻 GitHub
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  </div>
                 ))}
               </div>
 
@@ -346,30 +495,85 @@ function VotePageContent() {
                 <h2 className="text-xl font-semibold text-[#0f172a] mb-2">
                   {pollData?.name}
                 </h2>
-                <p className="text-[#64748b] mb-4">
+                <p className="text-[#64748b] mb-2">
                   Select all teams you want to vote for. You can vote for multiple teams.
-                  {!pollData?.allowSelfVote && ' You cannot vote for your own team.'}
+                  {!pollData?.allowSelfVote && !isJudge && ' You cannot vote for your own team.'}
                 </p>
+                
+                {/* Project Info Toggle */}
+                <div className="flex items-center gap-2 mb-4">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showProjectInfo}
+                      onChange={(e) => setShowProjectInfo(e.target.checked)}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-[#64748b]">Show project information</span>
+                  </label>
+                </div>
               </div>
 
               <div className="space-y-2">
                 {availableTeams.map((team) => (
-                  <label
+                  <div
                     key={team.teamId}
-                    className={`block p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                    className={`p-4 border-2 rounded-lg transition-colors ${
                       selectedTeams.includes(team.teamId)
                         ? 'border-[#1e40af] bg-blue-50'
                         : 'border-[#e2e8f0] hover:border-[#94a3b8]'
                     }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={selectedTeams.includes(team.teamId)}
-                      onChange={() => handleMultipleTeamToggle(team.teamId)}
-                      className="mr-3"
-                    />
-                    <span className="font-medium text-[#0f172a]">{team.teamName}</span>
-                  </label>
+                    <label className="flex items-start cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedTeams.includes(team.teamId)}
+                        onChange={() => handleMultipleTeamToggle(team.teamId)}
+                        className="mt-1 mr-3"
+                      />
+                      <div className="flex-1">
+                        <span className="font-medium text-[#0f172a] block">{team.teamName}</span>
+                        
+                        {/* Project Information (toggleable) */}
+                        {showProjectInfo && (team.projectName || team.projectDescription || team.pitch || team.liveSiteUrl || team.githubUrl) && (
+                          <div className="mt-2 p-3 bg-[#f8fafc] rounded border border-[#e2e8f0]">
+                            {team.projectName && (
+                              <div className="mb-2">
+                                <span className="text-sm font-semibold text-[#0f172a]">Project: </span>
+                                <span className="text-sm text-[#64748b]">{team.projectName}</span>
+                              </div>
+                            )}
+                            {team.projectDescription && (
+                              <div className="mb-2">
+                                <span className="text-sm font-semibold text-[#0f172a]">Description: </span>
+                                <span className="text-sm text-[#64748b]">{team.projectDescription}</span>
+                              </div>
+                            )}
+                            {team.pitch && (
+                              <div className="mb-2">
+                                <span className="text-sm font-semibold text-[#0f172a]">Pitch: </span>
+                                <span className="text-sm text-[#64748b]">{team.pitch}</span>
+                              </div>
+                            )}
+                            {team.liveSiteUrl && (
+                              <div className="mb-1">
+                                <a href={team.liveSiteUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-[#0891b2] hover:underline">
+                                  🔗 Live Site
+                                </a>
+                              </div>
+                            )}
+                            {team.githubUrl && (
+                              <div>
+                                <a href={team.githubUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-[#0891b2] hover:underline">
+                                  💻 GitHub
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  </div>
                 ))}
               </div>
 
@@ -390,15 +594,35 @@ function VotePageContent() {
                 <h2 className="text-xl font-semibold text-[#0f172a] mb-2">
                   {pollData?.name}
                 </h2>
-                <p className="text-[#64748b] mb-4">
+                <p className="text-[#64748b] mb-2">
                   Rank the teams from best to worst. Assign rank 1 to your top choice, rank 2 to your second choice, and so on.
-                  {!pollData?.allowSelfVote && ' You cannot rank your own team.'}
+                  {pollData?.maxRankedPositions && ` (Rank top ${pollData.maxRankedPositions} only)`}
+                  {!pollData?.allowSelfVote && !isJudge && ' You cannot rank your own team.'}
                 </p>
+                {isJudge && (
+                  <p className="text-sm text-[#dc2626] mb-2">
+                    ⚠️ As a judge, you must provide reasons for all your rankings.
+                  </p>
+                )}
+                
+                {/* Project Info Toggle */}
+                <div className="flex items-center gap-2 mb-4">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showProjectInfo}
+                      onChange={(e) => setShowProjectInfo(e.target.checked)}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-[#64748b]">Show project information</span>
+                  </label>
+                </div>
               </div>
 
               <div className="space-y-4">
                 {availableTeams.map((team) => {
                   const ranking = rankings.find(r => r.teamId === team.teamId);
+                  const maxRank = pollData?.maxRankedPositions || availableTeams.length;
                   return (
                     <div
                       key={team.teamId}
@@ -412,11 +636,11 @@ function VotePageContent() {
                           <input
                             type="number"
                             min="1"
-                            max={availableTeams.length}
+                            max={maxRank}
                             value={ranking?.rank || ''}
                             onChange={(e) => {
                               const rank = parseInt(e.target.value);
-                              if (!isNaN(rank) && rank > 0) {
+                              if (!isNaN(rank) && rank > 0 && rank <= maxRank) {
                                 handleRankChange(team.teamId, rank);
                               } else if (e.target.value === '') {
                                 setRankings(prev => prev.filter(r => r.teamId !== team.teamId));
@@ -430,16 +654,57 @@ function VotePageContent() {
                           <span className="font-medium text-[#0f172a]">{team.teamName}</span>
                         </div>
                       </div>
+                      
+                      {/* Project Information (toggleable) */}
+                      {showProjectInfo && (team.projectName || team.projectDescription || team.pitch || team.liveSiteUrl || team.githubUrl) && (
+                        <div className="mb-3 p-3 bg-[#f8fafc] rounded border border-[#e2e8f0]">
+                          {team.projectName && (
+                            <div className="mb-2">
+                              <span className="text-sm font-semibold text-[#0f172a]">Project: </span>
+                              <span className="text-sm text-[#64748b]">{team.projectName}</span>
+                            </div>
+                          )}
+                          {team.projectDescription && (
+                            <div className="mb-2">
+                              <span className="text-sm font-semibold text-[#0f172a]">Description: </span>
+                              <span className="text-sm text-[#64748b]">{team.projectDescription}</span>
+                            </div>
+                          )}
+                          {team.pitch && (
+                            <div className="mb-2">
+                              <span className="text-sm font-semibold text-[#0f172a]">Pitch: </span>
+                              <span className="text-sm text-[#64748b]">{team.pitch}</span>
+                            </div>
+                          )}
+                          {team.liveSiteUrl && (
+                            <div className="mb-1">
+                              <a href={team.liveSiteUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-[#0891b2] hover:underline">
+                                🔗 Live Site
+                              </a>
+                            </div>
+                          )}
+                          {team.githubUrl && (
+                            <div>
+                              <a href={team.githubUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-[#0891b2] hover:underline">
+                                💻 GitHub
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Reason field - Required for judges, optional for voters */}
                       <div>
                         <label className="block text-sm font-medium text-[#0f172a] mb-1">
-                          Reason (Optional)
+                          Reason {isJudge ? '(Required)' : '(Optional - Voters only)'}
                         </label>
                         <textarea
                           value={ranking?.reason || ''}
                           onChange={(e) => handleReasonChange(team.teamId, e.target.value)}
                           rows={2}
                           className="w-full px-2 py-1 border border-[#94a3b8] rounded focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-                          placeholder="Why did you rank this team here?"
+                          placeholder={isJudge ? "Explain why you ranked this team here (required)" : "Why did you rank this team here? (optional for voters)"}
+                          required={isJudge && !!ranking}
                         />
                       </div>
                     </div>

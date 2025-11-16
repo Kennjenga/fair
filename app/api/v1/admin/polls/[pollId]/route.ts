@@ -102,6 +102,8 @@ export async function PATCH(
         allowSelfVote?: boolean;
         requireTeamNameGate?: boolean;
         isPublicResults?: boolean;
+        maxRankedPositions?: number | null;
+        votingSequence?: 'simultaneous' | 'voters_first';
       } = {};
       
       if (validated.name) updates.name = validated.name;
@@ -129,6 +131,8 @@ export async function PATCH(
       if (validated.allowSelfVote !== undefined) updates.allowSelfVote = validated.allowSelfVote;
       if (validated.requireTeamNameGate !== undefined) updates.requireTeamNameGate = validated.requireTeamNameGate;
       if (validated.isPublicResults !== undefined) updates.isPublicResults = validated.isPublicResults;
+      if (validated.maxRankedPositions !== undefined) updates.maxRankedPositions = validated.maxRankedPositions;
+      if (validated.votingSequence !== undefined) updates.votingSequence = validated.votingSequence;
       
       // Update poll (allows extending duration after poll has ended)
       const poll = await updatePoll(pollId, updates);

@@ -100,33 +100,12 @@ export async function POST(
         );
       }
 
-      // Create token for poll creator
+      // Create token for poll creator (email will be sent when admin clicks "Send Emails" button)
       const { token, tokenRecord } = await createToken(
         pollId,
         team.team_id,
         adminDetails.email
       );
-
-      // Send email
-      try {
-        await sendVotingTokenEmail(
-          adminDetails.email,
-          token,
-          poll.name,
-          teamName
-        );
-        await require('@/lib/repositories/tokens').updateTokenDeliveryStatus(
-          tokenRecord.token_id,
-          'sent'
-        );
-      } catch (error) {
-        console.error(`Failed to send email to ${adminDetails.email}:`, error);
-        await require('@/lib/repositories/tokens').updateTokenDeliveryStatus(
-          tokenRecord.token_id,
-          'failed',
-          error instanceof Error ? error.message : 'Unknown error'
-        );
-      }
 
       await logAudit(
         'self_registered_as_voter',

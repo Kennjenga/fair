@@ -26,6 +26,11 @@ export async function GET(req: NextRequest) {
         votesResult,
         tokensResult,
         activePollsResult,
+        endedPollsResult,
+        upcomingPollsResult,
+        usedTokensResult,
+        teamsResult,
+        judgesResult,
       ] = await Promise.all([
         query<{ count: string }>('SELECT COUNT(*) as count FROM polls'),
         query<{ count: string }>('SELECT COUNT(*) as count FROM hackathons'),
@@ -37,6 +42,17 @@ export async function GET(req: NextRequest) {
            WHERE start_time <= CURRENT_TIMESTAMP 
            AND end_time >= CURRENT_TIMESTAMP`
         ),
+        query<{ count: string }>(
+          `SELECT COUNT(*) as count FROM polls 
+           WHERE end_time < CURRENT_TIMESTAMP`
+        ),
+        query<{ count: string }>(
+          `SELECT COUNT(*) as count FROM polls 
+           WHERE start_time > CURRENT_TIMESTAMP`
+        ),
+        query<{ count: string }>('SELECT COUNT(*) as count FROM tokens WHERE used = true'),
+        query<{ count: string }>('SELECT COUNT(*) as count FROM teams'),
+        query<{ count: string }>('SELECT COUNT(*) as count FROM poll_judges'),
       ]);
       
       const stats = {
@@ -46,6 +62,11 @@ export async function GET(req: NextRequest) {
         totalVotes: parseInt(votesResult.rows[0].count, 10),
         totalTokens: parseInt(tokensResult.rows[0].count, 10),
         activePolls: parseInt(activePollsResult.rows[0].count, 10),
+        endedPolls: parseInt(endedPollsResult.rows[0].count, 10),
+        upcomingPolls: parseInt(upcomingPollsResult.rows[0].count, 10),
+        usedTokens: parseInt(usedTokensResult.rows[0].count, 10),
+        totalTeams: parseInt(teamsResult.rows[0].count, 10),
+        totalJudges: parseInt(judgesResult.rows[0].count, 10),
       };
       
       // Get recent polls with hackathon info
@@ -92,10 +113,38 @@ export async function GET(req: NextRequest) {
          LIMIT 50`
       );
       
+      // Get all polls for filtering
+      const allPolls = polls.map(p => ({
+        poll_id: p.poll_id,
+        hackathon_id: p.hackathon_id,
+        name: p.name,
+        start_time: p.start_time,
+        end_time: p.end_time,
+        voting_mode: p.voting_mode,
+        voting_permissions: p.voting_permissions,
+        created_by: p.created_by,
+        created_at: p.created_at,
+        is_tie_breaker: p.is_tie_breaker || false,
+        parent_poll_id: p.parent_poll_id,
+      }));
+      
+      // Get all hackathons for filtering
+      const allHackathons = hackathons.map(h => ({
+        hackathon_id: h.hackathon_id,
+        name: h.name,
+        description: h.description,
+        start_date: h.start_date,
+        end_date: h.end_date,
+        created_by: h.created_by,
+        created_at: h.created_at,
+      }));
+      
       return NextResponse.json({
         stats,
         recentPolls,
         recentHackathons,
+        allPolls,
+        allHackathons,
         admins: admins.map(a => ({
           adminId: a.admin_id,
           email: a.email,

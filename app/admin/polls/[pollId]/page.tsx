@@ -1,15 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 /**
- * Poll management page
+ * Poll management page content
  */
-export default function PollManagementPage() {
+function PollManagementPageContent() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const pollId = params?.pollId as string;
   
   const [admin, setAdmin] = useState<{ adminId: string; email: string; role: string } | null>(null);
@@ -18,6 +19,7 @@ export default function PollManagementPage() {
   const [tokens, setTokens] = useState<any[]>([]);
   const [judges, setJudges] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [results, setResults] = useState<any>(null);
   
   // Judge management states
   const [showAddJudge, setShowAddJudge] = useState(false);
@@ -25,11 +27,18 @@ export default function PollManagementPage() {
   const [judgeName, setJudgeName] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'teams' | 'voters' | 'judges' | 'results'>('overview');
   
+  // Tie-breaker states
+  const [showTieBreaker, setShowTieBreaker] = useState(false);
+  const [tiedTeamIds, setTiedTeamIds] = useState<string[]>([]);
+  const [tieBreakerName, setTieBreakerName] = useState('');
+  const [tieBreakerStartTime, setTieBreakerStartTime] = useState('');
+  const [tieBreakerEndTime, setTieBreakerEndTime] = useState('');
+  
   // Modal states
   const [showAddTeam, setShowAddTeam] = useState(false);
   const [showRegisterVoters, setShowRegisterVoters] = useState(false);
-  const [showRegisterSelf, setShowRegisterSelf] = useState(false);
   const [showEditTimeline, setShowEditTimeline] = useState(false);
+  const [showEditPoll, setShowEditPoll] = useState(false);
   const [showEditTeam, setShowEditTeam] = useState(false);
   const [showReassignVoter, setShowReassignVoter] = useState(false);
   const [showTeamMembers, setShowTeamMembers] = useState(false);
@@ -43,10 +52,23 @@ export default function PollManagementPage() {
   const [teamName, setTeamName] = useState('');
   const [editTeamName, setEditTeamName] = useState('');
   const [votersList, setVotersList] = useState([{ email: '', teamName: '' }]);
-  const [selectedTeamForSelf, setSelectedTeamForSelf] = useState('');
   const [selectedReassignTeam, setSelectedReassignTeam] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  
+  // Edit poll form states
+  const [editPollName, setEditPollName] = useState('');
+  const [editPollStartTime, setEditPollStartTime] = useState('');
+  const [editPollEndTime, setEditPollEndTime] = useState('');
+  const [editPollVotingMode, setEditPollVotingMode] = useState<'single' | 'multiple' | 'ranked'>('single');
+  const [editPollVotingPermissions, setEditPollVotingPermissions] = useState<'voters_only' | 'judges_only' | 'voters_and_judges'>('voters_and_judges');
+  const [editPollVoterWeight, setEditPollVoterWeight] = useState('1.0');
+  const [editPollJudgeWeight, setEditPollJudgeWeight] = useState('1.0');
+  const [editPollAllowSelfVote, setEditPollAllowSelfVote] = useState(false);
+  const [editPollRequireTeamNameGate, setEditPollRequireTeamNameGate] = useState(true);
+  const [editPollIsPublicResults, setEditPollIsPublicResults] = useState(false);
+  const [editPollMaxRankedPositions, setEditPollMaxRankedPositions] = useState('');
+  const [editPollVotingSequence, setEditPollVotingSequence] = useState<'simultaneous' | 'voters_first'>('simultaneous');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -73,11 +95,35 @@ export default function PollManagementPage() {
     fetchPollData(token);
   }, [pollId, router]);
 
+  // Handle edit query parameter
+  useEffect(() => {
+    if (poll && searchParams?.get('edit') === 'true') {
+      // Populate edit form with current poll data
+      setEditPollName(poll.name);
+      const start = new Date(poll.start_time);
+      const end = new Date(poll.end_time);
+      setEditPollStartTime(start.toISOString().slice(0, 16));
+      setEditPollEndTime(end.toISOString().slice(0, 16));
+      setEditPollVotingMode(poll.voting_mode || 'single');
+      setEditPollVotingPermissions(poll.voting_permissions || 'voters_and_judges');
+      setEditPollVoterWeight(poll.voter_weight?.toString() || '1.0');
+      setEditPollJudgeWeight(poll.judge_weight?.toString() || '1.0');
+      setEditPollAllowSelfVote(poll.allow_self_vote || false);
+      setEditPollRequireTeamNameGate(poll.require_team_name_gate !== false);
+      setEditPollIsPublicResults(poll.is_public_results || false);
+      setEditPollMaxRankedPositions(poll.max_ranked_positions?.toString() || '');
+      setEditPollVotingSequence(poll.voting_sequence || 'simultaneous');
+      setShowEditPoll(true);
+      // Remove query param from URL
+      router.replace(`/admin/polls/${pollId}`, { scroll: false });
+    }
+  }, [poll, searchParams, pollId, router]);
+
   const fetchPollData = async (token: string) => {
     if (!pollId) return;
     
     try {
-      const [pollRes, teamsRes, tokensRes, judgesRes] = await Promise.all([
+      const [pollRes, teamsRes, tokensRes, judgesRes, resultsRes] = await Promise.all([
         fetch(`/api/v1/admin/polls/${pollId}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
@@ -90,6 +136,9 @@ export default function PollManagementPage() {
         fetch(`/api/v1/admin/polls/${pollId}/judges`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
+        fetch(`/api/v1/results/${pollId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => null), // Results might not be available yet
       ]);
 
       if (pollRes.status === 401) {
@@ -103,6 +152,11 @@ export default function PollManagementPage() {
       const teamsData = await teamsRes.json();
       const tokensData = await tokensRes.json();
       const judgesData = await judgesRes.json();
+      
+      if (resultsRes && resultsRes.ok) {
+        const resultsData = await resultsRes.json();
+        setResults(resultsData);
+      }
 
       setPoll(pollData.poll);
       setTeams(teamsData.teams || []);
@@ -221,52 +275,6 @@ export default function PollManagementPage() {
     }
   };
 
-  const handleRegisterSelf = async () => {
-    if (!selectedTeamForSelf) {
-      setError('Please select a team');
-      return;
-    }
-
-    setSubmitting(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/v1/admin/polls/${pollId}/register-self`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ teamName: selectedTeamForSelf }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Failed to register as voter');
-        return;
-      }
-
-      setSuccess('Successfully registered as voter!');
-      setSelectedTeamForSelf('');
-      setShowRegisterSelf(false);
-      // Refresh tokens list
-      const token2 = localStorage.getItem('auth_token');
-      if (token2) {
-        const tokensRes = await fetch(`/api/v1/admin/polls/${pollId}/voters`, {
-          headers: { Authorization: `Bearer ${token2}` },
-        });
-        const tokensData = await tokensRes.json();
-        setTokens(tokensData.tokens || []);
-      }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const handleUpdateTimeline = async () => {
     if (!startTime || !endTime) {
@@ -413,8 +421,36 @@ export default function PollManagementPage() {
 
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6 flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold text-[#0f172a] mb-2">{poll.name}</h1>
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-[#0f172a] mb-2">{poll.name}</h1>
+              <button
+                onClick={() => {
+                  // Populate edit form with current poll data
+                  setEditPollName(poll.name);
+                  const start = new Date(poll.start_time);
+                  const end = new Date(poll.end_time);
+                  setEditPollStartTime(start.toISOString().slice(0, 16));
+                  setEditPollEndTime(end.toISOString().slice(0, 16));
+                  setEditPollVotingMode(poll.voting_mode || 'single');
+                  setEditPollVotingPermissions(poll.voting_permissions || 'voters_and_judges');
+                  setEditPollVoterWeight(poll.voter_weight?.toString() || '1.0');
+                  setEditPollJudgeWeight(poll.judge_weight?.toString() || '1.0');
+                  setEditPollAllowSelfVote(poll.allow_self_vote || false);
+                  setEditPollRequireTeamNameGate(poll.require_team_name_gate !== false);
+                  setEditPollIsPublicResults(poll.is_public_results || false);
+                  setEditPollMaxRankedPositions(poll.max_ranked_positions?.toString() || '');
+                  setEditPollVotingSequence(poll.voting_sequence || 'simultaneous');
+                  setShowEditPoll(true);
+                }}
+                className="p-2 text-[#1e40af] hover:text-[#1e3a8a] hover:bg-blue-50 rounded transition-colors"
+                title="Edit Poll Details"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+            </div>
             <p className="text-[#64748b]">
               {new Date(poll.start_time).toLocaleString()} - {new Date(poll.end_time).toLocaleString()}
             </p>
@@ -604,12 +640,50 @@ export default function PollManagementPage() {
                 >
                   Register Voters
                 </button>
-                <button
-                  onClick={() => setShowRegisterSelf(true)}
-                  className="bg-[#0891b2] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#0e7490] transition-colors"
-                >
-                  Register Self
-                </button>
+                {tokens.length > 0 && (
+                  <button
+                    onClick={async () => {
+                      const token = localStorage.getItem('auth_token');
+                      if (!token) return;
+                      
+                      setSubmitting(true);
+                      setError('');
+                      setSuccess('');
+                      
+                      try {
+                        const response = await fetch(`/api/v1/admin/polls/${pollId}/voters/send-emails`, {
+                          method: 'POST',
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                          },
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                          setSuccess(`Emails sent: ${data.sent}, Failed: ${data.failed}`);
+                          // Refresh tokens to update delivery status
+                          const tokensRes = await fetch(`/api/v1/admin/polls/${pollId}/voters`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                          });
+                          const tokensData = await tokensRes.json();
+                          setTokens(tokensData.tokens || []);
+                        } else {
+                          setError(data.error || 'Failed to send emails');
+                        }
+                      } catch (err) {
+                        setError('An error occurred while sending emails');
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                    disabled={submitting}
+                    className="bg-[#1e40af] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#1e3a8a] transition-colors disabled:opacity-50"
+                  >
+                    {submitting ? 'Sending...' : 'Send Emails'}
+                  </button>
+                )}
               </div>
             </div>
             {tokens.length === 0 ? (
@@ -626,17 +700,64 @@ export default function PollManagementPage() {
                           Team: {team?.team_name || 'Unknown'} • Status: {token.deliveryStatus || 'queued'} • {token.used ? 'Voted' : 'Not Voted'}
                         </div>
                       </div>
-                      <button
-                        onClick={() => {
-                          setReassigningVoter(token);
-                          setSelectedReassignTeam(token.team_id);
-                          setReassignTeamSearchQuery(team?.team_name || '');
-                          setShowReassignVoter(true);
-                        }}
-                        className="px-3 py-1 text-sm text-[#0891b2] hover:text-[#0e7490] border border-[#0891b2] rounded hover:bg-[#f0f9ff] transition-colors"
-                      >
-                        Reassign
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setReassigningVoter(token);
+                            setSelectedReassignTeam(token.team_id);
+                            setReassignTeamSearchQuery(team?.team_name || '');
+                            setShowReassignVoter(true);
+                          }}
+                          className="px-3 py-1 text-sm text-[#0891b2] hover:text-[#0e7490] border border-[#0891b2] rounded hover:bg-[#f0f9ff] transition-colors"
+                        >
+                          Reassign
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`Are you sure you want to remove "${token.email}"? This will invalidate their token and delete their vote if they have already voted. This action cannot be undone.`)) {
+                              return;
+                            }
+                            
+                            const token2 = localStorage.getItem('auth_token');
+                            if (!token2) return;
+                            
+                            setSubmitting(true);
+                            setError('');
+                            setSuccess('');
+                            
+                            try {
+                              const response = await fetch(`/api/v1/admin/polls/${pollId}/voters/${token.tokenId}`, {
+                                method: 'DELETE',
+                                headers: { Authorization: `Bearer ${token2}` },
+                              });
+                              
+                              const data = await response.json();
+                              
+                              if (!response.ok) {
+                                setError(data.error || 'Failed to remove voter');
+                                setSubmitting(false);
+                                return;
+                              }
+                              
+                              setSuccess('Voter removed successfully. Token invalidated and votes deleted.');
+                              // Refresh tokens list
+                              const tokensRes = await fetch(`/api/v1/admin/polls/${pollId}/voters`, {
+                                headers: { Authorization: `Bearer ${token2}` },
+                              });
+                              const tokensData = await tokensRes.json();
+                              setTokens(tokensData.tokens || []);
+                            } catch (err) {
+                              setError('Failed to remove voter');
+                            } finally {
+                              setSubmitting(false);
+                            }
+                          }}
+                          disabled={submitting}
+                          className="px-3 py-1 text-sm text-red-600 hover:text-red-800 border border-red-600 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -649,16 +770,56 @@ export default function PollManagementPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-[#0f172a]">Judges</h2>
-              <button
-                onClick={() => {
-                  setShowAddJudge(true);
-                  setJudgeEmail('');
-                  setJudgeName('');
-                }}
-                className="bg-[#1e40af] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#1e3a8a] transition-colors"
-              >
-                Add Judge
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowAddJudge(true);
+                    setJudgeEmail('');
+                    setJudgeName('');
+                  }}
+                  className="bg-[#1e40af] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#1e3a8a] transition-colors"
+                >
+                  Add Judge
+                </button>
+                {judges.length > 0 && (
+                  <button
+                    onClick={async () => {
+                      const token = localStorage.getItem('auth_token');
+                      if (!token) return;
+                      
+                      setSubmitting(true);
+                      setError('');
+                      setSuccess('');
+                      
+                      try {
+                        const response = await fetch(`/api/v1/admin/polls/${pollId}/judges/send-emails`, {
+                          method: 'POST',
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                          },
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                          setSuccess(`Emails sent: ${data.sent}, Failed: ${data.failed}`);
+                        } else {
+                          setError(data.error || 'Failed to send emails');
+                        }
+                      } catch (err) {
+                        setError('An error occurred while sending emails');
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                    disabled={submitting}
+                    className="bg-[#059669] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#047857] transition-colors disabled:opacity-50"
+                  >
+                    {submitting ? 'Sending...' : 'Send Emails'}
+                  </button>
+                )}
+              </div>
             </div>
 
             {judges.length === 0 ? (
@@ -808,18 +969,126 @@ export default function PollManagementPage() {
 
         {activeTab === 'results' && (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-[#0f172a] mb-4">Results</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-[#0f172a]">Results</h2>
+              <Link
+                href={`/results/${pollId}`}
+                className="bg-[#0891b2] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#0e7490] transition-colors"
+              >
+                View Full Results →
+              </Link>
+            </div>
+            
             <p className="text-[#64748b] mb-4">
               {poll.is_public_results 
                 ? 'Results are publicly available.' 
                 : 'Results are private. Only you and super admins can view them.'}
             </p>
-            <Link
-              href={`/results/${pollId}`}
-              className="inline-block bg-[#0891b2] text-white px-4 py-2 rounded-lg font-semibold hover:bg-[#0e7490] transition-colors"
-            >
-              View Results →
-            </Link>
+            
+            {results && results.results && results.results.teams && results.results.teams.length > 0 ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-[#f8fafc] rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-[#1e40af]">{results.results.totalVotes || 0}</div>
+                    <div className="text-sm text-[#64748b]">Total Votes</div>
+                  </div>
+                  <div className="bg-[#f8fafc] rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-[#059669]">{results.results.teams.length}</div>
+                    <div className="text-sm text-[#64748b]">Teams</div>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-[#0f172a]">Rankings</h3>
+                  {results.results.teams
+                    .sort((a: any, b: any) => b.totalScore - a.totalScore)
+                    .slice(0, 5)
+                    .map((team: any, index: number) => (
+                      <div
+                        key={team.teamId}
+                        className="flex items-center justify-between p-3 border border-[#e2e8f0] rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
+                            index === 0 ? 'bg-[#059669]' : index === 1 ? 'bg-[#0891b2]' : index === 2 ? 'bg-[#1e40af]' : 'bg-[#64748b]'
+                          }`}>
+                            {index + 1}
+                          </div>
+                          <div>
+                            <div className="font-medium text-[#0f172a]">{team.teamName}</div>
+                            {poll.voting_mode === 'ranked' && team.positionCounts && Object.keys(team.positionCounts).length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {Object.entries(team.positionCounts)
+                                  .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                                  .slice(0, 3)
+                                  .map(([position, count]: [string, any]) => (
+                                    <span
+                                      key={position}
+                                      className="text-xs px-1.5 py-0.5 rounded bg-[#e0f2fe] text-[#0369a1]"
+                                    >
+                                      #{position}: {count}×
+                                    </span>
+                                  ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-[#1e40af]">{team.totalScore.toFixed(2)}</div>
+                          <div className="text-xs text-[#64748b]">points</div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+                
+                {/* Check for ties and show tie-breaker button */}
+                {results.results.teams.length >= 2 && (() => {
+                  const sorted = [...results.results.teams].sort((a: any, b: any) => b.totalScore - a.totalScore);
+                  const topScore = sorted[0]?.totalScore;
+                  const tiedTeams = sorted.filter((t: any) => Math.abs(t.totalScore - topScore) < 0.01);
+                  
+                  if (tiedTeams.length >= 2) {
+                    return (
+                      <div className="mt-6 p-4 bg-[#fef3c7] border border-[#fbbf24] rounded-lg">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="font-semibold text-[#92400e] mb-2">Tie Detected!</h4>
+                            <p className="text-sm text-[#78350f] mb-2">
+                              {tiedTeams.length} teams are tied with {topScore.toFixed(2)} points:
+                            </p>
+                            <ul className="text-sm text-[#78350f] list-disc list-inside">
+                              {tiedTeams.map((team: any) => (
+                                <li key={team.teamId}>{team.teamName}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setTiedTeamIds(tiedTeams.map((t: any) => t.teamId));
+                              setTieBreakerName(`${poll.name} - Tie Breaker`);
+                              const now = new Date();
+                              const defaultStart = new Date(now.getTime() + 60 * 60 * 1000).toISOString().slice(0, 16);
+                              const defaultEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
+                              setTieBreakerStartTime(defaultStart);
+                              setTieBreakerEndTime(defaultEnd);
+                              setShowTieBreaker(true);
+                            }}
+                            className="bg-[#f59e0b] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#d97706] transition-colors whitespace-nowrap ml-4"
+                          >
+                            Create Tie-Breaker
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-[#64748b]">
+                No votes recorded yet. Results will appear here once voting begins.
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -993,39 +1262,206 @@ export default function PollManagementPage() {
         </div>
       )}
 
-      {/* Register Self Modal */}
-      {showRegisterSelf && (
-        <div className="fixed inset-0 bg-[#f8fafc] bg-opacity-60 backdrop-blur-md flex items-center justify-center z-50">
-          <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-6 max-w-md w-full mx-4 border border-[#e2e8f0]">
-            <h3 className="text-xl font-semibold text-[#0f172a] mb-4">Register Self as Voter</h3>
+      {/* Edit Poll Modal */}
+      {showEditPoll && (
+        <div className="fixed inset-0 bg-[#f8fafc] bg-opacity-60 backdrop-blur-md flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 my-8 border border-[#e2e8f0]">
+            <h3 className="text-xl font-semibold text-[#0f172a] mb-4">Edit Poll Details</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-[#0f172a] mb-1">
-                  Select Team *
+                  Poll Name *
+                </label>
+                <input
+                  type="text"
+                  value={editPollName}
+                  onChange={(e) => setEditPollName(e.target.value)}
+                  className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                  placeholder="Poll name"
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                    Start Time *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={editPollStartTime}
+                    onChange={(e) => setEditPollStartTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                    End Time *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={editPollEndTime}
+                    onChange={(e) => setEditPollEndTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                  Voting Mode *
                 </label>
                 <select
-                  value={selectedTeamForSelf}
-                  onChange={(e) => setSelectedTeamForSelf(e.target.value)}
+                  value={editPollVotingMode}
+                  onChange={(e) => {
+                    setEditPollVotingMode(e.target.value as any);
+                    if (e.target.value !== 'ranked') {
+                      setEditPollMaxRankedPositions('');
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
                 >
-                  <option value="">Select a team</option>
-                  {teams.map((team) => (
-                    <option key={team.team_id} value={team.team_name}>
-                      {team.team_name}
-                    </option>
-                  ))}
+                  <option value="single">Single Vote (one team per voter)</option>
+                  <option value="multiple">Multiple Votes (vote for multiple teams)</option>
+                  <option value="ranked">Ranked Voting (rank teams 1, 2, 3...)</option>
                 </select>
-                {teams.length === 0 && (
-                  <p className="text-sm text-[#64748b] mt-1">
-                    No teams available. Please add teams first.
-                  </p>
-                )}
               </div>
-              <div className="flex gap-2 justify-end">
+
+              {editPollVotingMode === 'ranked' && (
+                <div>
+                  <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                    Maximum Positions to Rank (Optional)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editPollMaxRankedPositions}
+                    onChange={(e) => setEditPollMaxRankedPositions(e.target.value)}
+                    className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                    placeholder="Leave empty to rank all teams"
+                  />
+                  <p className="text-xs text-[#64748b] mt-1">
+                    Limit how many positions voters/judges can rank (e.g., "3" means rank top 3 only). Leave empty to allow ranking all teams.
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                  Voting Permissions *
+                </label>
+                <select
+                  value={editPollVotingPermissions}
+                  onChange={(e) => {
+                    setEditPollVotingPermissions(e.target.value as any);
+                    if (e.target.value !== 'voters_and_judges') {
+                      setEditPollVotingSequence('simultaneous');
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                >
+                  <option value="voters_only">Voters Only</option>
+                  <option value="judges_only">Judges Only</option>
+                  <option value="voters_and_judges">Voters and Judges</option>
+                </select>
+              </div>
+
+              {editPollVotingPermissions === 'voters_and_judges' && (
+                <>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                        Voter Weight
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={editPollVoterWeight}
+                        onChange={(e) => setEditPollVoterWeight(e.target.value)}
+                        className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                      />
+                      <p className="text-xs text-[#64748b] mt-1">Weight multiplier for voter votes</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                        Judge Weight
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={editPollJudgeWeight}
+                        onChange={(e) => setEditPollJudgeWeight(e.target.value)}
+                        className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                      />
+                      <p className="text-xs text-[#64748b] mt-1">Weight multiplier for judge votes</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                      Voting Sequence *
+                    </label>
+                    <select
+                      value={editPollVotingSequence}
+                      onChange={(e) => setEditPollVotingSequence(e.target.value as any)}
+                      className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                    >
+                      <option value="simultaneous">Simultaneous (voters and judges can vote at the same time)</option>
+                      <option value="voters_first">Voters First (judges must wait until all voters have voted)</option>
+                    </select>
+                    <p className="text-xs text-[#64748b] mt-1">
+                      {editPollVotingSequence === 'voters_first' 
+                        ? 'Judges will be blocked from voting until all registered voters have completed their votes.'
+                        : 'Both voters and judges can vote at any time during the poll period.'}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={editPollAllowSelfVote}
+                    onChange={(e) => setEditPollAllowSelfVote(e.target.checked)}
+                    className="w-4 h-4 text-[#1e40af] border-[#94a3b8] rounded focus:ring-[#1e40af]"
+                  />
+                  <label className="ml-2 text-sm text-[#0f172a]">
+                    Allow self-voting (voters can vote for their own team)
+                  </label>
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={editPollRequireTeamNameGate}
+                    onChange={(e) => setEditPollRequireTeamNameGate(e.target.checked)}
+                    className="w-4 h-4 text-[#1e40af] border-[#94a3b8] rounded focus:ring-[#1e40af]"
+                  />
+                  <label className="ml-2 text-sm text-[#0f172a]">
+                    Require team name verification (voters must enter their team name)
+                  </label>
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={editPollIsPublicResults}
+                    onChange={(e) => setEditPollIsPublicResults(e.target.checked)}
+                    className="w-4 h-4 text-[#1e40af] border-[#94a3b8] rounded focus:ring-[#1e40af]"
+                  />
+                  <label className="ml-2 text-sm text-[#0f172a]">
+                    Make results public (anyone can view results without authentication)
+                  </label>
+                </div>
+              </div>
+
+              {error && (
+                <div className="text-red-600 text-sm">{error}</div>
+              )}
+              <div className="flex gap-2 justify-end pt-4">
                 <button
                   onClick={() => {
-                    setShowRegisterSelf(false);
-                    setSelectedTeamForSelf('');
+                    setShowEditPoll(false);
                     setError('');
                   }}
                   className="px-4 py-2 text-[#64748b] hover:text-[#0f172a]"
@@ -1033,11 +1469,85 @@ export default function PollManagementPage() {
                   Cancel
                 </button>
                 <button
-                  onClick={handleRegisterSelf}
-                  disabled={submitting || teams.length === 0}
-                  className="px-4 py-2 bg-[#0891b2] text-white rounded-lg hover:bg-[#0e7490] disabled:opacity-50"
+                  onClick={async () => {
+                    if (!editPollName.trim() || !editPollStartTime || !editPollEndTime) {
+                      setError('Poll name, start time, and end time are required');
+                      return;
+                    }
+
+                    const startDate = new Date(editPollStartTime);
+                    const endDate = new Date(editPollEndTime);
+
+                    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                      setError('Invalid date format');
+                      return;
+                    }
+
+                    if (endDate <= startDate) {
+                      setError('End time must be after start time');
+                      return;
+                    }
+
+                    setSubmitting(true);
+                    setError('');
+
+                    const token = localStorage.getItem('auth_token');
+                    if (!token) return;
+
+                    try {
+                      const updateData: any = {
+                        name: editPollName.trim(),
+                        startTime: startDate.toISOString(),
+                        endTime: endDate.toISOString(),
+                        votingMode: editPollVotingMode,
+                        votingPermissions: editPollVotingPermissions,
+                        voterWeight: parseFloat(editPollVoterWeight) || 1.0,
+                        judgeWeight: parseFloat(editPollJudgeWeight) || 1.0,
+                        allowSelfVote: editPollAllowSelfVote,
+                        requireTeamNameGate: editPollRequireTeamNameGate,
+                        isPublicResults: editPollIsPublicResults,
+                      };
+
+                      if (editPollVotingMode === 'ranked' && editPollMaxRankedPositions) {
+                        updateData.maxRankedPositions = parseInt(editPollMaxRankedPositions, 10);
+                      } else if (editPollVotingMode === 'ranked' && !editPollMaxRankedPositions) {
+                        updateData.maxRankedPositions = null;
+                      }
+
+                      if (editPollVotingPermissions === 'voters_and_judges') {
+                        updateData.votingSequence = editPollVotingSequence;
+                      }
+
+                      const response = await fetch(`/api/v1/admin/polls/${pollId}`, {
+                        method: 'PATCH',
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(updateData),
+                      });
+
+                      const data = await response.json();
+
+                      if (!response.ok) {
+                        setError(data.error || 'Failed to update poll');
+                        setSubmitting(false);
+                        return;
+                      }
+
+                      setSuccess('Poll updated successfully');
+                      setShowEditPoll(false);
+                      fetchPollData(token);
+                    } catch (err) {
+                      setError('Failed to update poll');
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-[#1e40af] text-white rounded-lg hover:bg-[#1e3a8a] disabled:opacity-50"
                 >
-                  {submitting ? 'Registering...' : 'Register Self'}
+                  {submitting ? 'Updating...' : 'Update Poll'}
                 </button>
               </div>
             </div>
@@ -1413,6 +1923,170 @@ export default function PollManagementPage() {
           </div>
         </div>
       )}
+
+      {/* Tie-Breaker Modal */}
+      {showTieBreaker && (
+        <div className="fixed inset-0 bg-[#f8fafc] bg-opacity-60 backdrop-blur-md flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-6 max-w-md w-full mx-4 my-8 border border-[#e2e8f0]">
+            <h3 className="text-xl font-semibold text-[#0f172a] mb-4">Create Tie-Breaker Poll</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                  Poll Name *
+                </label>
+                <input
+                  type="text"
+                  value={tieBreakerName}
+                  onChange={(e) => setTieBreakerName(e.target.value)}
+                  className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                  placeholder="Tie-Breaker Poll Name"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                  Start Time *
+                </label>
+                <input
+                  type="datetime-local"
+                  value={tieBreakerStartTime}
+                  onChange={(e) => setTieBreakerStartTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                  End Time *
+                </label>
+                <input
+                  type="datetime-local"
+                  value={tieBreakerEndTime}
+                  onChange={(e) => setTieBreakerEndTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                />
+              </div>
+              
+              <div className="bg-[#f8fafc] rounded-lg p-3">
+                <p className="text-sm font-medium text-[#0f172a] mb-2">Tied Teams ({tiedTeamIds.length}):</p>
+                <ul className="text-sm text-[#64748b] list-disc list-inside">
+                  {tiedTeamIds.map((teamId) => {
+                    const team = teams.find(t => t.team_id === teamId);
+                    return <li key={teamId}>{team?.team_name || teamId}</li>;
+                  })}
+                </ul>
+                <p className="text-xs text-[#64748b] mt-2">
+                  The tie-breaker poll will inherit all settings from the original poll and only include the tied teams.
+                </p>
+              </div>
+              
+              {error && (
+                <div className="text-red-600 text-sm">{error}</div>
+              )}
+              
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => {
+                    setShowTieBreaker(false);
+                    setTiedTeamIds([]);
+                    setTieBreakerName('');
+                    setTieBreakerStartTime('');
+                    setTieBreakerEndTime('');
+                    setError('');
+                  }}
+                  className="px-4 py-2 text-[#64748b] hover:text-[#0f172a]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!tieBreakerName || !tieBreakerStartTime || !tieBreakerEndTime) {
+                      setError('All fields are required');
+                      return;
+                    }
+                    
+                    const startDate = new Date(tieBreakerStartTime);
+                    const endDate = new Date(tieBreakerEndTime);
+                    
+                    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                      setError('Invalid date format');
+                      return;
+                    }
+                    
+                    if (endDate <= startDate) {
+                      setError('End time must be after start time');
+                      return;
+                    }
+                    
+                    setSubmitting(true);
+                    setError('');
+                    
+                    const token = localStorage.getItem('auth_token');
+                    if (!token) return;
+                    
+                    try {
+                      const response = await fetch(`/api/v1/admin/polls/${pollId}/tie-breaker`, {
+                        method: 'POST',
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          tiedTeamIds,
+                          name: tieBreakerName,
+                          startTime: startDate.toISOString(),
+                          endTime: endDate.toISOString(),
+                        }),
+                      });
+                      
+                      const data = await response.json();
+                      
+                      if (!response.ok) {
+                        setError(data.error || 'Failed to create tie-breaker poll');
+                        setSubmitting(false);
+                        return;
+                      }
+                      
+                      setSuccess('Tie-breaker poll created successfully!');
+                      setShowTieBreaker(false);
+                      setTiedTeamIds([]);
+                      setTieBreakerName('');
+                      setTieBreakerStartTime('');
+                      setTieBreakerEndTime('');
+                      
+                      // Redirect to the new tie-breaker poll
+                      router.push(`/admin/polls/${data.poll.poll_id}`);
+                    } catch (err) {
+                      setError('Failed to create tie-breaker poll');
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-[#f59e0b] text-white rounded-lg hover:bg-[#d97706] disabled:opacity-50"
+                >
+                  {submitting ? 'Creating...' : 'Create Tie-Breaker Poll'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+/**
+ * Poll management page (with Suspense wrapper for useSearchParams)
+ */
+export default function PollManagementPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
+        <div className="text-[#64748b]">Loading...</div>
+      </div>
+    }>
+      <PollManagementPageContent />
+    </Suspense>
   );
 }

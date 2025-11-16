@@ -23,6 +23,8 @@ export default function CreatePollPage() {
     allowSelfVote: false,
     requireTeamNameGate: true,
     isPublicResults: false,
+    maxRankedPositions: '' as string | '',
+    votingSequence: 'simultaneous' as 'simultaneous' | 'voters_first',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -98,6 +100,10 @@ export default function CreatePollPage() {
           allowSelfVote: formData.allowSelfVote,
           requireTeamNameGate: formData.requireTeamNameGate,
           isPublicResults: formData.isPublicResults,
+          maxRankedPositions: formData.votingMode === 'ranked' && formData.maxRankedPositions 
+            ? parseInt(formData.maxRankedPositions, 10) 
+            : null,
+          votingSequence: formData.votingSequence,
         }),
       });
 
@@ -228,7 +234,7 @@ export default function CreatePollPage() {
                 <select
                   id="votingMode"
                   value={formData.votingMode}
-                  onChange={(e) => setFormData({ ...formData, votingMode: e.target.value as any })}
+                  onChange={(e) => setFormData({ ...formData, votingMode: e.target.value as any, maxRankedPositions: e.target.value !== 'ranked' ? '' : formData.maxRankedPositions })}
                   required
                   className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
                 >
@@ -237,6 +243,27 @@ export default function CreatePollPage() {
                   <option value="ranked">Ranked Voting (rank teams 1, 2, 3...)</option>
                 </select>
               </div>
+
+              {/* Max Ranked Positions - Only for ranked voting */}
+              {formData.votingMode === 'ranked' && (
+                <div>
+                  <label htmlFor="maxRankedPositions" className="block text-sm font-medium text-[#0f172a] mb-1">
+                    Maximum Positions to Rank (Optional)
+                  </label>
+                  <input
+                    id="maxRankedPositions"
+                    type="number"
+                    min="1"
+                    value={formData.maxRankedPositions}
+                    onChange={(e) => setFormData({ ...formData, maxRankedPositions: e.target.value })}
+                    className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                    placeholder="Leave empty to rank all teams"
+                  />
+                  <p className="text-xs text-[#64748b] mt-1">
+                    Limit how many positions voters/judges can rank (e.g., "3" means rank top 3 only). Leave empty to allow ranking all teams.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label htmlFor="votingPermissions" className="block text-sm font-medium text-[#0f172a] mb-1">
@@ -256,39 +283,62 @@ export default function CreatePollPage() {
               </div>
 
               {formData.votingPermissions === 'voters_and_judges' && (
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="voterWeight" className="block text-sm font-medium text-[#0f172a] mb-1">
-                      Voter Weight
-                    </label>
-                    <input
-                      id="voterWeight"
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      value={formData.voterWeight}
-                      onChange={(e) => setFormData({ ...formData, voterWeight: e.target.value })}
-                      className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-                    />
-                    <p className="text-xs text-[#64748b] mt-1">Weight multiplier for voter votes</p>
+                <>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="voterWeight" className="block text-sm font-medium text-[#0f172a] mb-1">
+                        Voter Weight
+                      </label>
+                      <input
+                        id="voterWeight"
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={formData.voterWeight}
+                        onChange={(e) => setFormData({ ...formData, voterWeight: e.target.value })}
+                        className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                      />
+                      <p className="text-xs text-[#64748b] mt-1">Weight multiplier for voter votes</p>
+                    </div>
+
+                    <div>
+                      <label htmlFor="judgeWeight" className="block text-sm font-medium text-[#0f172a] mb-1">
+                        Judge Weight
+                      </label>
+                      <input
+                        id="judgeWeight"
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={formData.judgeWeight}
+                        onChange={(e) => setFormData({ ...formData, judgeWeight: e.target.value })}
+                        className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                      />
+                      <p className="text-xs text-[#64748b] mt-1">Weight multiplier for judge votes</p>
+                    </div>
                   </div>
 
+                  {/* Voting Sequence - Only when both voters and judges can vote */}
                   <div>
-                    <label htmlFor="judgeWeight" className="block text-sm font-medium text-[#0f172a] mb-1">
-                      Judge Weight
+                    <label htmlFor="votingSequence" className="block text-sm font-medium text-[#0f172a] mb-1">
+                      Voting Sequence *
                     </label>
-                    <input
-                      id="judgeWeight"
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      value={formData.judgeWeight}
-                      onChange={(e) => setFormData({ ...formData, judgeWeight: e.target.value })}
+                    <select
+                      id="votingSequence"
+                      value={formData.votingSequence}
+                      onChange={(e) => setFormData({ ...formData, votingSequence: e.target.value as any })}
                       className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-                    />
-                    <p className="text-xs text-[#64748b] mt-1">Weight multiplier for judge votes</p>
+                    >
+                      <option value="simultaneous">Simultaneous (voters and judges can vote at the same time)</option>
+                      <option value="voters_first">Voters First (judges must wait until all voters have voted)</option>
+                    </select>
+                    <p className="text-xs text-[#64748b] mt-1">
+                      {formData.votingSequence === 'voters_first' 
+                        ? 'Judges will be blocked from voting until all registered voters have completed their votes.'
+                        : 'Both voters and judges can vote at any time during the poll period.'}
+                    </p>
                   </div>
-                </div>
+                </>
               )}
 
               <div className="space-y-3">

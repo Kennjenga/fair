@@ -11,6 +11,7 @@ export default function HackathonsPage() {
   const router = useRouter();
   const [admin, setAdmin] = useState<{ adminId: string; email: string; role: string } | null>(null);
   const [hackathons, setHackathons] = useState<any[]>([]);
+  const [dashboard, setDashboard] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,29 +27,69 @@ export default function HackathonsPage() {
     const parsed = JSON.parse(adminData);
     setAdmin(parsed);
 
-    // Fetch hackathons
-    fetchHackathons(token);
+    // Fetch hackathons and dashboard data
+    fetchData(token);
   }, [router]);
 
-  const fetchHackathons = async (token: string) => {
+  const fetchData = async (token: string) => {
     try {
-      const response = await fetch('/api/v1/admin/hackathons', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const [hackathonsRes, dashboardRes] = await Promise.all([
+        fetch('/api/v1/admin/hackathons', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch('/api/v1/admin/dashboard', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
 
-      if (response.status === 401) {
+      if (hackathonsRes.status === 401 || dashboardRes.status === 401) {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('admin');
         router.push('/admin/login');
         return;
       }
 
-      const data = await response.json();
-      setHackathons(data.hackathons || []);
+      const hackathonsData = await hackathonsRes.json();
+      const dashboardData = dashboardRes.ok ? await dashboardRes.json() : null;
+      
+      setHackathons(hackathonsData.hackathons || []);
+      
+      // Set dashboard stats with defaults if needed
+      if (dashboardData && dashboardData.stats) {
+        setDashboard(dashboardData);
+      } else {
+        setDashboard({
+          stats: {
+            totalHackathons: hackathonsData.hackathons?.length || 0,
+            totalPolls: 0,
+            activePolls: 0,
+            endedPolls: 0,
+            upcomingPolls: 0,
+            totalVotes: 0,
+            totalTokens: 0,
+            usedTokens: 0,
+            totalTeams: 0,
+            totalJudges: 0,
+          },
+        });
+      }
     } catch (error) {
-      console.error('Failed to fetch hackathons:', error);
+      console.error('Failed to fetch data:', error);
+      // Set defaults on error
+      setDashboard({
+        stats: {
+          totalHackathons: 0,
+          totalPolls: 0,
+          activePolls: 0,
+          endedPolls: 0,
+          upcomingPolls: 0,
+          totalVotes: 0,
+          totalTokens: 0,
+          usedTokens: 0,
+          totalTeams: 0,
+          totalJudges: 0,
+        },
+      });
     } finally {
       setLoading(false);
     }
@@ -89,6 +130,32 @@ export default function HackathonsPage() {
       </header>
 
       <div className="container mx-auto px-4 py-8">
+        {/* Analytics Statistics */}
+        {dashboard?.stats && (
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-[#7c3aed]">
+              <div className="text-3xl font-bold text-[#7c3aed]">{dashboard.stats.totalHackathons || 0}</div>
+              <div className="text-sm text-[#64748b] mt-1">Total Hackathons</div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-[#1e40af]">
+              <div className="text-3xl font-bold text-[#1e40af]">{dashboard.stats.totalPolls || 0}</div>
+              <div className="text-sm text-[#64748b] mt-1">Total Polls</div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-[#0891b2]">
+              <div className="text-3xl font-bold text-[#0891b2]">{dashboard.stats.activePolls || 0}</div>
+              <div className="text-sm text-[#64748b] mt-1">Active Polls</div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-[#059669]">
+              <div className="text-3xl font-bold text-[#059669]">{dashboard.stats.totalVotes || 0}</div>
+              <div className="text-sm text-[#64748b] mt-1">Total Votes</div>
+            </div>
+            <div className="bg-white rounded-lg shadow p-6 border-l-4 border-[#0891b2]">
+              <div className="text-3xl font-bold text-[#0891b2]">{dashboard.stats.totalTeams || 0}</div>
+              <div className="text-sm text-[#64748b] mt-1">Total Teams</div>
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-3xl font-bold text-[#0f172a]">My Hackathons</h2>
           <Link

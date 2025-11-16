@@ -168,6 +168,23 @@ export default function ResultsPage() {
                               )}
                             </div>
                           )}
+                          
+                          {/* Position Statistics for Ranked Voting */}
+                          {votingMode === 'ranked' && item.positionCounts && Object.keys(item.positionCounts).length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {Object.entries(item.positionCounts)
+                                .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                                .map(([position, count]: [string, any]) => (
+                                  <span
+                                    key={position}
+                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#e0f2fe] text-[#0369a1]"
+                                    title={`Ranked ${position}${position === '1' ? 'st' : position === '2' ? 'nd' : position === '3' ? 'rd' : 'th'} place ${count} time${count > 1 ? 's' : ''}`}
+                                  >
+                                    #{position}: {count}×
+                                  </span>
+                                ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">

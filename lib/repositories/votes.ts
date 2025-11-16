@@ -171,6 +171,31 @@ export async function hasJudgeVoted(pollId: string, judgeEmail: string): Promise
 }
 
 /**
+ * Get vote by judge email
+ */
+export async function getVoteByJudgeEmail(pollId: string, judgeEmail: string): Promise<VoteRecord | null> {
+  const result = await query<VoteRecord>(
+    'SELECT * FROM votes WHERE poll_id = $1 AND judge_email = $2 ORDER BY timestamp DESC LIMIT 1',
+    [pollId, judgeEmail]
+  );
+  
+  if (!result.rows[0]) {
+    return null;
+  }
+  
+  // Parse JSONB fields
+  const vote = result.rows[0];
+  if (vote.teams && typeof vote.teams === 'string') {
+    vote.teams = JSON.parse(vote.teams);
+  }
+  if (vote.rankings && typeof vote.rankings === 'string') {
+    vote.rankings = JSON.parse(vote.rankings);
+  }
+  
+  return vote;
+}
+
+/**
  * Update vote with transaction hash
  */
 export async function updateVoteTxHash(
