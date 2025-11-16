@@ -114,6 +114,10 @@ export const createPollSchema = z.object({
   allowSelfVote: z.boolean().optional().default(false),
   requireTeamNameGate: z.boolean().optional().default(true),
   isPublicResults: z.boolean().optional().default(false),
+  maxRankedPositions: z.number().int().positive().nullable().optional(), // Maximum positions to rank (null = unlimited)
+  votingSequence: z.enum(['simultaneous', 'voters_first']).optional().default('simultaneous'),
+  parentPollId: z.string().uuid('Invalid parent poll ID').nullable().optional(), // For tie-breaker polls
+  isTieBreaker: z.boolean().optional().default(false),
 }).refine(
   (data) => {
     const startDate = new Date(data.startTime);
@@ -123,6 +127,18 @@ export const createPollSchema = z.object({
   {
     message: 'End time must be after start time',
     path: ['endTime'],
+  }
+).refine(
+  (data) => {
+    // maxRankedPositions only makes sense for ranked voting mode
+    if (data.maxRankedPositions !== null && data.maxRankedPositions !== undefined && data.votingMode !== 'ranked') {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: 'maxRankedPositions can only be set for ranked voting mode',
+    path: ['maxRankedPositions'],
   }
 );
 

@@ -14,6 +14,7 @@ export interface TeamResult {
   judgeVotes: number;
   voterPoints: number;
   judgePoints: number;
+  positionCounts?: Record<number, number>; // For ranked voting: position -> count
 }
 
 /**
@@ -140,8 +141,16 @@ export function calculatePollResults(
     });
 
     // Calculate points for each team
-    // Use numberOfTeams if provided, otherwise estimate from allTeamIds (may not be accurate if not all teams ranked)
-    const teamsCount = numberOfTeams || allTeamIds.size;
+    // Always use numberOfTeams if provided (actual team count), never estimate from allTeamIds
+    // This ensures accurate point calculation: rank 1 gets numberOfTeams points, rank 2 gets numberOfTeams-1, etc.
+    if (!numberOfTeams || numberOfTeams <= 0) {
+      throw new Error('numberOfTeams must be provided for ranked voting point calculation');
+    }
+    const teamsCount = numberOfTeams;
+    
+    // Calculate position counts for each team (how many times ranked at each position)
+    const allRankings = [...voterRankings, ...judgeRankings];
+    
     for (const teamId of allTeamIds) {
       const voterPoints = calculateTeamRankedPoints(
         teamId,
@@ -158,6 +167,15 @@ export function calculatePollResults(
         poll.rank_points_config
       );
 
+      // Calculate position counts for this team
+      const positionCounts: Record<number, number> = {};
+      for (const rankings of allRankings) {
+        const teamRanking = rankings.find(r => r.teamId === teamId);
+        if (teamRanking) {
+          positionCounts[teamRanking.rank] = (positionCounts[teamRanking.rank] || 0) + 1;
+        }
+      }
+
       teamResults.set(teamId, {
         teamId,
         teamName: '',
@@ -166,6 +184,7 @@ export function calculatePollResults(
         judgeVotes: judgeRankings.length,
         voterPoints,
         judgePoints,
+        positionCounts: Object.keys(positionCounts).length > 0 ? positionCounts : undefined,
       });
     }
   }

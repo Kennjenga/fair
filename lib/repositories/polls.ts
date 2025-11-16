@@ -19,6 +19,10 @@ export interface PollRecord extends QueryRow {
   allow_self_vote: boolean;
   require_team_name_gate: boolean;
   is_public_results: boolean;
+  max_ranked_positions?: number | null; // Maximum number of positions to rank (null = unlimited)
+  voting_sequence: 'simultaneous' | 'voters_first'; // Voting sequence control
+  parent_poll_id?: string | null; // For tie-breaker polls
+  is_tie_breaker: boolean; // Whether this is a tie-breaker poll
   created_by: string;
   created_at: Date;
   updated_at: Date;
@@ -40,13 +44,17 @@ export async function createPoll(
   rankPointsConfig: Record<string, number> = { '1': 10, '2': 7, '3': 5, '4': 3, '5': 1 },
   allowSelfVote: boolean = false,
   requireTeamNameGate: boolean = true,
-  isPublicResults: boolean = false
+  isPublicResults: boolean = false,
+  maxRankedPositions?: number | null,
+  votingSequence: 'simultaneous' | 'voters_first' = 'simultaneous',
+  parentPollId?: string | null,
+  isTieBreaker: boolean = false
 ): Promise<PollRecord> {
   const result = await query<PollRecord>(
-    `INSERT INTO polls (hackathon_id, name, start_time, end_time, created_by, voting_mode, voting_permissions, voter_weight, judge_weight, rank_points_config, allow_self_vote, require_team_name_gate, is_public_results)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    `INSERT INTO polls (hackathon_id, name, start_time, end_time, created_by, voting_mode, voting_permissions, voter_weight, judge_weight, rank_points_config, allow_self_vote, require_team_name_gate, is_public_results, max_ranked_positions, voting_sequence, parent_poll_id, is_tie_breaker)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
      RETURNING *`,
-    [hackathonId, name, startTime, endTime, createdBy, votingMode, votingPermissions, voterWeight, judgeWeight, JSON.stringify(rankPointsConfig), allowSelfVote, requireTeamNameGate, isPublicResults]
+    [hackathonId, name, startTime, endTime, createdBy, votingMode, votingPermissions, voterWeight, judgeWeight, JSON.stringify(rankPointsConfig), allowSelfVote, requireTeamNameGate, isPublicResults, maxRankedPositions || null, votingSequence, parentPollId || null, isTieBreaker]
   );
   
   // Parse JSONB fields
@@ -150,6 +158,10 @@ export async function updatePoll(
     allowSelfVote?: boolean;
     requireTeamNameGate?: boolean;
     isPublicResults?: boolean;
+    maxRankedPositions?: number | null;
+    votingSequence?: 'simultaneous' | 'voters_first';
+    parentPollId?: string | null;
+    isTieBreaker?: boolean;
   }
 ): Promise<PollRecord> {
   const fields: string[] = [];
@@ -199,6 +211,22 @@ export async function updatePoll(
   if (updates.isPublicResults !== undefined) {
     fields.push(`is_public_results = $${paramIndex++}`);
     values.push(updates.isPublicResults);
+  }
+  if (updates.maxRankedPositions !== undefined) {
+    fields.push(`max_ranked_positions = $${paramIndex++}`);
+    values.push(updates.maxRankedPositions);
+  }
+  if (updates.votingSequence !== undefined) {
+    fields.push(`voting_sequence = $${paramIndex++}`);
+    values.push(updates.votingSequence);
+  }
+  if (updates.parentPollId !== undefined) {
+    fields.push(`parent_poll_id = $${paramIndex++}`);
+    values.push(updates.parentPollId);
+  }
+  if (updates.isTieBreaker !== undefined) {
+    fields.push(`is_tie_breaker = $${paramIndex++}`);
+    values.push(updates.isTieBreaker);
   }
   
   fields.push(`updated_at = CURRENT_TIMESTAMP`);

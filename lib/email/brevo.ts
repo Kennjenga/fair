@@ -263,6 +263,95 @@ Thank you for participating!
 }
 
 /**
+ * Send judge voting invitation email
+ * @param email - Recipient email address
+ * @param pollName - Name of the poll
+ * @param pollId - Poll ID for voting link
+ * @param judgeName - Judge's name (optional)
+ * @returns Email send result
+ */
+export async function sendJudgeInvitationEmail(
+  email: string,
+  pollName: string,
+  pollId: string,
+  judgeName?: string
+): Promise<any> {
+  const votingUrl = `${APP_URL}/vote?pollId=${encodeURIComponent(pollId)}&judgeEmail=${encodeURIComponent(email)}`;
+  
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #1e40af 0%, #0891b2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f8fafc; padding: 30px; border-radius: 0 0 8px 8px; }
+        .button { display: inline-block; background: #1e40af; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+        .footer { text-align: center; margin-top: 30px; color: #64748b; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>FAIR Voting Platform</h1>
+        </div>
+        <div class="content">
+          <h2>Judge Voting Invitation</h2>
+          <p>Hello${judgeName ? ` ${judgeName}` : ''},</p>
+          <p>You have been invited to judge the poll: <strong>${pollName}</strong></p>
+          <p>Click the button below to cast your judge vote:</p>
+          <div style="text-align: center;">
+            <a href="${votingUrl}" class="button">Cast Your Judge Vote</a>
+          </div>
+          <p>Or copy and paste this link into your browser:</p>
+          <div style="background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 6px;">
+            <code style="word-break: break-all;">${votingUrl}</code>
+          </div>
+          <p><strong>Important:</strong></p>
+          <ul>
+            <li>You can only vote once as a judge</li>
+            <li>Your vote will be recorded on the blockchain for transparency</li>
+            <li>Please provide reasons for your rankings when voting</li>
+          </ul>
+          <p>Thank you for serving as a judge!</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated message from FAIR Voting Platform. Please do not reply to this email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const textContent = `
+FAIR Voting Platform - Judge Voting Invitation
+
+Hello${judgeName ? ` ${judgeName}` : ''},
+
+You have been invited to judge the poll: ${pollName}
+
+Click the link below to cast your judge vote:
+${votingUrl}
+
+Important:
+- You can only vote once as a judge
+- Your vote will be recorded on the blockchain for transparency
+- Please provide reasons for your rankings when voting
+
+Thank you for serving as a judge!
+  `;
+
+  return await sendEmail({
+    to: email,
+    subject: `Judge Invitation for ${pollName}`,
+    html: htmlContent,
+    text: textContent,
+  });
+}
+
+/**
  * Update email delivery status in database
  * This should be called by webhook handler when Brevo sends delivery updates
  * @param messageId - Brevo message ID

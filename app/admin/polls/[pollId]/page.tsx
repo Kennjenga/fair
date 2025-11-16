@@ -18,12 +18,20 @@ export default function PollManagementPage() {
   const [tokens, setTokens] = useState<any[]>([]);
   const [judges, setJudges] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [results, setResults] = useState<any>(null);
   
   // Judge management states
   const [showAddJudge, setShowAddJudge] = useState(false);
   const [judgeEmail, setJudgeEmail] = useState('');
   const [judgeName, setJudgeName] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'teams' | 'voters' | 'judges' | 'results'>('overview');
+  
+  // Tie-breaker states
+  const [showTieBreaker, setShowTieBreaker] = useState(false);
+  const [tiedTeamIds, setTiedTeamIds] = useState<string[]>([]);
+  const [tieBreakerName, setTieBreakerName] = useState('');
+  const [tieBreakerStartTime, setTieBreakerStartTime] = useState('');
+  const [tieBreakerEndTime, setTieBreakerEndTime] = useState('');
   
   // Modal states
   const [showAddTeam, setShowAddTeam] = useState(false);
@@ -77,7 +85,7 @@ export default function PollManagementPage() {
     if (!pollId) return;
     
     try {
-      const [pollRes, teamsRes, tokensRes, judgesRes] = await Promise.all([
+      const [pollRes, teamsRes, tokensRes, judgesRes, resultsRes] = await Promise.all([
         fetch(`/api/v1/admin/polls/${pollId}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
@@ -90,6 +98,9 @@ export default function PollManagementPage() {
         fetch(`/api/v1/admin/polls/${pollId}/judges`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
+        fetch(`/api/v1/results/${pollId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => null), // Results might not be available yet
       ]);
 
       if (pollRes.status === 401) {
@@ -103,6 +114,11 @@ export default function PollManagementPage() {
       const teamsData = await teamsRes.json();
       const tokensData = await tokensRes.json();
       const judgesData = await judgesRes.json();
+      
+      if (resultsRes && resultsRes.ok) {
+        const resultsData = await resultsRes.json();
+        setResults(resultsData);
+      }
 
       setPoll(pollData.poll);
       setTeams(teamsData.teams || []);
@@ -610,6 +626,50 @@ export default function PollManagementPage() {
                 >
                   Register Self
                 </button>
+                {tokens.length > 0 && (
+                  <button
+                    onClick={async () => {
+                      const token = localStorage.getItem('auth_token');
+                      if (!token) return;
+                      
+                      setSubmitting(true);
+                      setError('');
+                      setSuccess('');
+                      
+                      try {
+                        const response = await fetch(`/api/v1/admin/polls/${pollId}/voters/send-emails`, {
+                          method: 'POST',
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                          },
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                          setSuccess(`Emails sent: ${data.sent}, Failed: ${data.failed}`);
+                          // Refresh tokens to update delivery status
+                          const tokensRes = await fetch(`/api/v1/admin/polls/${pollId}/voters`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                          });
+                          const tokensData = await tokensRes.json();
+                          setTokens(tokensData.tokens || []);
+                        } else {
+                          setError(data.error || 'Failed to send emails');
+                        }
+                      } catch (err) {
+                        setError('An error occurred while sending emails');
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                    disabled={submitting}
+                    className="bg-[#1e40af] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#1e3a8a] transition-colors disabled:opacity-50"
+                  >
+                    {submitting ? 'Sending...' : 'Send Emails'}
+                  </button>
+                )}
               </div>
             </div>
             {tokens.length === 0 ? (
@@ -649,16 +709,56 @@ export default function PollManagementPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-[#0f172a]">Judges</h2>
-              <button
-                onClick={() => {
-                  setShowAddJudge(true);
-                  setJudgeEmail('');
-                  setJudgeName('');
-                }}
-                className="bg-[#1e40af] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#1e3a8a] transition-colors"
-              >
-                Add Judge
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowAddJudge(true);
+                    setJudgeEmail('');
+                    setJudgeName('');
+                  }}
+                  className="bg-[#1e40af] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#1e3a8a] transition-colors"
+                >
+                  Add Judge
+                </button>
+                {judges.length > 0 && (
+                  <button
+                    onClick={async () => {
+                      const token = localStorage.getItem('auth_token');
+                      if (!token) return;
+                      
+                      setSubmitting(true);
+                      setError('');
+                      setSuccess('');
+                      
+                      try {
+                        const response = await fetch(`/api/v1/admin/polls/${pollId}/judges/send-emails`, {
+                          method: 'POST',
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                          },
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                          setSuccess(`Emails sent: ${data.sent}, Failed: ${data.failed}`);
+                        } else {
+                          setError(data.error || 'Failed to send emails');
+                        }
+                      } catch (err) {
+                        setError('An error occurred while sending emails');
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                    disabled={submitting}
+                    className="bg-[#059669] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#047857] transition-colors disabled:opacity-50"
+                  >
+                    {submitting ? 'Sending...' : 'Send Emails'}
+                  </button>
+                )}
+              </div>
             </div>
 
             {judges.length === 0 ? (
@@ -808,18 +908,126 @@ export default function PollManagementPage() {
 
         {activeTab === 'results' && (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-[#0f172a] mb-4">Results</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-[#0f172a]">Results</h2>
+              <Link
+                href={`/results/${pollId}`}
+                className="bg-[#0891b2] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#0e7490] transition-colors"
+              >
+                View Full Results →
+              </Link>
+            </div>
+            
             <p className="text-[#64748b] mb-4">
               {poll.is_public_results 
                 ? 'Results are publicly available.' 
                 : 'Results are private. Only you and super admins can view them.'}
             </p>
-            <Link
-              href={`/results/${pollId}`}
-              className="inline-block bg-[#0891b2] text-white px-4 py-2 rounded-lg font-semibold hover:bg-[#0e7490] transition-colors"
-            >
-              View Results →
-            </Link>
+            
+            {results && results.results && results.results.teams && results.results.teams.length > 0 ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-[#f8fafc] rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-[#1e40af]">{results.results.totalVotes || 0}</div>
+                    <div className="text-sm text-[#64748b]">Total Votes</div>
+                  </div>
+                  <div className="bg-[#f8fafc] rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-[#059669]">{results.results.teams.length}</div>
+                    <div className="text-sm text-[#64748b]">Teams</div>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-[#0f172a]">Rankings</h3>
+                  {results.results.teams
+                    .sort((a: any, b: any) => b.totalScore - a.totalScore)
+                    .slice(0, 5)
+                    .map((team: any, index: number) => (
+                      <div
+                        key={team.teamId}
+                        className="flex items-center justify-between p-3 border border-[#e2e8f0] rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
+                            index === 0 ? 'bg-[#059669]' : index === 1 ? 'bg-[#0891b2]' : index === 2 ? 'bg-[#1e40af]' : 'bg-[#64748b]'
+                          }`}>
+                            {index + 1}
+                          </div>
+                          <div>
+                            <div className="font-medium text-[#0f172a]">{team.teamName}</div>
+                            {poll.voting_mode === 'ranked' && team.positionCounts && Object.keys(team.positionCounts).length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {Object.entries(team.positionCounts)
+                                  .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                                  .slice(0, 3)
+                                  .map(([position, count]: [string, any]) => (
+                                    <span
+                                      key={position}
+                                      className="text-xs px-1.5 py-0.5 rounded bg-[#e0f2fe] text-[#0369a1]"
+                                    >
+                                      #{position}: {count}×
+                                    </span>
+                                  ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-[#1e40af]">{team.totalScore.toFixed(2)}</div>
+                          <div className="text-xs text-[#64748b]">points</div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+                
+                {/* Check for ties and show tie-breaker button */}
+                {results.results.teams.length >= 2 && (() => {
+                  const sorted = [...results.results.teams].sort((a: any, b: any) => b.totalScore - a.totalScore);
+                  const topScore = sorted[0]?.totalScore;
+                  const tiedTeams = sorted.filter((t: any) => Math.abs(t.totalScore - topScore) < 0.01);
+                  
+                  if (tiedTeams.length >= 2) {
+                    return (
+                      <div className="mt-6 p-4 bg-[#fef3c7] border border-[#fbbf24] rounded-lg">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="font-semibold text-[#92400e] mb-2">Tie Detected!</h4>
+                            <p className="text-sm text-[#78350f] mb-2">
+                              {tiedTeams.length} teams are tied with {topScore.toFixed(2)} points:
+                            </p>
+                            <ul className="text-sm text-[#78350f] list-disc list-inside">
+                              {tiedTeams.map((team: any) => (
+                                <li key={team.teamId}>{team.teamName}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setTiedTeamIds(tiedTeams.map((t: any) => t.teamId));
+                              setTieBreakerName(`${poll.name} - Tie Breaker`);
+                              const now = new Date();
+                              const defaultStart = new Date(now.getTime() + 60 * 60 * 1000).toISOString().slice(0, 16);
+                              const defaultEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
+                              setTieBreakerStartTime(defaultStart);
+                              setTieBreakerEndTime(defaultEnd);
+                              setShowTieBreaker(true);
+                            }}
+                            className="bg-[#f59e0b] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#d97706] transition-colors whitespace-nowrap ml-4"
+                          >
+                            Create Tie-Breaker
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-[#64748b]">
+                No votes recorded yet. Results will appear here once voting begins.
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1407,6 +1615,155 @@ export default function PollManagementPage() {
                   className="px-4 py-2 bg-[#0891b2] text-white rounded-lg hover:bg-[#0e7490] disabled:opacity-50"
                 >
                   {submitting ? 'Updating...' : 'Update Timeline'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tie-Breaker Modal */}
+      {showTieBreaker && (
+        <div className="fixed inset-0 bg-[#f8fafc] bg-opacity-60 backdrop-blur-md flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-6 max-w-md w-full mx-4 my-8 border border-[#e2e8f0]">
+            <h3 className="text-xl font-semibold text-[#0f172a] mb-4">Create Tie-Breaker Poll</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                  Poll Name *
+                </label>
+                <input
+                  type="text"
+                  value={tieBreakerName}
+                  onChange={(e) => setTieBreakerName(e.target.value)}
+                  className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                  placeholder="Tie-Breaker Poll Name"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                  Start Time *
+                </label>
+                <input
+                  type="datetime-local"
+                  value={tieBreakerStartTime}
+                  onChange={(e) => setTieBreakerStartTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-[#0f172a] mb-1">
+                  End Time *
+                </label>
+                <input
+                  type="datetime-local"
+                  value={tieBreakerEndTime}
+                  onChange={(e) => setTieBreakerEndTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+                />
+              </div>
+              
+              <div className="bg-[#f8fafc] rounded-lg p-3">
+                <p className="text-sm font-medium text-[#0f172a] mb-2">Tied Teams ({tiedTeamIds.length}):</p>
+                <ul className="text-sm text-[#64748b] list-disc list-inside">
+                  {tiedTeamIds.map((teamId) => {
+                    const team = teams.find(t => t.team_id === teamId);
+                    return <li key={teamId}>{team?.team_name || teamId}</li>;
+                  })}
+                </ul>
+                <p className="text-xs text-[#64748b] mt-2">
+                  The tie-breaker poll will inherit all settings from the original poll and only include the tied teams.
+                </p>
+              </div>
+              
+              {error && (
+                <div className="text-red-600 text-sm">{error}</div>
+              )}
+              
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => {
+                    setShowTieBreaker(false);
+                    setTiedTeamIds([]);
+                    setTieBreakerName('');
+                    setTieBreakerStartTime('');
+                    setTieBreakerEndTime('');
+                    setError('');
+                  }}
+                  className="px-4 py-2 text-[#64748b] hover:text-[#0f172a]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!tieBreakerName || !tieBreakerStartTime || !tieBreakerEndTime) {
+                      setError('All fields are required');
+                      return;
+                    }
+                    
+                    const startDate = new Date(tieBreakerStartTime);
+                    const endDate = new Date(tieBreakerEndTime);
+                    
+                    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                      setError('Invalid date format');
+                      return;
+                    }
+                    
+                    if (endDate <= startDate) {
+                      setError('End time must be after start time');
+                      return;
+                    }
+                    
+                    setSubmitting(true);
+                    setError('');
+                    
+                    const token = localStorage.getItem('auth_token');
+                    if (!token) return;
+                    
+                    try {
+                      const response = await fetch(`/api/v1/admin/polls/${pollId}/tie-breaker`, {
+                        method: 'POST',
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          tiedTeamIds,
+                          name: tieBreakerName,
+                          startTime: startDate.toISOString(),
+                          endTime: endDate.toISOString(),
+                        }),
+                      });
+                      
+                      const data = await response.json();
+                      
+                      if (!response.ok) {
+                        setError(data.error || 'Failed to create tie-breaker poll');
+                        setSubmitting(false);
+                        return;
+                      }
+                      
+                      setSuccess('Tie-breaker poll created successfully!');
+                      setShowTieBreaker(false);
+                      setTiedTeamIds([]);
+                      setTieBreakerName('');
+                      setTieBreakerStartTime('');
+                      setTieBreakerEndTime('');
+                      
+                      // Redirect to the new tie-breaker poll
+                      router.push(`/admin/polls/${data.poll.poll_id}`);
+                    } catch (err) {
+                      setError('Failed to create tie-breaker poll');
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-[#f59e0b] text-white rounded-lg hover:bg-[#d97706] disabled:opacity-50"
+                >
+                  {submitting ? 'Creating...' : 'Create Tie-Breaker Poll'}
                 </button>
               </div>
             </div>

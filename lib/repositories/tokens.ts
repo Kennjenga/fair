@@ -1,5 +1,5 @@
 import { query, transaction } from '@/lib/db';
-import { generateSecureToken, hashToken } from '@/lib/utils/token';
+import { generateSecureToken, hashToken, encryptPlainToken, decryptPlainToken } from '@/lib/utils/token';
 import type { Token, TokenDeliveryStatus } from '@/types/token';
 import type { QueryRow } from '@/types/database';
 
@@ -8,7 +8,7 @@ import type { QueryRow } from '@/types/database';
  */
 export interface TokenRecord extends QueryRow {
   token_id: string;
-  token: string;
+  token: string; // Hashed token
   poll_id: string;
   team_id: string;
   email: string;
@@ -21,6 +21,7 @@ export interface TokenRecord extends QueryRow {
     status: TokenDeliveryStatus;
     message?: string;
   }>;
+  plain_token_encrypted?: string | null; // Encrypted plain token for email sending
   created_at: Date;
 }
 
@@ -35,12 +36,13 @@ export async function createToken(
 ): Promise<{ token: string; tokenRecord: TokenRecord }> {
   const token = generateSecureToken();
   const tokenHash = hashToken(token);
+  const encryptedPlainToken = encryptPlainToken(token);
   
   const result = await query<TokenRecord>(
-    `INSERT INTO tokens (token, poll_id, team_id, email, expires_at, delivery_status)
-     VALUES ($1, $2, $3, $4, $5, 'queued')
+    `INSERT INTO tokens (token, poll_id, team_id, email, expires_at, delivery_status, plain_token_encrypted)
+     VALUES ($1, $2, $3, $4, $5, 'queued', $6)
      RETURNING *`,
-    [tokenHash, pollId, teamId, email, expiresAt || null]
+    [tokenHash, pollId, teamId, email, expiresAt || null, encryptedPlainToken]
   );
   
   return {
@@ -75,6 +77,22 @@ export async function getTokenById(tokenId: string): Promise<TokenRecord | null>
   );
   
   return result.rows[0] || null;
+}
+
+/**
+ * Get plain token from token record (decrypts stored plain token)
+ */
+export function getPlainTokenFromRecord(tokenRecord: TokenRecord): string | null {
+  if (!tokenRecord.plain_token_encrypted) {
+    return null;
+  }
+  
+  try {
+    return decryptPlainToken(tokenRecord.plain_token_encrypted);
+  } catch (error) {
+    console.error('Failed to decrypt plain token:', error);
+    return null;
+  }
 }
 
 /**

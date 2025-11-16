@@ -79,7 +79,11 @@ export async function POST(req: NextRequest) {
         validated.rankPointsConfig || { '1': 10, '2': 7, '3': 5, '4': 3, '5': 1 },
         validated.allowSelfVote,
         validated.requireTeamNameGate,
-        validated.isPublicResults
+        validated.isPublicResults,
+        validated.maxRankedPositions,
+        validated.votingSequence || 'simultaneous',
+        validated.parentPollId,
+        validated.isTieBreaker || false
       );
       
       // Log audit

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/auth/middleware';
 import { registerVotersSchema } from '@/lib/validation/schemas';
 import { getPollById } from '@/lib/repositories/polls';
-import { bulkCreateTokens, getTokensByPoll } from '@/lib/repositories/tokens';
+import { bulkCreateTokens, getTokensByPoll, getTokenById } from '@/lib/repositories/tokens';
 import { sendVotingTokenEmail } from '@/lib/email/brevo';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
 import type { AuthenticatedRequest } from '@/lib/auth/middleware';
@@ -125,38 +125,11 @@ export async function POST(
         })
       );
       
-      // Create tokens
+      // Create tokens (emails will be sent when admin clicks "Send Emails" button)
       const tokenResults = await bulkCreateTokens(
         pollId,
         votersWithTeamIds.map(v => ({ email: v.email, teamId: v.teamId }))
       );
-      
-      // Send emails (async, don't wait)
-      Promise.all(
-        tokenResults.map(async (result) => {
-          try {
-            await sendVotingTokenEmail(
-              result.email,
-              result.token,
-              poll.name,
-              votersWithTeamIds.find(v => v.email === result.email)!.teamName
-            );
-            
-            // Update delivery status
-            await require('@/lib/repositories/tokens').updateTokenDeliveryStatus(
-              result.tokenId,
-              'sent'
-            );
-          } catch (error) {
-            console.error(`Failed to send email to ${result.email}:`, error);
-            await require('@/lib/repositories/tokens').updateTokenDeliveryStatus(
-              result.tokenId,
-              'failed',
-              error instanceof Error ? error.message : 'Unknown error'
-            );
-          }
-        })
-      ).catch(console.error);
       
       await logAudit(
         'voters_registered',

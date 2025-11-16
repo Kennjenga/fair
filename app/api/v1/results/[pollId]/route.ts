@@ -107,6 +107,7 @@ export async function GET(
       rankedPoints: result.totalScore, // For ranked mode
       voterVotes: result.voterVotes,
       judgeVotes: result.judgeVotes,
+      positionCounts: result.positionCounts, // Position statistics for ranked voting
     })).sort((a, b) => b.totalScore - a.totalScore);
     
     // Get votes with transaction hashes for blockchain verification
