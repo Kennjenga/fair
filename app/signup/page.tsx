@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Button, Input, Alert } from '@/components/ui';
 
 /**
  * Public signup page
@@ -57,87 +58,71 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1e40af] via-[#0891b2] to-[#059669] flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-[#4F46E5] to-[#6366F1] flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-[#1F2937] rounded-2xl shadow-xl p-8 w-full max-w-md border border-[#E2E8F0] dark:border-[#374151]">
+        {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-[#1e40af] mb-2">
-            FAIR Voting Platform
+          <h1 className="text-3xl font-bold text-[#0F172A] dark:text-white mb-2">
+            FAIR Voting
           </h1>
-          <p className="text-[#64748b]">Create Your Account</p>
+          <p className="text-[#334155] dark:text-[#9CA3AF]">Create Your Account</p>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
-          </div>
-        )}
+        {/* Alert */}
+        {error && <Alert type="error" message={error} />}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-[#0f172a] mb-1">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-              placeholder="your@email.com"
-            />
-          </div>
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4 mt-6">
+          <Input
+            label="Email"
+            type="email"
+            placeholder="your@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-[#0f172a] mb-1">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-              placeholder="••••••••"
-            />
-            <p className="text-xs text-[#64748b] mt-1">Must be at least 8 characters</p>
-          </div>
+          <Input
+            label="Password"
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+            helperText="Must be at least 8 characters"
+          />
 
-          <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-[#0f172a] mb-1">
-              Confirm Password
-            </label>
-            <input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              minLength={8}
-              className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-              placeholder="••••••••"
-            />
-          </div>
+          <Input
+            label="Confirm Password"
+            type="password"
+            placeholder="••••••••"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            minLength={8}
+          />
 
-          <button
+          <Button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#1e40af] text-white py-2 rounded-lg font-semibold hover:bg-[#1e3a8a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            isLoading={loading}
+            className="w-full"
+            size="lg"
           >
             {loading ? 'Creating Account...' : 'Sign Up'}
-          </button>
+          </Button>
         </form>
 
-        <div className="mt-6 text-center">
-          <p className="text-[#64748b] text-sm">
+        {/* Links */}
+        <div className="mt-6 text-center space-y-2">
+          <p className="text-[#334155] dark:text-[#9CA3AF] text-sm">
             Already have an account?{' '}
-            <Link href="/admin/login" className="text-[#0891b2] hover:text-[#0e7490]">
+            <Link href="/admin/login" className="text-[#4F46E5] dark:text-[#818CF8] hover:text-[#4338CA] dark:hover:text-[#C7D2FE] font-semibold">
               Login
             </Link>
           </p>
-          <Link href="/" className="block mt-2 text-[#0891b2] hover:text-[#0e7490] text-sm">
+          <Link href="/" className="block text-[#4F46E5] dark:text-[#818CF8] hover:text-[#4338CA] dark:hover:text-[#C7D2FE] text-sm">
             ← Back to Home
           </Link>
         </div>
@@ -145,5 +130,6 @@ export default function SignupPage() {
     </div>
   );
 }
+
 
 
