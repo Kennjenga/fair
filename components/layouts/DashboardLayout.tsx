@@ -28,7 +28,7 @@ export const DashboardLayout = ({
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B0F19]">
+    <div className="min-h-screen bg-[#F8FAFC]">
       {/* Navbar */}
       <Navbar user={user} />
 
@@ -43,7 +43,7 @@ export const DashboardLayout = ({
           <div className="max-w-7xl">
             {title && (
               <div className="mb-8">
-                <h1 className="text-3xl md:text-4xl font-bold text-[#0F172A] dark:text-white">
+                <h1 className="text-3xl md:text-4xl font-bold text-[#0F172A]">
                   {title}
                 </h1>
               </div>

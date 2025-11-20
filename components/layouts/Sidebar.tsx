@@ -35,7 +35,7 @@ export const Sidebar = ({ items, isOpen = true, onToggle }: SidebarProps) => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed md:relative left-0 top-0 h-screen md:h-auto bg-white dark:bg-[#1F2937] border-r border-[#E2E8F0] dark:border-[#374151] transition-transform duration-300 z-50 md:z-0 ${
+        className={`fixed md:relative left-0 top-0 h-screen md:h-auto bg-white border-r border-[#E2E8F0] transition-transform duration-300 z-50 md:z-0 ${
           isOpen ? 'w-64 md:w-60' : '-translate-x-full md:translate-x-0 md:w-20'
         }`}
       >
@@ -49,8 +49,8 @@ export const Sidebar = ({ items, isOpen = true, onToggle }: SidebarProps) => {
                   <a
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors ${
                       isActive
-                        ? 'bg-[#EEF2FF] dark:bg-[#312E81] text-[#4F46E5] dark:text-[#818CF8] font-semibold'
-                        : 'text-[#334155] dark:text-[#9CA3AF] hover:bg-[#F3F4F6] dark:hover:bg-[#111827]'
+                        ? 'bg-[#EEF2FF] text-[#4F46E5] font-semibold'
+                        : 'text-[#334155] hover:bg-[#F3F4F6]'
                     }`}
                   >
                     <span className={`text-lg ${!isOpen && 'md:mx-auto'}`}>

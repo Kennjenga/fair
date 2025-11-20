@@ -9,7 +9,7 @@ export const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-[#0F172A] dark:bg-[#0B0F19] text-white py-12 md:py-16">
+    <footer className="bg-[#0F172A] text-white py-12 md:py-16">
       <div className="container mx-auto px-4">
         <div className="grid md:grid-cols-4 gap-8 mb-8">
           {/* Brand */}
@@ -54,7 +54,7 @@ export const Footer = () => {
         {/* Divider */}
         <div className="border-t border-[#374151] pt-8">
           <p className="text-center text-[#9CA3AF] text-sm">
-            © {currentYear} FAIR Voting Platform. All rights reserved.
+            © {currentYear} FAIR LABS Inc. All rights reserved.
           </p>
         </div>
       </div>

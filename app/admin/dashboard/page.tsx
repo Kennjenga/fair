@@ -127,14 +127,14 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B0F19] flex items-center justify-center">
-        <div className="text-[#334155] dark:text-[#9CA3AF]">Loading...</div>
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+        <div className="text-[#334155]">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B0F19]">
+    <div className="min-h-screen bg-[#F8FAFC]">
       {/* Navbar */}
       <Navbar user={admin || undefined} />
 
@@ -142,12 +142,8 @@ export default function AdminDashboard() {
       <main className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-[#0F172A] dark:text-white mb-2">
-            Dashboard
-          </h1>
-          <p className="text-[#334155] dark:text-[#9CA3AF]">
-            Welcome back, {admin?.email}
-          </p>
+          <h1 className="text-4xl font-bold text-[#0F172A] mb-2">Dashboard</h1>
+          <p className="text-[#334155]">Welcome back, {admin?.email}</p>
         </div>
 
         {/* Statistics Grid */}
@@ -161,12 +157,8 @@ export default function AdminDashboard() {
             <Card key={idx} className="hover:shadow-lg transition-all cursor-pointer">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[#334155] dark:text-[#9CA3AF] text-sm font-medium">
-                    {stat.label}
-                  </p>
-                  <p className="text-3xl font-bold text-[#0F172A] dark:text-white mt-2">
-                    {stat.value}
-                  </p>
+                  <p className="text-[#334155] text-sm font-medium">{stat.label}</p>
+                  <p className="text-3xl font-bold text-[#0F172A] mt-2">{stat.value}</p>
                 </div>
                 <div className="text-4xl">{stat.icon}</div>
               </div>
@@ -176,9 +168,7 @@ export default function AdminDashboard() {
 
         {/* Actions section */}
         <div className="mb-12">
-          <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white mb-4">
-            My Hackathons
-          </h2>
+          <h2 className="text-2xl font-bold text-[#0F172A] mb-4">My Hackathons</h2>
           <div className="flex gap-4 mb-6">
             <Link href="/admin/hackathons/create">
               <Button>Create Hackathon</Button>
@@ -190,7 +180,7 @@ export default function AdminDashboard() {
 
           {hackathons.length === 0 ? (
             <Card className="text-center py-12">
-              <p className="text-[#334155] dark:text-[#9CA3AF] mb-4">
+              <p className="text-[#334155] mb-4">
                 No hackathons yet. Create your first hackathon to get started.
               </p>
               <Link href="/admin/hackathons/create">
@@ -203,13 +193,9 @@ export default function AdminDashboard() {
                 <Card key={hackathon.hackathon_id} className="hover:shadow-lg transition-all">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-[#0F172A] dark:text-white">
-                        {hackathon.name}
-                      </h3>
+                      <h3 className="text-lg font-semibold text-[#0F172A]">{hackathon.name}</h3>
                       {hackathon.description && (
-                        <p className="text-sm text-[#334155] dark:text-[#9CA3AF] mt-2">
-                          {hackathon.description}
-                        </p>
+                        <p className="text-sm text-[#334155] mt-2">{hackathon.description}</p>
                       )}
                     </div>
                     <Link href={`/admin/hackathons/${hackathon.hackathon_id}`}>
@@ -226,13 +212,11 @@ export default function AdminDashboard() {
         {showAllHackathons && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
             <Card className="max-w-2xl w-full max-h-96 overflow-y-auto">
-              <div className="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-[#1F2937] pb-4">
-                <h2 className="text-2xl font-bold text-[#0F172A] dark:text-white">
-                  All Hackathons
-                </h2>
+              <div className="flex justify-between items-center mb-4 sticky top-0 bg-white pb-4">
+                <h2 className="text-2xl font-bold text-[#0F172A]">All Hackathons</h2>
                 <button
                   onClick={() => setShowAllHackathons(false)}
-                  className="text-[#334155] dark:text-[#9CA3AF] hover:text-[#0F172A] dark:hover:text-white text-2xl"
+                  className="text-[#334155] hover:text-[#0F172A] text-2xl"
                 >
                   ✕
                 </button>
@@ -244,23 +228,17 @@ export default function AdminDashboard() {
                     <Link
                       key={hackathon.hackathon_id}
                       href={`/admin/hackathons/${hackathon.hackathon_id}`}
-                      className="block p-3 border border-[#E2E8F0] dark:border-[#374151] rounded-lg hover:bg-[#F3F4F6] dark:hover:bg-[#111827] transition-colors"
+                      className="block p-3 border border-[#E2E8F0] rounded-lg hover:bg-[#F3F4F6] transition-colors"
                     >
-                      <div className="font-semibold text-[#0F172A] dark:text-white">
-                        {hackathon.name}
-                      </div>
+                      <div className="font-semibold text-[#0F172A]">{hackathon.name}</div>
                       {hackathon.description && (
-                        <p className="text-sm text-[#334155] dark:text-[#9CA3AF] line-clamp-1">
-                          {hackathon.description}
-                        </p>
+                        <p className="text-sm text-[#334155] line-clamp-1">{hackathon.description}</p>
                       )}
                     </Link>
                   ))}
                 </div>
               ) : (
-                <p className="text-center py-8 text-[#334155] dark:text-[#9CA3AF]">
-                  No hackathons found
-                </p>
+                <p className="text-center py-8 text-[#334155]">No hackathons found</p>
               )}
             </Card>
           </div>

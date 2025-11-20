@@ -59,13 +59,13 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#4F46E5] to-[#6366F1] flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-[#1F2937] rounded-2xl shadow-xl p-8 w-full max-w-md border border-[#E2E8F0] dark:border-[#374151]">
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md border border-[#E2E8F0]">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-[#0F172A] dark:text-white mb-2">
+          <h1 className="text-3xl font-bold text-[#0F172A] mb-2">
             FAIR Voting
           </h1>
-          <p className="text-[#334155] dark:text-[#9CA3AF]">Create Your Account</p>
+          <p className="text-[#334155]">Create Your Account</p>
         </div>
 
         {/* Alert */}
@@ -116,13 +116,13 @@ export default function SignupPage() {
 
         {/* Links */}
         <div className="mt-6 text-center space-y-2">
-          <p className="text-[#334155] dark:text-[#9CA3AF] text-sm">
+          <p className="text-[#334155] text-sm">
             Already have an account?{' '}
-            <Link href="/admin/login" className="text-[#4F46E5] dark:text-[#818CF8] hover:text-[#4338CA] dark:hover:text-[#C7D2FE] font-semibold">
+            <Link href="/admin/login" className="text-[#4F46E5] hover:text-[#4338CA] font-semibold">
               Login
             </Link>
           </p>
-          <Link href="/" className="block text-[#4F46E5] dark:text-[#818CF8] hover:text-[#4338CA] dark:hover:text-[#C7D2FE] text-sm">
+          <Link href="/" className="block text-[#4F46E5] hover:text-[#4338CA] text-sm">
             ← Back to Home
           </Link>
         </div>
