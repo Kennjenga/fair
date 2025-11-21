@@ -76,7 +76,7 @@ export const Sidebar = ({ items, user, isOpen = true, onToggle }: SidebarProps) 
         animate={{
           x: shouldShow ? 0 : -280,
         }}
-        className="fixed md:relative left-0 md:left-4 top-0 md:top-4 h-screen md:h-[calc(100vh-2rem)] bg-white md:rounded-2xl border-r md:border border-[#E2E8F0] md:shadow-lg transition-all duration-300 z-40 md:z-0 w-64 flex flex-col overflow-hidden"
+        className="fixed md:sticky left-0 md:left-0 top-0 md:top-4 h-screen md:h-[calc(100vh-2rem)] bg-white md:rounded-2xl border-r md:border border-[#E2E8F0] md:shadow-lg transition-all duration-300 z-40 md:z-0 w-64 flex flex-col overflow-hidden md:ml-4"
       >
         {/* Logo/Brand */}
         <div className="p-6 border-b border-[#E2E8F0]">
