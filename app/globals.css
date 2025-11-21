@@ -17,14 +17,6 @@
   --error: #DC2626;
   --info: #0EA5E9;
 
-  /* Dark Mode */
-  --dark-1: #0B0F19;
-  --dark-2: #111827;
-  --dark-card: #1F2937;
-  --dark-border: #374151;
-  --dark-text: #F3F4F6;
-  --dark-text-secondary: #9CA3AF;
-
   /* Fonts */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -41,12 +33,6 @@
   --color-warning: var(--warning);
   --color-error: var(--error);
   --color-info: var(--info);
-  --color-dark-1: var(--dark-1);
-  --color-dark-2: var(--dark-2);
-  --color-dark-card: var(--dark-card);
-  --color-dark-border: var(--dark-border);
-  --color-dark-text: var(--dark-text);
-  --color-dark-text-secondary: var(--dark-text-secondary);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -67,32 +53,6 @@ body {
     radial-gradient(circle at 20% 50%, rgba(79, 70, 229, 0.03) 0%, transparent 50%),
     radial-gradient(circle at 80% 80%, rgba(99, 102, 241, 0.03) 0%, transparent 50%);
   background-attachment: fixed;
-}
-
-/* Dark mode */
-@media (prefers-color-scheme: dark) {
-  body {
-    background: var(--dark-2);
-    color: var(--dark-text);
-  }
-
-  .card {
-    background: var(--dark-card);
-    border-color: var(--dark-border);
-  }
-
-  input,
-  textarea,
-  select {
-    background: var(--dark-1);
-    color: var(--dark-text);
-    border-color: var(--dark-border);
-  }
-
-  input::placeholder,
-  textarea::placeholder {
-    color: var(--dark-text-secondary);
-  }
 }
 
 /* Utility classes for consistent spacing */

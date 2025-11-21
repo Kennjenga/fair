@@ -190,9 +190,9 @@ export const Hero = () => {
 
               {/* Desktop CTAs */}
               <div className="hidden md:flex items-center gap-3">
-                <Link href="/docs">
+                <Link href="/admin/login">
                   <Button variant="secondary" size="sm" className="border-[#E2E8F0] text-[#334155] hover:bg-[#F8FAFC] transition-all hover:scale-105">
-                    Product Tour
+                    Login
                   </Button>
                 </Link>
                 <Link href="/signup">
@@ -251,9 +251,9 @@ export const Hero = () => {
                   </nav>
 
                   <div className="flex flex-col gap-3">
-                    <Link href="/docs" onClick={() => setMobileMenuOpen(false)}>
+                    <Link href="/admin/login" onClick={() => setMobileMenuOpen(false)}>
                       <Button variant="secondary" className="w-full border-[#E2E8F0] text-[#334155] hover:bg-[#F8FAFC]">
-                        Product Tour
+                        Login
                       </Button>
                     </Link>
                     <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>

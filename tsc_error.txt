@@ -1,0 +1,16 @@
+app/admin/polls/[pollId]/page.tsx(435,65): error TS2322: Type '"outline"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
+app/admin/polls/[pollId]/page.tsx(565,29): error TS2322: Type '"ghost"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
+app/admin/polls/[pollId]/page.tsx(573,29): error TS2322: Type '"ghost"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
+app/admin/polls/[pollId]/page.tsx(585,29): error TS2322: Type '"ghost"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
+app/admin/polls/[pollId]/page.tsx(686,29): error TS2322: Type '"outline"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
+app/admin/polls/[pollId]/page.tsx(698,29): error TS2322: Type '"ghost"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
+app/admin/polls/[pollId]/page.tsx(780,25): error TS2322: Type '"ghost"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
+app/admin/polls/[pollId]/page.tsx(885,25): error TS2322: Type '"outline"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
+app/admin/polls/[pollId]/page.tsx(948,29): error TS2322: Type '"ghost"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
+app/admin/polls/[pollId]/page.tsx(952,23): error TS2322: Type '"ghost"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
+app/admin/polls/[pollId]/page.tsx(954,25): error TS2322: Type '"outline"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
+app/admin/polls/[pollId]/page.tsx(980,25): error TS2322: Type '"outline"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
+app/admin/polls/[pollId]/page.tsx(1030,25): error TS2322: Type '"outline"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
+app/admin/polls/[pollId]/page.tsx(1067,25): error TS2322: Type '"outline"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
+app/admin/polls/[pollId]/page.tsx(1125,25): error TS2322: Type '"outline"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
+app/admin/polls/[pollId]/page.tsx(1199,25): error TS2322: Type '"outline"' is not assignable to type '"primary" | "secondary" | "icon" | undefined'.
