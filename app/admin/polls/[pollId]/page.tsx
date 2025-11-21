@@ -3,16 +3,23 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Sidebar } from '@/components/layouts';
+
+const sidebarItems = [
+  { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
+  { label: 'Hackathons', href: '/admin/hackathons', icon: '🏆' },
+  { label: 'Polls', href: '/admin/polls', icon: '🗳️' },
+];
 
 /**
- * Poll management page content
+ * Poll management page content with modern design
  */
 function PollManagementPageContent() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
   const pollId = params?.pollId as string;
-  
+
   const [admin, setAdmin] = useState<{ adminId: string; email: string; role: string } | null>(null);
   const [poll, setPoll] = useState<any>(null);
   const [teams, setTeams] = useState<any[]>([]);
@@ -20,20 +27,20 @@ function PollManagementPageContent() {
   const [judges, setJudges] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<any>(null);
-  
+
   // Judge management states
   const [showAddJudge, setShowAddJudge] = useState(false);
   const [judgeEmail, setJudgeEmail] = useState('');
   const [judgeName, setJudgeName] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'teams' | 'voters' | 'judges' | 'results'>('overview');
-  
+
   // Tie-breaker states
   const [showTieBreaker, setShowTieBreaker] = useState(false);
   const [tiedTeamIds, setTiedTeamIds] = useState<string[]>([]);
   const [tieBreakerName, setTieBreakerName] = useState('');
   const [tieBreakerStartTime, setTieBreakerStartTime] = useState('');
   const [tieBreakerEndTime, setTieBreakerEndTime] = useState('');
-  
+
   // Modal states
   const [showAddTeam, setShowAddTeam] = useState(false);
   const [showRegisterVoters, setShowRegisterVoters] = useState(false);
@@ -47,7 +54,7 @@ function PollManagementPageContent() {
   const [viewingTeam, setViewingTeam] = useState<any>(null);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
-  
+
   // Form states
   const [teamName, setTeamName] = useState('');
   const [editTeamName, setEditTeamName] = useState('');
@@ -55,7 +62,7 @@ function PollManagementPageContent() {
   const [selectedReassignTeam, setSelectedReassignTeam] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-  
+
   // Edit poll form states
   const [editPollName, setEditPollName] = useState('');
   const [editPollStartTime, setEditPollStartTime] = useState('');
@@ -75,7 +82,8 @@ function PollManagementPageContent() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   // Searchable dropdown states for team selection
   const [teamSearchOpen, setTeamSearchOpen] = useState<{ [key: number]: boolean }>({});
   const [teamSearchQuery, setTeamSearchQuery] = useState<{ [key: number]: string }>({});
@@ -84,7 +92,7 @@ function PollManagementPageContent() {
 
   useEffect(() => {
     if (!pollId) return;
-    
+
     const token = localStorage.getItem('auth_token');
     const adminData = localStorage.getItem('admin');
 
@@ -129,17 +137,17 @@ function PollManagementPageContent() {
   // If current tab is hidden, switch to a valid tab
   useEffect(() => {
     if (!poll) return;
-    
+
     // Get voting permissions - check both snake_case and camelCase
     const votingPermissions = poll.voting_permissions || (poll as any).votingPermissions;
     if (!votingPermissions) return;
-    
+
     const shouldShowTab = (tab: string) => {
       if (tab === 'voters' && votingPermissions === 'judges_only') return false;
       if (tab === 'judges' && votingPermissions === 'voters_only') return false;
       return true;
     };
-    
+
     if (!shouldShowTab(activeTab)) {
       // Switch to overview if current tab is hidden
       setActiveTab('overview');
@@ -148,7 +156,7 @@ function PollManagementPageContent() {
 
   const fetchPollData = async (token: string) => {
     if (!pollId) return;
-    
+
     try {
       const [pollRes, teamsRes, tokensRes, judgesRes, resultsRes] = await Promise.all([
         fetch(`/api/v1/admin/polls/${pollId}`, {
@@ -179,7 +187,7 @@ function PollManagementPageContent() {
       const teamsData = await teamsRes.json();
       const tokensData = await tokensRes.json();
       const judgesData = await judgesRes.json();
-      
+
       if (resultsRes && resultsRes.ok) {
         const resultsData = await resultsRes.json();
         setResults(resultsData);
@@ -189,7 +197,7 @@ function PollManagementPageContent() {
       setTeams(teamsData.teams || []);
       setTokens(tokensData.tokens || []);
       setJudges(judgesData.judges || []);
-      
+
       // Set timeline for editing
       if (pollData.poll) {
         const start = new Date(pollData.poll.start_time);
@@ -378,7 +386,7 @@ function PollManagementPageContent() {
       setTeamSearchQuery({ ...teamSearchQuery, [index]: value });
     }
   };
-  
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -388,16 +396,16 @@ function PollManagementPageContent() {
         setReassignTeamSearchOpen(false);
       }
     };
-    
+
     const hasOpenDropdown = Object.values(teamSearchOpen).some(open => open) || reassignTeamSearchOpen;
-    
+
     if (hasOpenDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-    
+
     // Return empty cleanup function if no dropdowns are open
-    return () => {};
+    return () => { };
   }, [teamSearchOpen, reassignTeamSearchOpen]);
 
   const handleLogout = () => {
@@ -503,35 +511,34 @@ function PollManagementPageContent() {
                 if (!poll) {
                   return true; // Show all tabs while loading
                 }
-                
+
                 // Get voting permissions - check both snake_case and camelCase
                 const votingPermissions = poll.voting_permissions || (poll as any).votingPermissions;
-                
+
                 if (!votingPermissions) {
                   return true; // Show all tabs if voting_permissions is not set
                 }
-                
+
                 // Hide voters tab if poll is judges only
                 if (tab === 'voters' && votingPermissions === 'judges_only') {
                   return false;
                 }
-                
+
                 // Hide judges tab if poll is voters only
                 if (tab === 'judges' && votingPermissions === 'voters_only') {
                   return false;
                 }
-                
+
                 return true;
               })
               .map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-                    activeTab === tab
-                      ? 'border-[#1e40af] text-[#1e40af]'
-                      : 'border-transparent text-[#64748b] hover:text-[#0f172a]'
-                  }`}
+                  className={`px-4 py-2 font-medium border-b-2 transition-colors ${activeTab === tab
+                    ? 'border-[#1e40af] text-[#1e40af]'
+                    : 'border-transparent text-[#64748b] hover:text-[#0f172a]'
+                    }`}
                 >
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
@@ -558,18 +565,17 @@ function PollManagementPageContent() {
             <div className="space-y-3">
               <div>
                 <span className="font-medium text-[#0f172a]">Status: </span>
-                <span className={`px-2 py-1 rounded text-sm ${
-                  new Date() >= new Date(poll.start_time) && new Date() <= new Date(poll.end_time)
-                    ? 'bg-green-100 text-green-800'
-                    : new Date() < new Date(poll.start_time)
+                <span className={`px-2 py-1 rounded text-sm ${new Date() >= new Date(poll.start_time) && new Date() <= new Date(poll.end_time)
+                  ? 'bg-green-100 text-green-800'
+                  : new Date() < new Date(poll.start_time)
                     ? 'bg-blue-100 text-blue-800'
                     : 'bg-gray-100 text-gray-800'
-                }`}>
+                  }`}>
                   {new Date() >= new Date(poll.start_time) && new Date() <= new Date(poll.end_time)
                     ? 'Active'
                     : new Date() < new Date(poll.start_time)
-                    ? 'Upcoming'
-                    : 'Ended'}
+                      ? 'Upcoming'
+                      : 'Ended'}
                 </span>
               </div>
               <div>
@@ -605,7 +611,7 @@ function PollManagementPageContent() {
               <div className="space-y-2">
                 {teams.map((team) => {
                   // Fix: Check both team_id and teamId properties
-                  const memberCount = tokens.filter(t => 
+                  const memberCount = tokens.filter(t =>
                     t.team_id === team.team_id || t.teamId === team.team_id
                   ).length;
                   return (
@@ -647,23 +653,23 @@ function PollManagementPageContent() {
                             if (!confirm(`Are you sure you want to delete "${team.team_name}"? This action cannot be undone.`)) {
                               return;
                             }
-                            
+
                             const token = localStorage.getItem('auth_token');
                             if (!token) return;
-                            
+
                             try {
                               const response = await fetch(`/api/v1/admin/polls/${pollId}/teams/${team.team_id}`, {
                                 method: 'DELETE',
                                 headers: { Authorization: `Bearer ${token}` },
                               });
-                              
+
                               const data = await response.json();
-                              
+
                               if (!response.ok) {
                                 setError(data.error || 'Failed to delete team');
                                 return;
                               }
-                              
+
                               setSuccess('Team deleted successfully');
                               fetchPollData(token);
                             } catch (err) {
@@ -702,11 +708,11 @@ function PollManagementPageContent() {
                     onClick={async () => {
                       const token = localStorage.getItem('auth_token');
                       if (!token) return;
-                      
+
                       setSubmitting(true);
                       setError('');
                       setSuccess('');
-                      
+
                       try {
                         const response = await fetch(`/api/v1/admin/polls/${pollId}/voters/send-emails`, {
                           method: 'POST',
@@ -715,9 +721,9 @@ function PollManagementPageContent() {
                             'Content-Type': 'application/json',
                           },
                         });
-                        
+
                         const data = await response.json();
-                        
+
                         if (response.ok) {
                           setSuccess(`Emails sent: ${data.sent}, Failed: ${data.failed}`);
                           // Refresh tokens to update delivery status
@@ -763,8 +769,8 @@ function PollManagementPageContent() {
                       <div className="flex-1">
                         <div className="font-medium text-[#0f172a]">{token.email}</div>
                         <div className="text-sm text-[#64748b] mt-1">
-                          Team: <span className="font-medium">{team?.team_name || 'Unknown'}</span> • 
-                          <span className={`ml-1 ${deliveryStatus.color}`}>{deliveryStatus.text}</span> • 
+                          Team: <span className="font-medium">{team?.team_name || 'Unknown'}</span> •
+                          <span className={`ml-1 ${deliveryStatus.color}`}>{deliveryStatus.text}</span> •
                           {token.used ? <span className="text-green-600 ml-1">Voted</span> : <span className="text-gray-500 ml-1">Not Voted</span>}
                         </div>
                       </div>
@@ -785,28 +791,28 @@ function PollManagementPageContent() {
                             if (!confirm(`Are you sure you want to remove "${token.email}"? This will invalidate their token and delete their vote if they have already voted. This action cannot be undone.`)) {
                               return;
                             }
-                            
+
                             const token2 = localStorage.getItem('auth_token');
                             if (!token2) return;
-                            
+
                             setSubmitting(true);
                             setError('');
                             setSuccess('');
-                            
+
                             try {
                               const response = await fetch(`/api/v1/admin/polls/${pollId}/voters/${token.tokenId}`, {
                                 method: 'DELETE',
                                 headers: { Authorization: `Bearer ${token2}` },
                               });
-                              
+
                               const data = await response.json();
-                              
+
                               if (!response.ok) {
                                 setError(data.error || 'Failed to remove voter');
                                 setSubmitting(false);
                                 return;
                               }
-                              
+
                               setSuccess('Voter removed successfully. Token invalidated and votes deleted.');
                               // Refresh tokens list
                               const tokensRes = await fetch(`/api/v1/admin/polls/${pollId}/voters`, {
@@ -854,11 +860,11 @@ function PollManagementPageContent() {
                     onClick={async () => {
                       const token = localStorage.getItem('auth_token');
                       if (!token) return;
-                      
+
                       setSubmitting(true);
                       setError('');
                       setSuccess('');
-                      
+
                       try {
                         const response = await fetch(`/api/v1/admin/polls/${pollId}/judges/send-emails`, {
                           method: 'POST',
@@ -867,9 +873,9 @@ function PollManagementPageContent() {
                             'Content-Type': 'application/json',
                           },
                         });
-                        
+
                         const data = await response.json();
-                        
+
                         if (response.ok) {
                           setSuccess(`Emails sent: ${data.sent}, Failed: ${data.failed}`);
                         } else {
@@ -908,7 +914,7 @@ function PollManagementPageContent() {
                     <button
                       onClick={async () => {
                         if (!confirm(`Remove ${judge.email} as a judge?`)) return;
-                        
+
                         const token = localStorage.getItem('auth_token');
                         if (!token) return;
 
@@ -946,7 +952,7 @@ function PollManagementPageContent() {
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
                   <h3 className="text-xl font-semibold text-[#0f172a] mb-4">Add Judge</h3>
-                  
+
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-[#0f172a] mb-1">
@@ -960,7 +966,7 @@ function PollManagementPageContent() {
                         placeholder="judge@example.com"
                       />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-[#0f172a] mb-1">
                         Name (Optional)
@@ -1046,13 +1052,13 @@ function PollManagementPageContent() {
                 View Full Results →
               </Link>
             </div>
-            
+
             <p className="text-[#64748b] mb-4">
-              {poll.is_public_results 
-                ? 'Results are publicly available.' 
+              {poll.is_public_results
+                ? 'Results are publicly available.'
                 : 'Results are private. Only you and super admins can view them.'}
             </p>
-            
+
             {results && results.results && results.results.teams && results.results.teams.length > 0 ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4 mb-4">
@@ -1065,7 +1071,7 @@ function PollManagementPageContent() {
                     <div className="text-sm text-[#64748b]">Teams</div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <h3 className="font-semibold text-[#0f172a]">Rankings</h3>
                   {results.results.teams
@@ -1077,9 +1083,8 @@ function PollManagementPageContent() {
                         className="flex items-center justify-between p-3 border border-[#e2e8f0] rounded-lg"
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
-                            index === 0 ? 'bg-[#059669]' : index === 1 ? 'bg-[#0891b2]' : index === 2 ? 'bg-[#1e40af]' : 'bg-[#64748b]'
-                          }`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${index === 0 ? 'bg-[#059669]' : index === 1 ? 'bg-[#0891b2]' : index === 2 ? 'bg-[#1e40af]' : 'bg-[#64748b]'
+                            }`}>
                             {index + 1}
                           </div>
                           <div>
@@ -1108,13 +1113,13 @@ function PollManagementPageContent() {
                       </div>
                     ))}
                 </div>
-                
+
                 {/* Check for ties and show tie-breaker button */}
                 {results.results.teams.length >= 2 && (() => {
                   const sorted = [...results.results.teams].sort((a: any, b: any) => b.totalScore - a.totalScore);
                   const topScore = sorted[0]?.totalScore;
                   const tiedTeams = sorted.filter((t: any) => Math.abs(t.totalScore - topScore) < 0.01);
-                  
+
                   if (tiedTeams.length >= 2) {
                     return (
                       <div className="mt-6 p-4 bg-[#fef3c7] border border-[#fbbf24] rounded-lg">
@@ -1253,8 +1258,8 @@ function PollManagementPageContent() {
                       {teamSearchOpen[index] && teams.length > 0 && (
                         <div className="absolute z-10 w-full mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg max-h-60 overflow-auto">
                           {teams
-                            .filter(team => 
-                              !teamSearchQuery[index] || 
+                            .filter(team =>
+                              !teamSearchQuery[index] ||
                               team.team_name.toLowerCase().includes(teamSearchQuery[index].toLowerCase())
                             )
                             .map((team) => (
@@ -1271,14 +1276,14 @@ function PollManagementPageContent() {
                                 {team.team_name}
                               </button>
                             ))}
-                          {teams.filter(team => 
-                            !teamSearchQuery[index] || 
+                          {teams.filter(team =>
+                            !teamSearchQuery[index] ||
                             team.team_name.toLowerCase().includes(teamSearchQuery[index].toLowerCase())
                           ).length === 0 && (
-                            <div className="px-4 py-2 text-[#64748b] text-sm">
-                              No teams found
-                            </div>
-                          )}
+                              <div className="px-4 py-2 text-[#64748b] text-sm">
+                                No teams found
+                              </div>
+                            )}
                         </div>
                       )}
                     </div>
@@ -1479,7 +1484,7 @@ function PollManagementPageContent() {
                       <option value="voters_first">Voters First (judges must wait until all voters have voted)</option>
                     </select>
                     <p className="text-xs text-[#64748b] mt-1">
-                      {editPollVotingSequence === 'voters_first' 
+                      {editPollVotingSequence === 'voters_first'
                         ? 'Judges will be blocked from voting until all registered voters have completed their votes.'
                         : 'Both voters and judges can vote at any time during the poll period.'}
                     </p>
@@ -1541,7 +1546,7 @@ function PollManagementPageContent() {
                 <p className="text-sm text-[#64748b]">
                   Set minimum participation thresholds. Leave empty for no requirement.
                 </p>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-[#0f172a] mb-1">
                     Minimum Voter Participation
@@ -1720,13 +1725,13 @@ function PollManagementPageContent() {
                       setError('Team name is required');
                       return;
                     }
-                    
+
                     setSubmitting(true);
                     setError('');
-                    
+
                     const token = localStorage.getItem('auth_token');
                     if (!token) return;
-                    
+
                     try {
                       const response = await fetch(`/api/v1/admin/polls/${pollId}/teams/${editingTeam.team_id}`, {
                         method: 'PATCH',
@@ -1736,15 +1741,15 @@ function PollManagementPageContent() {
                         },
                         body: JSON.stringify({ teamName: editTeamName.trim() }),
                       });
-                      
+
                       const data = await response.json();
-                      
+
                       if (!response.ok) {
                         setError(data.error || 'Failed to update team');
                         setSubmitting(false);
                         return;
                       }
-                      
+
                       setSuccess('Team updated successfully');
                       setShowEditTeam(false);
                       setEditingTeam(null);
@@ -1805,8 +1810,8 @@ function PollManagementPageContent() {
                   {reassignTeamSearchOpen && teams.length > 0 && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg max-h-60 overflow-auto">
                       {teams
-                        .filter(team => 
-                          !reassignTeamSearchQuery || 
+                        .filter(team =>
+                          !reassignTeamSearchQuery ||
                           team.team_name.toLowerCase().includes(reassignTeamSearchQuery.toLowerCase())
                         )
                         .map((team) => (
@@ -1823,14 +1828,14 @@ function PollManagementPageContent() {
                             {team.team_name}
                           </button>
                         ))}
-                      {teams.filter(team => 
-                        !reassignTeamSearchQuery || 
+                      {teams.filter(team =>
+                        !reassignTeamSearchQuery ||
                         team.team_name.toLowerCase().includes(reassignTeamSearchQuery.toLowerCase())
                       ).length === 0 && (
-                        <div className="px-4 py-2 text-[#64748b] text-sm">
-                          No teams found
-                        </div>
-                      )}
+                          <div className="px-4 py-2 text-[#64748b] text-sm">
+                            No teams found
+                          </div>
+                        )}
                     </div>
                   )}
                 </div>
@@ -1862,18 +1867,18 @@ function PollManagementPageContent() {
                       setError('Please select a team');
                       return;
                     }
-                    
+
                     if (selectedReassignTeam === reassigningVoter.team_id) {
                       setError('Voter is already assigned to this team');
                       return;
                     }
-                    
+
                     setSubmitting(true);
                     setError('');
-                    
+
                     const token = localStorage.getItem('auth_token');
                     if (!token) return;
-                    
+
                     try {
                       const response = await fetch(`/api/v1/admin/polls/${pollId}/voters/${reassigningVoter.tokenId}/reassign`, {
                         method: 'POST',
@@ -1883,15 +1888,15 @@ function PollManagementPageContent() {
                         },
                         body: JSON.stringify({ newTeamId: selectedReassignTeam }),
                       });
-                      
+
                       const data = await response.json();
-                      
+
                       if (!response.ok) {
                         setError(data.error || 'Failed to reassign voter');
                         setSubmitting(false);
                         return;
                       }
-                      
+
                       setSuccess('Voter reassigned successfully');
                       setShowReassignVoter(false);
                       setReassigningVoter(null);
@@ -1935,7 +1940,7 @@ function PollManagementPageContent() {
                 ×
               </button>
             </div>
-            
+
             {loadingMembers ? (
               <div className="text-center py-8 text-[#64748b]">Loading members...</div>
             ) : teamMembers.length === 0 ? (
@@ -1974,11 +1979,11 @@ function PollManagementPageContent() {
                 })}
               </div>
             )}
-            
+
             {error && (
               <div className="mt-4 text-red-600 text-sm">{error}</div>
             )}
-            
+
             <div className="flex justify-end mt-6">
               <button
                 onClick={() => {
@@ -2068,7 +2073,7 @@ function PollManagementPageContent() {
                   placeholder="Tie-Breaker Poll Name"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-[#0f172a] mb-1">
                   Start Time *
@@ -2080,7 +2085,7 @@ function PollManagementPageContent() {
                   className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-[#0f172a] mb-1">
                   End Time *
@@ -2092,7 +2097,7 @@ function PollManagementPageContent() {
                   className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
                 />
               </div>
-              
+
               <div className="bg-[#f8fafc] rounded-lg p-3">
                 <p className="text-sm font-medium text-[#0f172a] mb-2">Tied Teams ({tiedTeamIds.length}):</p>
                 <ul className="text-sm text-[#64748b] list-disc list-inside">
@@ -2105,11 +2110,11 @@ function PollManagementPageContent() {
                   The tie-breaker poll will inherit all settings from the original poll and only include the tied teams.
                 </p>
               </div>
-              
+
               {error && (
                 <div className="text-red-600 text-sm">{error}</div>
               )}
-              
+
               <div className="flex gap-2 justify-end">
                 <button
                   onClick={() => {
@@ -2130,26 +2135,26 @@ function PollManagementPageContent() {
                       setError('All fields are required');
                       return;
                     }
-                    
+
                     const startDate = new Date(tieBreakerStartTime);
                     const endDate = new Date(tieBreakerEndTime);
-                    
+
                     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
                       setError('Invalid date format');
                       return;
                     }
-                    
+
                     if (endDate <= startDate) {
                       setError('End time must be after start time');
                       return;
                     }
-                    
+
                     setSubmitting(true);
                     setError('');
-                    
+
                     const token = localStorage.getItem('auth_token');
                     if (!token) return;
-                    
+
                     try {
                       const response = await fetch(`/api/v1/admin/polls/${pollId}/tie-breaker`, {
                         method: 'POST',
@@ -2164,22 +2169,22 @@ function PollManagementPageContent() {
                           endTime: endDate.toISOString(),
                         }),
                       });
-                      
+
                       const data = await response.json();
-                      
+
                       if (!response.ok) {
                         setError(data.error || 'Failed to create tie-breaker poll');
                         setSubmitting(false);
                         return;
                       }
-                      
+
                       setSuccess('Tie-breaker poll created successfully!');
                       setShowTieBreaker(false);
                       setTiedTeamIds([]);
                       setTieBreakerName('');
                       setTieBreakerStartTime('');
                       setTieBreakerEndTime('');
-                      
+
                       // Redirect to the new tie-breaker poll
                       router.push(`/admin/polls/${data.poll.poll_id}`);
                     } catch (err) {
