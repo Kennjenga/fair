@@ -57,7 +57,7 @@ export async function sendEmailViaSMTP(emailData: {
 }): Promise<any> {
   try {
     const mailTransporter = getTransporter();
-    
+
     const mailOptions = {
       from: emailData.from || `"${FROM_NAME}" <${FROM_EMAIL}>`,
       to: Array.isArray(emailData.to) ? emailData.to.join(', ') : emailData.to,
@@ -129,7 +129,7 @@ export async function sendEmail(emailData: {
   if (SMTP_USER && SMTP_PASSWORD) {
     return await sendEmailViaSMTP(emailData);
   }
-  
+
   // Fallback to API if API key is available
   if (BREVO_API_KEY) {
     const toArray = Array.isArray(emailData.to) ? emailData.to : [emailData.to];
@@ -138,9 +138,9 @@ export async function sendEmail(emailData: {
       subject: emailData.subject,
       htmlContent: emailData.html,
       textContent: emailData.text,
-      sender: { 
-        email: emailData.from || FROM_EMAIL, 
-        name: emailData.fromName || FROM_NAME 
+      sender: {
+        email: emailData.from || FROM_EMAIL,
+        name: emailData.fromName || FROM_NAME
       },
     });
   }
@@ -157,7 +157,7 @@ export async function getBrevoClient(): Promise<any> {
     sendTransacEmail: async (email: any) => {
       const toArray = Array.isArray(email.to) ? email.to : email.to || [];
       const toEmails = toArray.map((item: any) => typeof item === 'string' ? item : item.email);
-      
+
       return await sendEmail({
         to: toEmails,
         subject: email.subject || '',
@@ -182,10 +182,13 @@ export async function sendVotingTokenEmail(
   email: string,
   token: string,
   pollName: string,
-  teamName: string
+  teamName: string,
+  pollId: string,
+  teamId: string
 ): Promise<any> {
   const votingUrl = `${APP_URL}/vote?token=${encodeURIComponent(token)}`;
-  
+  const teamDetailsUrl = `${APP_URL}/admin/polls/${pollId}/teams/${teamId}`;
+
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -197,6 +200,7 @@ export async function sendVotingTokenEmail(
         .header { background: linear-gradient(135deg, #1e40af 0%, #0891b2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
         .content { background: #f8fafc; padding: 30px; border-radius: 0 0 8px 8px; }
         .button { display: inline-block; background: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+        .button-secondary { display: inline-block; background: #0891b2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
         .token-box { background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 6px; }
         .footer { text-align: center; margin-top: 30px; color: #64748b; font-size: 12px; }
       </style>
@@ -219,6 +223,15 @@ export async function sendVotingTokenEmail(
           <div class="token-box">
             <code style="word-break: break-all;">${votingUrl}</code>
           </div>
+          <p style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+            <strong>Team Details:</strong> You can view and update your team's project information by clicking the link below:
+          </p>
+          <div style="text-align: center;">
+            <a href="${teamDetailsUrl}" class="button-secondary">View Team Details</a>
+          </div>
+          <p style="font-size: 12px; color: #64748b; margin-top: 10px;">
+            Note: You may need to log in as an admin to access the team details page.
+          </p>
           <p><strong>Important:</strong></p>
           <ul>
             <li>This token can only be used once</li>
@@ -245,6 +258,11 @@ Your team: ${teamName}
 
 Click the link below to cast your vote:
 ${votingUrl}
+
+Team Details:
+You can view and update your team's project information at:
+${teamDetailsUrl}
+(Note: You may need to log in as an admin to access this page)
 
 Important:
 - This token can only be used once
@@ -277,7 +295,7 @@ export async function sendJudgeInvitationEmail(
   judgeName?: string
 ): Promise<any> {
   const votingUrl = `${APP_URL}/vote?pollId=${encodeURIComponent(pollId)}&judgeEmail=${encodeURIComponent(email)}`;
-  
+
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -346,6 +364,175 @@ Thank you for serving as a judge!
   return await sendEmail({
     to: email,
     subject: `Judge Invitation for ${pollName}`,
+    html: htmlContent,
+    text: textContent,
+  });
+}
+
+/**
+ * Send admin account creation email with password
+ * @param email - Recipient email address
+ * @param password - Plain text password (to be shown in email)
+ * @param role - Admin role
+ * @returns Email send result
+ */
+export async function sendAdminCreationEmail(
+  email: string,
+  password: string,
+  role: string
+): Promise<any> {
+  const loginUrl = `${APP_URL}/admin/login`;
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #1e40af 0%, #0891b2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f8fafc; padding: 30px; border-radius: 0 0 8px 8px; }
+        .button { display: inline-block; background: #1e40af; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+        .password-box { background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 6px; font-family: monospace; font-size: 16px; font-weight: bold; }
+        .warning { background: #fef3c7; border-left: 4px solid #d97706; padding: 12px; margin: 20px 0; }
+        .footer { text-align: center; margin-top: 30px; color: #64748b; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>FAIR Voting Platform</h1>
+        </div>
+        <div class="content">
+          <h2>Admin Account Created</h2>
+          <p>Hello,</p>
+          <p>Your admin account has been created for the FAIR Voting Platform.</p>
+          <p><strong>Role:</strong> ${role}</p>
+          <p>Your login credentials are:</p>
+          <div class="password-box">
+            <strong>Email:</strong> ${email}<br>
+            <strong>Password:</strong> ${password}
+          </div>
+          <div class="warning">
+            <strong>⚠️ Important:</strong> Please change your password after your first login for security.
+          </div>
+          <p>Click the button below to log in:</p>
+          <div style="text-align: center;">
+            <a href="${loginUrl}" class="button">Log In to Admin Dashboard</a>
+          </div>
+          <p>Or copy and paste this link into your browser:</p>
+          <div style="background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 6px;">
+            <code style="word-break: break-all;">${loginUrl}</code>
+          </div>
+          <p>Thank you for joining the FAIR Voting Platform!</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated message from FAIR Voting Platform. Please do not reply to this email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const textContent = `
+FAIR Voting Platform - Admin Account Created
+
+Hello,
+
+Your admin account has been created for the FAIR Voting Platform.
+
+Role: ${role}
+
+Your login credentials are:
+Email: ${email}
+Password: ${password}
+
+⚠️ Important: Please change your password after your first login for security.
+
+Log in at: ${loginUrl}
+
+Thank you for joining the FAIR Voting Platform!
+  `;
+
+  return await sendEmail({
+    to: email,
+    subject: 'Your FAIR Voting Platform Admin Account',
+    html: htmlContent,
+    text: textContent,
+  });
+}
+
+/**
+ * Send admin signup welcome email
+ * @param email - Recipient email address
+ * @returns Email send result
+ */
+export async function sendAdminSignupEmail(email: string): Promise<any> {
+  const loginUrl = `${APP_URL}/admin/login`;
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #1e40af 0%, #0891b2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f8fafc; padding: 30px; border-radius: 0 0 8px 8px; }
+        .button { display: inline-block; background: #1e40af; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+        .footer { text-align: center; margin-top: 30px; color: #64748b; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>FAIR Voting Platform</h1>
+        </div>
+        <div class="content">
+          <h2>Welcome to FAIR Voting Platform!</h2>
+          <p>Hello,</p>
+          <p>Thank you for signing up for the FAIR Voting Platform!</p>
+          <p>Your admin account has been successfully created. You can now log in to the admin dashboard to start managing polls and hackathons.</p>
+          <p>Click the button below to log in:</p>
+          <div style="text-align: center;">
+            <a href="${loginUrl}" class="button">Log In to Admin Dashboard</a>
+          </div>
+          <p>Or copy and paste this link into your browser:</p>
+          <div style="background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 6px;">
+            <code style="word-break: break-all;">${loginUrl}</code>
+          </div>
+          <p>If you have any questions or need assistance, please don't hesitate to reach out.</p>
+          <p>Welcome aboard!</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated message from FAIR Voting Platform. Please do not reply to this email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const textContent = `
+FAIR Voting Platform - Welcome!
+
+Hello,
+
+Thank you for signing up for the FAIR Voting Platform!
+
+Your admin account has been successfully created. You can now log in to the admin dashboard to start managing polls and hackathons.
+
+Log in at: ${loginUrl}
+
+If you have any questions or need assistance, please don't hesitate to reach out.
+
+Welcome aboard!
+  `;
+
+  return await sendEmail({
+    to: email,
+    subject: 'Welcome to FAIR Voting Platform!',
     html: htmlContent,
     text: textContent,
   });

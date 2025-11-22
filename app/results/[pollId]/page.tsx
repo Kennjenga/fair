@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 /**
@@ -10,7 +10,7 @@ import Link from 'next/link';
 export default function ResultsPage() {
   const params = useParams();
   const pollId = params?.pollId as string;
-  
+
   const [results, setResults] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -23,7 +23,7 @@ export default function ResultsPage() {
 
   const fetchResults = async () => {
     if (!pollId) return;
-    
+
     try {
       // Get auth token if available (for admin access)
       const token = localStorage.getItem('auth_token');
@@ -31,7 +31,7 @@ export default function ResultsPage() {
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-      
+
       const response = await fetch(`/api/v1/results/${pollId}`, {
         headers,
       });
@@ -51,6 +51,8 @@ export default function ResultsPage() {
     }
   };
 
+  const router = useRouter();
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
@@ -65,12 +67,12 @@ export default function ResultsPage() {
         <div className="bg-white rounded-lg shadow p-8 max-w-md text-center">
           <h2 className="text-2xl font-bold text-[#dc2626] mb-4">Error</h2>
           <p className="text-[#64748b] mb-4">{error}</p>
-          <Link
-            href="/"
+          <button
+            onClick={() => router.back()}
             className="text-[#0891b2] hover:text-[#0e7490]"
           >
-            ← Back to Home
-          </Link>
+            ← Back
+          </button>
         </div>
       </div>
     );
@@ -84,7 +86,7 @@ export default function ResultsPage() {
   const sortedTeams = [...(results.results.teams || [])].sort(
     (a, b) => b.totalScore - a.totalScore
   );
-  
+
   // For display, we'll show vote counts or scores depending on voting mode
   const votingMode = results.poll.votingMode || 'single';
 
@@ -130,11 +132,11 @@ export default function ResultsPage() {
                   const totalScore = typeof item.totalScore === 'number' ? item.totalScore : parseFloat(item.totalScore || 0);
                   const rankedPoints = typeof item.rankedPoints === 'number' ? item.rankedPoints : parseFloat(item.rankedPoints || 0);
                   const voteCount = typeof item.voteCount === 'number' ? item.voteCount : parseInt(item.voteCount || 0, 10);
-                  
+
                   // Determine what to display based on voting mode
                   let displayValue: string | number;
                   let displayLabel = '';
-                  
+
                   if (votingMode === 'ranked') {
                     displayValue = parseFloat((rankedPoints || totalScore || 0).toFixed(2));
                     displayLabel = 'points';
@@ -143,16 +145,15 @@ export default function ResultsPage() {
                     displayValue = voteCount || 0;
                     displayLabel = displayValue === 1 ? 'vote' : 'votes';
                   }
-                  
+
                   return (
                     <div
                       key={item.teamId}
                       className="flex items-center justify-between p-4 border border-[#e2e8f0] rounded-lg hover:bg-[#f8fafc] transition-colors"
                     >
                       <div className="flex items-center gap-4">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
-                          index === 0 ? 'bg-[#059669]' : index === 1 ? 'bg-[#0891b2]' : index === 2 ? 'bg-[#1e40af]' : 'bg-[#64748b]'
-                        }`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${index === 0 ? 'bg-[#059669]' : index === 1 ? 'bg-[#0891b2]' : index === 2 ? 'bg-[#1e40af]' : 'bg-[#64748b]'
+                          }`}>
                           {index + 1}
                         </div>
                         <div>
@@ -168,7 +169,7 @@ export default function ResultsPage() {
                               )}
                             </div>
                           )}
-                          
+
                           {/* Position Statistics for Ranked Voting */}
                           {votingMode === 'ranked' && item.positionCounts && Object.keys(item.positionCounts).length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-1">
@@ -255,12 +256,12 @@ export default function ResultsPage() {
           )}
 
           <div className="mt-8 text-center">
-            <Link
-              href="/"
+            <button
+              onClick={() => router.back()}
               className="text-[#0891b2] hover:text-[#0e7490]"
             >
-              ← Back to Home
-            </Link>
+              ← Back
+            </button>
           </div>
         </div>
       </div>

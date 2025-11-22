@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/auth/middleware';
 import { getPollById } from '@/lib/repositories/polls';
-import { getJudgesByPoll } from '@/lib/repositories/judges';
+import { getJudgesByPoll, updateJudgeEmailStatus } from '@/lib/repositories/judges';
 import { sendJudgeInvitationEmail } from '@/lib/email/brevo';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
 import type { AuthenticatedRequest } from '@/lib/auth/middleware';
@@ -24,7 +24,7 @@ export async function POST(
     try {
       const admin = req.admin!;
       const { pollId } = await params;
-      
+
       // Check poll exists and access
       const poll = await getPollById(pollId);
       if (!poll) {
@@ -33,32 +33,44 @@ export async function POST(
           { status: 404 }
         );
       }
-      
+
       if (admin.role === 'admin' && poll.created_by !== admin.adminId) {
         return NextResponse.json(
           { error: 'Access denied' },
           { status: 403 }
         );
       }
-      
+
       // Get all judges for this poll
       const judges = await getJudgesByPoll(pollId);
-      
+
       if (judges.length === 0) {
         return NextResponse.json(
           { message: 'No judges to send emails to', sent: 0, failed: 0 },
           { status: 200 }
         );
       }
-      
+
+      // Filter judges that need emails sent (queued or failed status)
+      const judgesToSend = judges.filter(j => 
+        j.email_status === 'queued' || j.email_status === 'failed'
+      );
+
+      if (judgesToSend.length === 0) {
+        return NextResponse.json(
+          { message: 'No pending emails to send', sent: 0, failed: 0 },
+          { status: 200 }
+        );
+      }
+
       const results = {
         sent: 0,
         failed: 0,
         errors: [] as string[],
       };
-      
-      // Send emails to all judges
-      for (const judge of judges) {
+
+      // Send emails to judges that need them
+      for (const judge of judgesToSend) {
         try {
           await sendJudgeInvitationEmail(
             judge.email,
@@ -66,15 +78,19 @@ export async function POST(
             pollId,
             judge.name || undefined
           );
-          
+
+          // Update email status to sent
+          await updateJudgeEmailStatus(pollId, judge.email, 'sent');
           results.sent++;
         } catch (error) {
           console.error(`Failed to send email to ${judge.email}:`, error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          await updateJudgeEmailStatus(pollId, judge.email, 'failed', errorMessage);
           results.failed++;
-          results.errors.push(`${judge.email}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          results.errors.push(`${judge.email}: ${errorMessage}`);
         }
       }
-      
+
       await logAudit(
         'judge_emails_sent',
         admin.adminId,
@@ -83,7 +99,7 @@ export async function POST(
         { sent: results.sent, failed: results.failed },
         getClientIp(req.headers)
       );
-      
+
       return NextResponse.json({
         message: `Emails sent: ${results.sent}, Failed: ${results.failed}`,
         sent: results.sent,

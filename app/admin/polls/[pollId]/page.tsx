@@ -90,6 +90,12 @@ function PollManagementPageContent() {
   const [teamSearchQuery, setTeamSearchQuery] = useState<{ [key: number]: string }>({});
   const [reassignTeamSearchOpen, setReassignTeamSearchOpen] = useState(false);
   const [reassignTeamSearchQuery, setReassignTeamSearchQuery] = useState('');
+  
+  // Team migration states
+  const [showMigrateTeams, setShowMigrateTeams] = useState(false);
+  const [availablePolls, setAvailablePolls] = useState<any[]>([]);
+  const [selectedTeamsToMigrate, setSelectedTeamsToMigrate] = useState<string[]>([]);
+  const [targetPollId, setTargetPollId] = useState('');
 
   useEffect(() => {
     if (!pollId) return;
@@ -541,9 +547,38 @@ function PollManagementPageContent() {
             <Card className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-[#0F172A]">Teams</h2>
-                <Button onClick={() => setShowAddTeam(true)} className="bg-[#0891b2] hover:bg-[#0e7490]">
-                  Add Team
-                </Button>
+                <div className="flex gap-3">
+                  {teams.length > 0 && (
+                    <Button 
+                      onClick={async () => {
+                        // Fetch polls in the same hackathon
+                        const token = localStorage.getItem('auth_token');
+                        if (!token) return;
+                        try {
+                          const pollsRes = await fetch(`/api/v1/admin/hackathons/${poll.hackathon_id}/polls`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                          });
+                          const pollsData = await pollsRes.json();
+                          // Filter out current poll
+                          const otherPolls = (pollsData.polls || []).filter((p: any) => p.poll_id !== pollId);
+                          setAvailablePolls(otherPolls);
+                          setSelectedTeamsToMigrate([]);
+                          setTargetPollId('');
+                          setShowMigrateTeams(true);
+                        } catch (err) {
+                          setError('Failed to load polls');
+                        }
+                      }}
+                      variant="outline"
+                      className="border-[#4F46E5] text-[#4F46E5] hover:bg-[#4F46E5]/10"
+                    >
+                      Duplicate Teams
+                    </Button>
+                  )}
+                  <Button onClick={() => setShowAddTeam(true)} className="bg-[#0891b2] hover:bg-[#0e7490]">
+                    Add Team
+                  </Button>
+                </div>
               </div>
               {teams.length === 0 ? (
                 <p className="text-[#64748B] text-center py-8">No teams added yet.</p>
@@ -663,21 +698,27 @@ function PollManagementPageContent() {
                   {tokens.map((token) => {
                     const team = teams.find(t => t.team_id === token.team_id || t.team_id === token.teamId);
                     const getDeliveryStatusDisplay = (status: string | undefined) => {
-                      if (!status || status === 'queued') return { text: 'Email not sent', color: 'text-yellow-600' };
+                      if (!status || status === 'queued') return { text: 'Email not sent', color: 'text-gray-500' };
                       if (status === 'sent') return { text: 'Email sent', color: 'text-green-600' };
                       if (status === 'delivered') return { text: 'Email delivered', color: 'text-green-700' };
                       if (status === 'failed' || status === 'bounced') return { text: 'Email failed', color: 'text-red-600' };
                       return { text: 'Unknown', color: 'text-gray-600' };
                     };
-                    const deliveryStatus = getDeliveryStatusDisplay(token.deliveryStatus);
+                    const deliveryStatus = getDeliveryStatusDisplay(token.emailStatus || token.deliveryStatus);
                     return (
                       <div key={token.tokenId} className="border border-[#E2E8F0] rounded-xl p-4 flex justify-between items-center">
                         <div>
                           <div className="font-medium text-[#0F172A]">{token.email}</div>
                           <div className="text-sm text-[#64748B] mt-1">
-                            Team: <span className="font-medium">{team?.team_name || 'Unknown'}</span> •
-                            <span className={`ml-1 ${deliveryStatus.color}`}>{deliveryStatus.text}</span> •
-                            {token.used ? <span className="text-green-600 ml-1">Voted</span> : <span className="text-gray-500 ml-1">Not Voted</span>}
+                            Team: <span className="font-medium">{team?.team_name || 'Unknown'}</span>
+                            <span className="mx-1">•</span>
+                            <span className={deliveryStatus.color}>{deliveryStatus.text}</span>
+                            <span className="mx-1">•</span>
+                            {token.hasVoted !== undefined ? (
+                              token.hasVoted ? <span className="text-green-600">Voted</span> : <span className="text-gray-500">Not Voted</span>
+                            ) : (
+                              token.used ? <span className="text-green-600">Voted</span> : <span className="text-gray-500">Not Voted</span>
+                            )}
                           </div>
                         </div>
                         <div className="flex gap-2">
@@ -749,8 +790,20 @@ function PollManagementPageContent() {
                             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
                           });
                           const data = await response.json();
-                          if (response.ok) setSuccess(`Emails sent: ${data.sent}, Failed: ${data.failed}`);
-                          else setError(data.error || 'Failed');
+                          if (response.ok) {
+                            setSuccess(`Emails sent: ${data.sent}, Failed: ${data.failed}`);
+                            // Refresh judges list to show updated email status
+                            const token = localStorage.getItem('auth_token');
+                            if (token) {
+                              const judgesRes = await fetch(`/api/v1/admin/polls/${pollId}/judges`, {
+                                headers: { Authorization: `Bearer ${token}` },
+                              });
+                              const judgesData = await judgesRes.json();
+                              setJudges(judgesData.judges || []);
+                            }
+                          } else {
+                            setError(data.error || 'Failed');
+                          }
                         } catch (err) {
                           setError('Error sending emails');
                         } finally {
@@ -769,38 +822,54 @@ function PollManagementPageContent() {
                 <p className="text-[#64748B] text-center py-8">No judges added yet.</p>
               ) : (
                 <div className="space-y-3">
-                  {judges.map((judge) => (
-                    <div key={judge.email} className="flex justify-between items-center p-4 border border-[#E2E8F0] rounded-xl">
-                      <div>
-                        <p className="font-medium text-[#0F172A]">{judge.email}</p>
-                        {judge.name && <p className="text-sm text-[#64748B]">{judge.name}</p>}
+                  {judges.map((judge: any) => {
+                    const getEmailStatusDisplay = (status: string | undefined) => {
+                      if (!status || status === 'queued') return { text: 'Email not sent', color: 'text-gray-500' };
+                      if (status === 'sent') return { text: 'Email sent', color: 'text-green-600' };
+                      if (status === 'delivered') return { text: 'Email delivered', color: 'text-green-700' };
+                      if (status === 'failed' || status === 'bounced') return { text: 'Email failed', color: 'text-red-600' };
+                      return { text: 'Unknown', color: 'text-gray-600' };
+                    };
+                    const emailStatus = getEmailStatusDisplay(judge.emailStatus);
+                    return (
+                      <div key={judge.email} className="flex justify-between items-center p-4 border border-[#E2E8F0] rounded-xl">
+                        <div>
+                          <p className="font-medium text-[#0F172A]">{judge.email}</p>
+                          <div className="text-sm text-[#64748B] mt-1">
+                            {judge.name && <span>{judge.name}</span>}
+                            {judge.name && <span className="mx-1">•</span>}
+                            <span className={emailStatus.color}>{emailStatus.text}</span>
+                            <span className="mx-1">•</span>
+                            {judge.hasVoted ? <span className="text-green-600">Voted</span> : <span className="text-gray-500">Not Voted</span>}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={async () => {
+                            if (!confirm(`Remove ${judge.email}?`)) return;
+                            const token = localStorage.getItem('auth_token');
+                            if (!token) return;
+                            try {
+                              const response = await fetch(`/api/v1/admin/polls/${pollId}/judges/${encodeURIComponent(judge.email)}`, {
+                                method: 'DELETE',
+                                headers: { Authorization: `Bearer ${token}` },
+                              });
+                              if (response.ok) {
+                                setJudges(judges.filter(j => j.email !== judge.email));
+                                setSuccess('Judge removed');
+                              } else throw new Error('Failed');
+                            } catch (err) {
+                              setError('Error removing judge');
+                            }
+                          }}
+                          className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                        >
+                          Remove
+                        </Button>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={async () => {
-                          if (!confirm(`Remove ${judge.email}?`)) return;
-                          const token = localStorage.getItem('auth_token');
-                          if (!token) return;
-                          try {
-                            const response = await fetch(`/api/v1/admin/polls/${pollId}/judges/${encodeURIComponent(judge.email)}`, {
-                              method: 'DELETE',
-                              headers: { Authorization: `Bearer ${token}` },
-                            });
-                            if (response.ok) {
-                              setJudges(judges.filter(j => j.email !== judge.email));
-                              setSuccess('Judge removed');
-                            } else throw new Error('Failed');
-                          } catch (err) {
-                            setError('Error removing judge');
-                          }
-                        }}
-                        className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </Card>
@@ -810,9 +879,36 @@ function PollManagementPageContent() {
             <Card className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-[#0F172A]">Results</h2>
-                <Link href={`/results/${pollId}`}>
-                  <Button className="bg-[#0891b2] hover:bg-[#0e7490]">View Full Results →</Button>
-                </Link>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setTieBreakerName(`Tie Breaker: ${poll.name}`);
+                      // Default to starting now and ending in 1 hour
+                      const now = new Date();
+                      const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+                      setTieBreakerStartTime(now.toISOString().slice(0, 16));
+                      setTieBreakerEndTime(oneHourLater.toISOString().slice(0, 16));
+                      // Pre-select top 2 teams if available
+                      if (results?.results?.teams?.length >= 2) {
+                        const sorted = [...results.results.teams].sort((a: any, b: any) => b.totalScore - a.totalScore);
+                        // Handle potential property name differences (teamId vs team_id)
+                        const team1Id = sorted[0].teamId || sorted[0].team_id;
+                        const team2Id = sorted[1].teamId || sorted[1].team_id;
+                        if (team1Id && team2Id) {
+                          setTiedTeamIds([team1Id, team2Id]);
+                        }
+                      }
+                      setShowTieBreaker(true);
+                    }}
+                    className="border-[#F59E0B] text-[#F59E0B] hover:bg-[#F59E0B]/10"
+                  >
+                    Create Tie Breaker
+                  </Button>
+                  <Link href={`/results/${pollId}`}>
+                    <Button className="bg-[#0891b2] hover:bg-[#0e7490]">View Full Results →</Button>
+                  </Link>
+                </div>
               </div>
               <p className="text-[#64748B] mb-6">
                 {poll.is_public_results ? 'Results are publicly available.' : 'Results are private.'}
@@ -854,7 +950,7 @@ function PollManagementPageContent() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="font-bold text-[#1e40af]">{team.totalScore.toFixed(2)}</div>
+                            <div className="font-bold text-[#1e40af]">{Number(team.totalScore || 0).toFixed(2)}</div>
                             <div className="text-xs text-[#64748B]">points</div>
                           </div>
                         </div>
@@ -893,7 +989,8 @@ function PollManagementPageContent() {
       {showRegisterVoters && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
           <Card className="w-full max-w-2xl p-6 my-8">
-            <h3 className="text-xl font-semibold text-[#0F172A] mb-4">Register Voters</h3>
+            <h3 className="text-xl font-semibold text-[#0F172A] mb-4">Bulk Register Voters</h3>
+            <p className="text-sm text-[#64748B] mb-4">Add multiple voters at once. Each voter needs an email and team name.</p>
             <div className="space-y-4">
               {votersList.map((voter, index) => (
                 <div key={index} className="flex gap-3 items-start">
@@ -1035,6 +1132,103 @@ function PollManagementPageContent() {
         </div>
       )}
 
+      {showTieBreaker && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md p-6">
+            <h3 className="text-xl font-semibold text-[#0F172A] mb-4">Create Tie Breaker</h3>
+            <div className="space-y-4">
+              <Input
+                label="Tie Breaker Name *"
+                value={tieBreakerName}
+                onChange={(e) => setTieBreakerName(e.target.value)}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Start Time *"
+                  type="datetime-local"
+                  value={tieBreakerStartTime}
+                  onChange={(e) => setTieBreakerStartTime(e.target.value)}
+                />
+                <Input
+                  label="End Time *"
+                  type="datetime-local"
+                  value={tieBreakerEndTime}
+                  onChange={(e) => setTieBreakerEndTime(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#0F172A] mb-2">Select Teams *</label>
+                <div className="max-h-48 overflow-y-auto border border-[#E2E8F0] rounded-lg p-2 space-y-2">
+                  {teams.map((team) => (
+                    <label key={team.team_id} className="flex items-center gap-2 p-2 hover:bg-[#F8FAFC] rounded cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={tiedTeamIds.includes(team.team_id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setTiedTeamIds([...tiedTeamIds, team.team_id]);
+                          } else {
+                            setTiedTeamIds(tiedTeamIds.filter(id => id !== team.team_id));
+                          }
+                        }}
+                        className="w-4 h-4 text-[#4F46E5] rounded focus:ring-[#4F46E5]"
+                      />
+                      <span className="text-sm text-[#334155]">{team.team_name}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-[#64748B] mt-1">Select at least 2 teams for the tie breaker.</p>
+              </div>
+
+              <div className="flex gap-3 justify-end mt-6">
+                <Button variant="outline" onClick={() => setShowTieBreaker(false)}>Cancel</Button>
+                <Button
+                  onClick={async () => {
+                    if (!tieBreakerName || !tieBreakerStartTime || !tieBreakerEndTime || tiedTeamIds.length < 2) {
+                      setError('Please fill all fields and select at least 2 teams');
+                      return;
+                    }
+                    setSubmitting(true);
+                    const token = localStorage.getItem('auth_token');
+                    if (!token) return;
+                    try {
+                      const response = await fetch(`/api/v1/admin/polls/${pollId}/tie-breaker`, {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          name: tieBreakerName,
+                          startTime: new Date(tieBreakerStartTime).toISOString(),
+                          endTime: new Date(tieBreakerEndTime).toISOString(),
+                          teamIds: tiedTeamIds
+                        }),
+                      });
+
+                      if (response.ok) {
+                        setSuccess('Tie breaker created successfully');
+                        setShowTieBreaker(false);
+                        // Refresh data to show new poll in list or redirect
+                        router.push('/admin/polls');
+                      } else {
+                        const data = await response.json();
+                        setError(data.error || 'Failed to create tie breaker');
+                      }
+                    } catch (err) {
+                      setError('An error occurred');
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  isLoading={submitting}
+                >
+                  Create Tie Breaker
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Other modals (Edit Poll, Edit Team, Reassign, etc.) would follow similar pattern. 
           For brevity in this refactor, I'm keeping the structure but using Card/Input where possible. 
           The logic remains identical. */}
@@ -1050,17 +1244,133 @@ function PollManagementPageContent() {
                 <Input label="End Time *" type="datetime-local" value={editPollEndTime} onChange={(e) => setEditPollEndTime(e.target.value)} />
               </div>
               {/* Selects are not yet standard components, keeping native select with styling */}
-              <div>
-                <label className="block text-sm font-medium text-[#0F172A] mb-1">Voting Mode *</label>
-                <select
-                  value={editPollVotingMode}
-                  onChange={(e) => setEditPollVotingMode(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
-                >
-                  <option value="single">Single Vote</option>
-                  <option value="multiple">Multiple Votes</option>
-                  <option value="ranked">Ranked Voting</option>
-                </select>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Voting Mode *</label>
+                  <select
+                    value={editPollVotingMode}
+                    onChange={(e) => setEditPollVotingMode(e.target.value as any)}
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                  >
+                    <option value="single">Single Vote</option>
+                    <option value="multiple">Multiple Votes</option>
+                    <option value="ranked">Ranked Voting</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Voting Permissions *</label>
+                  <select
+                    value={editPollVotingPermissions}
+                    onChange={(e) => setEditPollVotingPermissions(e.target.value as any)}
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                  >
+                    <option value="voters_only">Voters Only</option>
+                    <option value="judges_only">Judges Only</option>
+                    <option value="voters_and_judges">Voters & Judges</option>
+                  </select>
+                </div>
+              </div>
+
+              {editPollVotingMode === 'ranked' && (
+                <Input
+                  label="Max Ranked Positions"
+                  type="number"
+                  value={editPollMaxRankedPositions}
+                  onChange={(e) => setEditPollMaxRankedPositions(e.target.value)}
+                  placeholder="e.g. 3 (Leave empty for unlimited)"
+                />
+              )}
+
+              {editPollVotingPermissions === 'voters_and_judges' && (
+                <div>
+                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Voting Sequence</label>
+                  <select
+                    value={editPollVotingSequence}
+                    onChange={(e) => setEditPollVotingSequence(e.target.value as any)}
+                    className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                  >
+                    <option value="simultaneous">Simultaneous</option>
+                    <option value="voters_first">Voters First (Judges later)</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <Input
+                  label="Voter Weight"
+                  type="number"
+                  step="0.1"
+                  value={editPollVoterWeight}
+                  onChange={(e) => setEditPollVoterWeight(e.target.value)}
+                />
+                <Input
+                  label="Judge Weight"
+                  type="number"
+                  step="0.1"
+                  value={editPollJudgeWeight}
+                  onChange={(e) => setEditPollJudgeWeight(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-3 pt-2 border-t border-[#E2E8F0]">
+                <h4 className="font-medium text-[#0F172A]">Settings</h4>
+
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-[#0F172A]">Allow Self Vote</label>
+                  <input
+                    type="checkbox"
+                    checked={editPollAllowSelfVote}
+                    onChange={(e) => setEditPollAllowSelfVote(e.target.checked)}
+                    className="w-5 h-5 text-[#4F46E5] rounded focus:ring-[#4F46E5]"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-[#0F172A]">Require Team Name Gate</label>
+                  <input
+                    type="checkbox"
+                    checked={editPollRequireTeamNameGate}
+                    onChange={(e) => setEditPollRequireTeamNameGate(e.target.checked)}
+                    className="w-5 h-5 text-[#4F46E5] rounded focus:ring-[#4F46E5]"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-[#0F172A]">Public Results</label>
+                  <input
+                    type="checkbox"
+                    checked={editPollIsPublicResults}
+                    onChange={(e) => setEditPollIsPublicResults(e.target.checked)}
+                    className="w-5 h-5 text-[#4F46E5] rounded focus:ring-[#4F46E5]"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-[#0F172A]">Allow Vote Editing</label>
+                  <input
+                    type="checkbox"
+                    checked={editPollAllowVoteEditing}
+                    onChange={(e) => setEditPollAllowVoteEditing(e.target.checked)}
+                    className="w-5 h-5 text-[#4F46E5] rounded focus:ring-[#4F46E5]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4 pt-2 border-t border-[#E2E8F0]">
+                <Input
+                  label="Min Voter Participation (%)"
+                  type="number"
+                  value={editPollMinVoterParticipation}
+                  onChange={(e) => setEditPollMinVoterParticipation(e.target.value)}
+                  placeholder="Optional"
+                />
+                <Input
+                  label="Min Judge Participation (%)"
+                  type="number"
+                  value={editPollMinJudgeParticipation}
+                  onChange={(e) => setEditPollMinJudgeParticipation(e.target.value)}
+                  placeholder="Optional"
+                />
               </div>
               {/* ... other fields ... */}
               <div className="flex gap-3 justify-end mt-6">
@@ -1108,6 +1418,220 @@ function PollManagementPageContent() {
                   isLoading={submitting}
                 >
                   Update Poll
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {showMigrateTeams && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <Card className="w-full max-w-2xl p-6 my-8">
+            <h3 className="text-xl font-semibold text-[#0F172A] mb-4">Duplicate Teams to Another Poll</h3>
+            <p className="text-sm text-[#64748B] mb-4">This will create copies of selected teams and their voters in the target poll. Teams and voters will remain in the current poll and can vote in both polls.</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#0F172A] mb-2">Target Poll *</label>
+                <select
+                  value={targetPollId}
+                  onChange={(e) => setTargetPollId(e.target.value)}
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                >
+                  <option value="">Select a poll...</option>
+                  {availablePolls.map((p) => (
+                    <option key={p.poll_id} value={p.poll_id}>
+                      {p.name} ({new Date(p.start_time).toLocaleDateString()} - {new Date(p.end_time).toLocaleDateString()})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-[#64748B] mt-1">Select a poll in the same hackathon to duplicate teams to.</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-[#0F172A] mb-2">Select Teams to Duplicate *</label>
+                <div className="max-h-64 overflow-y-auto border border-[#E2E8F0] rounded-lg p-3 space-y-2">
+                  {teams.length === 0 ? (
+                    <p className="text-sm text-[#64748B] text-center py-4">No teams available</p>
+                  ) : (
+                    teams.map((team) => (
+                      <label key={team.team_id} className="flex items-center gap-2 p-2 hover:bg-[#F8FAFC] rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedTeamsToMigrate.includes(team.team_id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedTeamsToMigrate([...selectedTeamsToMigrate, team.team_id]);
+                            } else {
+                              setSelectedTeamsToMigrate(selectedTeamsToMigrate.filter(id => id !== team.team_id));
+                            }
+                          }}
+                          className="w-4 h-4 text-[#4F46E5] rounded focus:ring-[#4F46E5]"
+                        />
+                        <span className="text-sm text-[#334155]">{team.team_name}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+                <p className="text-xs text-[#64748B] mt-1">Select at least one team to duplicate. Their voters will also be duplicated.</p>
+              </div>
+
+              <div className="flex gap-3 justify-end mt-6">
+                <Button variant="outline" onClick={() => {
+                  setShowMigrateTeams(false);
+                  setSelectedTeamsToMigrate([]);
+                  setTargetPollId('');
+                }}>Cancel</Button>
+                <Button
+                  onClick={async () => {
+                    if (!targetPollId) {
+                      setError('Please select a target poll');
+                      return;
+                    }
+                    if (selectedTeamsToMigrate.length === 0) {
+                      setError('Please select at least one team to duplicate');
+                      return;
+                    }
+                    setSubmitting(true);
+                    setError('');
+                    const token = localStorage.getItem('auth_token');
+                    if (!token) return;
+                    try {
+                      const response = await fetch(`/api/v1/admin/polls/${pollId}/teams/migrate`, {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          targetPollId,
+                          teamIds: selectedTeamsToMigrate
+                        }),
+                      });
+                      const data = await response.json();
+                      if (response.ok) {
+                        setSuccess(`Successfully duplicated ${data.teams.length} team(s) and their voters to the target poll`);
+                        setShowMigrateTeams(false);
+                        setSelectedTeamsToMigrate([]);
+                        setTargetPollId('');
+                        fetchPollData(token);
+                      } else {
+                        setError(data.error || 'Failed to duplicate teams');
+                      }
+                    } catch (err) {
+                      setError('An error occurred');
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  isLoading={submitting}
+                  className="bg-[#4F46E5] hover:bg-[#4338ca]"
+                >
+                  Duplicate Teams
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {showMigrateTeams && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <Card className="w-full max-w-2xl p-6 my-8">
+            <h3 className="text-xl font-semibold text-[#0F172A] mb-4">Duplicate Teams to Another Poll</h3>
+            <p className="text-sm text-[#64748B] mb-4">This will create copies of selected teams and their voters in the target poll. Teams and voters will remain in the current poll and can vote in both polls.</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#0F172A] mb-2">Target Poll *</label>
+                <select
+                  value={targetPollId}
+                  onChange={(e) => setTargetPollId(e.target.value)}
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+                >
+                  <option value="">Select a poll...</option>
+                  {availablePolls.map((p) => (
+                    <option key={p.poll_id} value={p.poll_id}>
+                      {p.name} ({new Date(p.start_time).toLocaleDateString()} - {new Date(p.end_time).toLocaleDateString()})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-[#64748B] mt-1">Select a poll in the same hackathon to duplicate teams to.</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-[#0F172A] mb-2">Select Teams to Duplicate *</label>
+                <div className="max-h-64 overflow-y-auto border border-[#E2E8F0] rounded-lg p-3 space-y-2">
+                  {teams.length === 0 ? (
+                    <p className="text-sm text-[#64748B] text-center py-4">No teams available</p>
+                  ) : (
+                    teams.map((team) => (
+                      <label key={team.team_id} className="flex items-center gap-2 p-2 hover:bg-[#F8FAFC] rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedTeamsToMigrate.includes(team.team_id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedTeamsToMigrate([...selectedTeamsToMigrate, team.team_id]);
+                            } else {
+                              setSelectedTeamsToMigrate(selectedTeamsToMigrate.filter(id => id !== team.team_id));
+                            }
+                          }}
+                          className="w-4 h-4 text-[#4F46E5] rounded focus:ring-[#4F46E5]"
+                        />
+                        <span className="text-sm text-[#334155]">{team.team_name}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+                <p className="text-xs text-[#64748B] mt-1">Select at least one team to duplicate. Their voters will also be duplicated.</p>
+              </div>
+
+              <div className="flex gap-3 justify-end mt-6">
+                <Button variant="outline" onClick={() => {
+                  setShowMigrateTeams(false);
+                  setSelectedTeamsToMigrate([]);
+                  setTargetPollId('');
+                }}>Cancel</Button>
+                <Button
+                  onClick={async () => {
+                    if (!targetPollId) {
+                      setError('Please select a target poll');
+                      return;
+                    }
+                    if (selectedTeamsToMigrate.length === 0) {
+                      setError('Please select at least one team to duplicate');
+                      return;
+                    }
+                    setSubmitting(true);
+                    setError('');
+                    const token = localStorage.getItem('auth_token');
+                    if (!token) return;
+                    try {
+                      const response = await fetch(`/api/v1/admin/polls/${pollId}/teams/migrate`, {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          targetPollId,
+                          teamIds: selectedTeamsToMigrate
+                        }),
+                      });
+                      const data = await response.json();
+                      if (response.ok) {
+                        setSuccess(`Successfully duplicated ${data.teams.length} team(s) and their voters to the target poll`);
+                        setShowMigrateTeams(false);
+                        setSelectedTeamsToMigrate([]);
+                        setTargetPollId('');
+                        fetchPollData(token);
+                      } else {
+                        setError(data.error || 'Failed to duplicate teams');
+                      }
+                    } catch (err) {
+                      setError('An error occurred');
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  isLoading={submitting}
+                  className="bg-[#4F46E5] hover:bg-[#4338ca]"
+                >
+                  Duplicate Teams
                 </Button>
               </div>
             </div>

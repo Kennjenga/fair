@@ -46,7 +46,7 @@ export async function GET(
         teams: teams.map(team => ({
           team_id: team.team_id,
           team_name: team.team_name,
-          hackathon_id: team.hackathon_id,
+          poll_id: team.poll_id,
           metadata: team.metadata,
           project_name: team.project_name,
           project_description: team.project_description,
@@ -109,9 +109,9 @@ export async function POST(
         // Bulk import
         const validated = bulkTeamImportSchema.parse(body);
         
-        // Teams belong to hackathons, not polls
+        // Teams belong to polls
         const teams = await bulkCreateTeams(
-          poll.hackathon_id,
+          pollId,
           validated.teams.map(t => ({
             teamName: t.teamName,
             metadata: t.metadata,
@@ -131,7 +131,7 @@ export async function POST(
           teams: teams.map(team => ({
             team_id: team.team_id,
             team_name: team.team_name,
-            hackathon_id: team.hackathon_id,
+            poll_id: team.poll_id,
             metadata: team.metadata,
             project_name: team.project_name,
             project_description: team.project_description,
@@ -148,9 +148,9 @@ export async function POST(
         // Extract project info from metadata if provided
         const projectInfo = validated.metadata || {};
         
-        // Teams belong to hackathons, not polls
+        // Teams belong to polls
         const team = await createTeam(
-          poll.hackathon_id,
+          pollId,
           validated.teamName,
           validated.metadata,
           {
@@ -175,7 +175,7 @@ export async function POST(
           team: {
             team_id: team.team_id,
             team_name: team.team_name,
-            hackathon_id: team.hackathon_id,
+            poll_id: team.poll_id,
             metadata: team.metadata,
             project_name: team.project_name,
             project_description: team.project_description,

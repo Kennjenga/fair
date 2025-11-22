@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from '@/components/layouts';
-import { Button, Card } from '@/components/ui';
+import { Button, Card, Input } from '@/components/ui';
 
 const sidebarItems = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
@@ -22,6 +22,18 @@ export default function HackathonsPage() {
   const [dashboard, setDashboard] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingHackathon, setEditingHackathon] = useState<any>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    startDate: '',
+    endDate: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     // Check authentication
@@ -104,7 +116,61 @@ export default function HackathonsPage() {
     }
   };
 
+  const handleEditClick = (hackathon: any) => {
+    setEditingHackathon(hackathon);
+    setEditForm({
+      name: hackathon.name,
+      description: hackathon.description || '',
+      startDate: hackathon.start_date ? new Date(hackathon.start_date).toISOString().split('T')[0] : '',
+      endDate: hackathon.end_date ? new Date(hackathon.end_date).toISOString().split('T')[0] : '',
+    });
+    setError('');
+    setSuccess('');
+    setShowEditModal(true);
+  };
 
+  const handleUpdateHackathon = async () => {
+    if (!editingHackathon) return;
+
+    setSubmitting(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+
+      const response = await fetch(`/api/v1/admin/hackathons/${editingHackathon.hackathon_id}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: editForm.name,
+          description: editForm.description,
+          startDate: editForm.startDate,
+          endDate: editForm.endDate,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update hackathon');
+      }
+
+      setSuccess('Hackathon updated successfully');
+      fetchData(token);
+      setTimeout(() => {
+        setShowEditModal(false);
+        setSuccess('');
+      }, 1500);
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -195,11 +261,21 @@ export default function HackathonsPage() {
                         </p>
                       )}
                     </div>
-                    <Link href={`/admin/hackathons/${hackathon.hackathon_id}`}>
-                      <Button size="sm" className="bg-gradient-to-r from-[#4F46E5] to-[#6366F1] hover:shadow-lg transition-all">
-                        Manage
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleEditClick(hackathon)}
+                        className="text-[#4F46E5] hover:text-[#6366F1] hover:bg-[#4F46E5]/5"
+                      >
+                        Edit
                       </Button>
-                    </Link>
+                      <Link href={`/admin/hackathons/${hackathon.hackathon_id}`}>
+                        <Button size="sm" className="bg-gradient-to-r from-[#4F46E5] to-[#6366F1] hover:shadow-lg transition-all">
+                          Manage
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 </Card>
               ))}
@@ -207,6 +283,64 @@ export default function HackathonsPage() {
           )}
         </div>
       </main>
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md p-6">
+            <h3 className="text-xl font-semibold text-[#0F172A] mb-4">Edit Hackathon</h3>
+
+            {error && (
+              <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
+                {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-4 text-sm">
+                {success}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <Input
+                label="Hackathon Name *"
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              />
+
+              <div>
+                <label className="block text-sm font-medium text-[#0F172A] mb-1">Description</label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F46E5] min-h-[100px]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Start Date"
+                  type="date"
+                  value={editForm.startDate}
+                  onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
+                />
+                <Input
+                  label="End Date"
+                  type="date"
+                  value={editForm.endDate}
+                  onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
+                />
+              </div>
+
+              <div className="flex gap-3 justify-end mt-6">
+                <Button variant="outline" onClick={() => setShowEditModal(false)}>Cancel</Button>
+                <Button onClick={handleUpdateHackathon} isLoading={submitting}>Update Hackathon</Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

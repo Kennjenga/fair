@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withSuperAdmin } from '@/lib/auth/middleware';
 import { createAdminSchema } from '@/lib/validation/schemas';
 import { createAdmin, getAllAdmins, updateAdminRole } from '@/lib/repositories/admins';
+import { sendAdminCreationEmail } from '@/lib/email/brevo';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
 import type { AuthenticatedRequest } from '@/lib/auth/middleware';
 
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
   return withSuperAdmin(async (req: AuthenticatedRequest) => {
     try {
       const admins = await getAllAdmins();
-      
+
       return NextResponse.json({
         admins: admins.map(a => ({
           adminId: a.admin_id,
@@ -53,10 +54,10 @@ export async function POST(req: NextRequest) {
     try {
       const admin = req.admin!;
       const body = await req.json();
-      
+
       // Validate request
       const validated = createAdminSchema.parse(body);
-      
+
       // Check if admin with email already exists
       const { findAdminByEmail } = await import('@/lib/repositories/admins');
       const existing = await findAdminByEmail(validated.email);
@@ -66,14 +67,27 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      
+
       // Create admin
       const newAdmin = await createAdmin(
         validated.email,
         validated.password,
         validated.role
       );
-      
+
+      // Send email notification with password
+      try {
+        await sendAdminCreationEmail(
+          newAdmin.email,
+          validated.password,
+          validated.role
+        );
+      } catch (emailError) {
+        // Log email error but don't fail the admin creation
+        console.error('Failed to send admin creation email:', emailError);
+        // Continue with response - admin is created successfully
+      }
+
       // Log audit
       await logAudit(
         'admin_created',
@@ -83,7 +97,7 @@ export async function POST(req: NextRequest) {
         { newAdminEmail: newAdmin.email, newAdminRole: newAdmin.role },
         getClientIp(req.headers)
       );
-      
+
       return NextResponse.json(
         {
           admin: {
@@ -91,6 +105,7 @@ export async function POST(req: NextRequest) {
             email: newAdmin.email,
             role: newAdmin.role,
           },
+          password: validated.password, // Return password so super admin can see it
         },
         { status: 201 }
       );
@@ -101,7 +116,7 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      
+
       console.error('Create admin error:', error);
       return NextResponse.json(
         { error: 'Internal server error' },

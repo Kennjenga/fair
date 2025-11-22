@@ -3,6 +3,7 @@ import { withAdmin } from '@/lib/auth/middleware';
 import { createJudgeSchema } from '@/lib/validation/schemas';
 import { getPollById } from '@/lib/repositories/polls';
 import { addJudgeToPoll, removeJudgeFromPoll, getJudgesByPoll } from '@/lib/repositories/judges';
+import { hasJudgeVoted } from '@/lib/repositories/votes';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
 import type { AuthenticatedRequest } from '@/lib/auth/middleware';
 
@@ -42,7 +43,20 @@ export async function GET(
       
       const judges = await getJudgesByPoll(pollId);
       
-      return NextResponse.json({ judges });
+      // Get voting status for each judge
+      const judgesWithStatus = await Promise.all(
+        judges.map(async (judge) => {
+          const hasVoted = await hasJudgeVoted(pollId, judge.email);
+          return {
+            ...judge,
+            hasVoted,
+            emailSent: judge.email_sent,
+            emailStatus: judge.email_status,
+          };
+        })
+      );
+      
+      return NextResponse.json({ judges: judgesWithStatus });
     } catch (error) {
       console.error('Get judges error:', error);
       return NextResponse.json(
