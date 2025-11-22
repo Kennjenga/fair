@@ -197,17 +197,19 @@ export async function sendVotingTokenEmail(
       <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #1e40af 0%, #0891b2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f8fafc; padding: 30px; border-radius: 0 0 8px 8px; }
-        .button { display: inline-block; background: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-        .button-secondary { display: inline-block; background: #0891b2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-        .token-box { background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 6px; }
+        .header { background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%); color: white; padding: 30px; text-align: center; border-radius: 12px 12px 0 0; }
+        .content { background: #f8fafc; padding: 30px; border-radius: 0 0 12px 12px; }
+        .button { display: inline-block; background: #16A34A; color: white; padding: 12px 24px; text-decoration: none; border-radius: 12px; margin: 20px 0; font-weight: 600; }
+        .button-secondary { display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 12px; margin: 20px 0; font-weight: 600; }
+        .token-box { background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 12px; }
         .footer { text-align: center; margin-top: 30px; color: #64748b; font-size: 12px; }
+        .logo { width: 48px; height: 48px; margin: 0 auto 10px; }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="header">
+          <div class="logo">🗳️</div>
           <h1>FAIR Voting Platform</h1>
         </div>
         <div class="content">
@@ -300,15 +302,17 @@ export async function sendJudgeInvitationEmail(
       <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #1e40af 0%, #0891b2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f8fafc; padding: 30px; border-radius: 0 0 8px 8px; }
-        .button { display: inline-block; background: #1e40af; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+        .header { background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%); color: white; padding: 30px; text-align: center; border-radius: 12px 12px 0 0; }
+        .content { background: #f8fafc; padding: 30px; border-radius: 0 0 12px 12px; }
+        .button { display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 12px; margin: 20px 0; font-weight: 600; }
         .footer { text-align: center; margin-top: 30px; color: #64748b; font-size: 12px; }
+        .logo { width: 48px; height: 48px; margin: 0 auto 10px; }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="header">
+          <div class="logo">🗳️</div>
           <h1>FAIR Voting Platform</h1>
         </div>
         <div class="content">
@@ -320,7 +324,7 @@ export async function sendJudgeInvitationEmail(
             <a href="${votingUrl}" class="button">Cast Your Judge Vote</a>
           </div>
           <p>Or copy and paste this link into your browser:</p>
-          <div style="background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 6px;">
+          <div style="background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 12px;">
             <code style="word-break: break-all;">${votingUrl}</code>
           </div>
           <p><strong>Important:</strong></p>
@@ -387,17 +391,19 @@ export async function sendAdminCreationEmail(
       <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #1e40af 0%, #0891b2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f8fafc; padding: 30px; border-radius: 0 0 8px 8px; }
-        .button { display: inline-block; background: #1e40af; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-        .password-box { background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 6px; font-family: monospace; font-size: 16px; font-weight: bold; }
-        .warning { background: #fef3c7; border-left: 4px solid #d97706; padding: 12px; margin: 20px 0; }
+        .header { background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%); color: white; padding: 30px; text-align: center; border-radius: 12px 12px 0 0; }
+        .content { background: #f8fafc; padding: 30px; border-radius: 0 0 12px 12px; }
+        .button { display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 12px; margin: 20px 0; font-weight: 600; }
+        .password-box { background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 12px; font-family: monospace; font-size: 16px; font-weight: bold; }
+        .warning { background: #fef3c7; border-left: 4px solid #d97706; padding: 12px; margin: 20px 0; border-radius: 8px; }
         .footer { text-align: center; margin-top: 30px; color: #64748b; font-size: 12px; }
+        .logo { width: 48px; height: 48px; margin: 0 auto 10px; }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="header">
+          <div class="logo">🗳️</div>
           <h1>FAIR Voting Platform</h1>
         </div>
         <div class="content">
@@ -418,7 +424,7 @@ export async function sendAdminCreationEmail(
             <a href="${loginUrl}" class="button">Log In to Admin Dashboard</a>
           </div>
           <p>Or copy and paste this link into your browser:</p>
-          <div style="background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 6px;">
+          <div style="background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 12px;">
             <code style="word-break: break-all;">${loginUrl}</code>
           </div>
           <p>Thank you for joining the FAIR Voting Platform!</p>
@@ -475,15 +481,17 @@ export async function sendAdminSignupEmail(email: string): Promise<any> {
       <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #1e40af 0%, #0891b2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-        .content { background: #f8fafc; padding: 30px; border-radius: 0 0 8px 8px; }
-        .button { display: inline-block; background: #1e40af; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+        .header { background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%); color: white; padding: 30px; text-align: center; border-radius: 12px 12px 0 0; }
+        .content { background: #f8fafc; padding: 30px; border-radius: 0 0 12px 12px; }
+        .button { display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 12px; margin: 20px 0; font-weight: 600; }
         .footer { text-align: center; margin-top: 30px; color: #64748b; font-size: 12px; }
+        .logo { width: 48px; height: 48px; margin: 0 auto 10px; }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="header">
+          <div class="logo">🗳️</div>
           <h1>FAIR Voting Platform</h1>
         </div>
         <div class="content">
@@ -496,7 +504,7 @@ export async function sendAdminSignupEmail(email: string): Promise<any> {
             <a href="${loginUrl}" class="button">Log In to Admin Dashboard</a>
           </div>
           <p>Or copy and paste this link into your browser:</p>
-          <div style="background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 6px;">
+          <div style="background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 12px;">
             <code style="word-break: break-all;">${loginUrl}</code>
           </div>
           <p>If you have any questions or need assistance, please don't hesitate to reach out.</p>

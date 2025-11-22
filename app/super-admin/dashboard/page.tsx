@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from '@/components/layouts';
+import { LoadingSpinner } from '@/components/ui';
 
 const sidebarItems = [
   { label: 'Dashboard', href: '/super-admin/dashboard', icon: '📊' },
@@ -150,7 +151,7 @@ export default function SuperAdminDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
-        <div className="text-[#64748b]">Loading...</div>
+        <LoadingSpinner size="lg" message="Loading dashboard..." />
       </div>
     );
   }
@@ -740,7 +741,9 @@ export default function SuperAdminDashboard() {
               </div>
 
               {loadingPollDetails ? (
-                <div className="text-center py-8 text-[#64748b]">Loading poll details...</div>
+                <div className="text-center py-8">
+                  <LoadingSpinner size="md" message="Loading poll details..." />
+                </div>
               ) : pollDetails ? (
                 <div className="space-y-6">
                   {/* Poll Information */}

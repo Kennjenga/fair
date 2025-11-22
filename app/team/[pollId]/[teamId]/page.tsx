@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { LoadingSpinner } from '@/components/ui';
 
 /**
  * Public team details page for voters
@@ -60,10 +61,7 @@ export default function PublicTeamDetailsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1e40af] via-[#0891b2] to-[#059669] flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p>Loading team details...</p>
-        </div>
+        <LoadingSpinner size="lg" message="Loading team details..." />
       </div>
     );
   }
@@ -77,7 +75,7 @@ export default function PublicTeamDetailsPage() {
             <h2 className="text-xl font-semibold text-[#0f172a] mb-2">Access Denied</h2>
             <p className="text-[#64748b] mb-4">{error}</p>
             {token && (
-              <Link 
+              <Link
                 href={`/vote?token=${encodeURIComponent(token)}`}
                 className="inline-block bg-[#1e40af] text-white px-6 py-2 rounded-lg font-semibold hover:bg-[#1e3a8a] transition-colors"
               >
@@ -106,7 +104,7 @@ export default function PublicTeamDetailsPage() {
           </div>
 
           <div className="mb-6">
-            <Link 
+            <Link
               href={`/vote?token=${encodeURIComponent(token || '')}`}
               className="text-[#1e40af] hover:underline inline-flex items-center gap-2 text-sm"
             >
@@ -152,9 +150,9 @@ export default function PublicTeamDetailsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {team.live_site_url ? (
                   <div className="p-3 bg-[#f8fafc] rounded border border-[#e2e8f0]">
-                    <a 
-                      href={team.live_site_url} 
-                      target="_blank" 
+                    <a
+                      href={team.live_site_url}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm text-[#0891b2] hover:underline"
                     >
@@ -167,9 +165,9 @@ export default function PublicTeamDetailsPage() {
 
                 {team.github_url ? (
                   <div className="p-3 bg-[#f8fafc] rounded border border-[#e2e8f0]">
-                    <a 
-                      href={team.github_url} 
-                      target="_blank" 
+                    <a
+                      href={team.github_url}
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm text-[#0891b2] hover:underline"
                     >
