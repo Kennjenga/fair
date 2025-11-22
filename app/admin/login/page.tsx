@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Button, Input, Alert } from '@/components/ui';
+import { Button, Input, Alert, Logo } from '@/components/ui';
 
 /**
  * Admin login page content
@@ -179,13 +179,9 @@ function AdminLoginContent() {
 
             {/* Header */}
             <div className="text-center mb-8">
-              <motion.div
-                className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#4F46E5] to-[#6366F1] mb-4"
-                whileHover={{ rotate: 5, scale: 1.05 }}
-                transition={{ type: 'spring', stiffness: 300 }}
-              >
-                <span className="text-2xl font-bold text-white">F</span>
-              </motion.div>
+              <div className="flex justify-center mb-4">
+                <Logo size={48} showText={false} />
+              </div>
               <h1 className="text-3xl font-bold text-[#0F172A] mb-2">
                 Welcome Back
               </h1>

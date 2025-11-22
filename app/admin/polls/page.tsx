@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from '@/components/layouts';
-import { Button, Card, Badge } from '@/components/ui';
+import { Button, Card, Badge, LoadingSpinner } from '@/components/ui';
 
 const sidebarItems = [
     { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
@@ -162,7 +162,7 @@ export default function PollsPage() {
     if (loading) {
         return (
             <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
-                <div className="text-[#64748B]">Loading...</div>
+                <LoadingSpinner size="lg" message="Loading polls..." />
             </div>
         );
     }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { LoadingSpinner } from '@/components/ui';
 
 /**
  * Blockchain vote details page
@@ -10,7 +11,7 @@ import Link from 'next/link';
 export default function BlockchainVotePage() {
   const params = useParams();
   const txHash = params?.txHash as string;
-  
+
   const [voteData, setVoteData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -23,7 +24,7 @@ export default function BlockchainVotePage() {
 
   const fetchVoteData = async () => {
     if (!txHash) return;
-    
+
     try {
       const response = await fetch(`/api/v1/vote/blockchain/${txHash}`);
       const data = await response.json();
@@ -45,7 +46,7 @@ export default function BlockchainVotePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
-        <div className="text-[#64748b]">Loading vote data from blockchain...</div>
+        <LoadingSpinner size="lg" message="Loading vote data from blockchain..." />
       </div>
     );
   }

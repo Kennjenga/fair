@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Button, Input, Alert, Badge } from '@/components/ui';
+import { Button, Input, Alert, Badge, Logo } from '@/components/ui';
 import { ArrowLeft, Shield, Lock, CheckCircle2 } from 'lucide-react';
 
 /**
@@ -241,8 +241,8 @@ export default function SignupPage() {
 
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#4F46E5] to-[#6366F1] mb-4">
-                <span className="text-2xl font-bold text-white">F</span>
+              <div className="flex justify-center mb-4">
+                <Logo size={48} showText={false} />
               </div>
               <h2 className="text-3xl font-bold text-[#0F172A] mb-2">
                 Create Account
