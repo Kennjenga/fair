@@ -87,7 +87,9 @@ export async function POST(
             tokenRecord.email,
             plainToken,
             poll.name,
-            teamMap.get(tokenRecord.team_id) || 'Unknown Team'
+            teamMap.get(tokenRecord.team_id) || 'Unknown Team',
+            pollId,
+            tokenRecord.team_id
           );
           
           // Update delivery status

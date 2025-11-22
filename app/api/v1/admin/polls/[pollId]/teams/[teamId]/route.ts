@@ -41,9 +41,9 @@ export async function GET(
         );
       }
       
-      // Check team exists and belongs to poll's hackathon
+      // Check team exists and belongs to poll
       const team = await getTeamById(teamId);
-      if (!team || team.hackathon_id !== poll.hackathon_id) {
+      if (!team || team.poll_id !== pollId) {
         return NextResponse.json(
           { error: 'Team not found' },
           { status: 404 }
@@ -57,7 +57,7 @@ export async function GET(
         team: {
           team_id: team.team_id,
           team_name: team.team_name,
-          hackathon_id: team.hackathon_id,
+          poll_id: team.poll_id,
           metadata: team.metadata,
           project_name: team.project_name,
           project_description: team.project_description,
@@ -118,9 +118,9 @@ export async function PATCH(
         );
       }
       
-      // Check team exists and belongs to poll's hackathon
+      // Check team exists and belongs to poll
       const existingTeam = await getTeamById(teamId);
-      if (!existingTeam || existingTeam.hackathon_id !== poll.hackathon_id) {
+      if (!existingTeam || existingTeam.poll_id !== pollId) {
         return NextResponse.json(
           { error: 'Team not found' },
           { status: 404 }
@@ -155,7 +155,7 @@ export async function PATCH(
         team: {
           team_id: team.team_id,
           team_name: team.team_name,
-          hackathon_id: team.hackathon_id,
+          poll_id: team.poll_id,
           metadata: team.metadata,
           project_name: team.project_name,
           project_description: team.project_description,
@@ -216,9 +216,9 @@ export async function DELETE(
         );
       }
       
-      // Check team exists and belongs to poll's hackathon
+      // Check team exists and belongs to poll
       const team = await getTeamById(teamId);
-      if (!team || team.hackathon_id !== poll.hackathon_id) {
+      if (!team || team.poll_id !== pollId) {
         return NextResponse.json(
           { error: 'Team not found' },
           { status: 404 }

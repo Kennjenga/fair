@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdmin } from '@/lib/repositories/admins';
 import { createAdminSchema } from '@/lib/validation/schemas';
 import { findAdminByEmail } from '@/lib/repositories/admins';
+import { sendAdminSignupEmail } from '@/lib/email/brevo';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
 
 /**
@@ -35,13 +36,13 @@ import { logAudit, getClientIp } from '@/lib/utils/audit';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    
+
     // Validate request
     const validated = createAdminSchema.parse({
       ...body,
       role: 'admin', // New signups are always regular admins
     });
-    
+
     // Check if admin with email already exists
     const existing = await findAdminByEmail(validated.email);
     if (existing) {
@@ -50,14 +51,23 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     // Create admin account
     const newAdmin = await createAdmin(
       validated.email,
       validated.password,
       'admin' // Regular admin role
     );
-    
+
+    // Send welcome email
+    try {
+      await sendAdminSignupEmail(newAdmin.email);
+    } catch (emailError) {
+      // Log email error but don't fail the signup
+      console.error('Failed to send signup email:', emailError);
+      // Continue with response - account is created successfully
+    }
+
     // Log audit
     await logAudit(
       'admin_signup',
@@ -67,7 +77,7 @@ export async function POST(req: NextRequest) {
       { email: newAdmin.email },
       getClientIp(req.headers)
     );
-    
+
     return NextResponse.json(
       {
         message: 'Account created successfully',
@@ -86,7 +96,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     console.error('Signup error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

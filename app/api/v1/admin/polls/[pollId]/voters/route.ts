@@ -43,16 +43,39 @@ export async function GET(
       
       const tokens = await getTokensByPoll(pollId);
       
+      // Import vote repository to check voting status
+      const { hasTokenVoted } = await import('@/lib/repositories/votes');
+      const { hashToken } = await import('@/lib/utils/token');
+      const { getPlainTokenFromRecord } = await import('@/lib/repositories/tokens');
+      
       // Don't return actual token values, only metadata
-      const tokensData = tokens.map(t => ({
-        tokenId: t.token_id,
-        email: t.email,
-        teamId: t.team_id,
-        used: t.used,
-        deliveryStatus: t.delivery_status,
-        issuedAt: t.issued_at,
-        expiresAt: t.expires_at,
-      }));
+      // Include voting status (hasVoted) and email status
+      const tokensData = await Promise.all(
+        tokens.map(async (t) => {
+          // Check if token has been used to vote
+          // Token is used if it's marked as used OR if there's a vote with this token hash
+          let hasVoted = t.used;
+          if (!hasVoted) {
+            const plainToken = getPlainTokenFromRecord(t);
+            if (plainToken) {
+              const tokenHash = hashToken(plainToken);
+              hasVoted = await hasTokenVoted(tokenHash);
+            }
+          }
+          
+          return {
+            tokenId: t.token_id,
+            email: t.email,
+            teamId: t.team_id,
+            used: t.used,
+            hasVoted,
+            emailSent: t.delivery_status !== 'queued',
+            emailStatus: t.delivery_status,
+            issuedAt: t.issued_at,
+            expiresAt: t.expires_at,
+          };
+        })
+      );
       
       return NextResponse.json({ tokens: tokensData });
     } catch (error) {

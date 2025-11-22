@@ -3,6 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { Button, Card, Input } from '@/components/ui';
+import { Sidebar } from '@/components/layouts';
+
+const sidebarItems = [
+  { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
+  { label: 'Hackathons', href: '/admin/hackathons', icon: '🏆' },
+  { label: 'Polls', href: '/admin/polls', icon: '🗳️' },
+];
 
 /**
  * Create poll page within a hackathon
@@ -11,7 +19,10 @@ export default function CreatePollPage() {
   const router = useRouter();
   const params = useParams();
   const hackathonId = params.hackathonId as string;
-  
+
+  const [admin, setAdmin] = useState<{ adminId: string; email: string; role: string } | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     startTime: '',
@@ -35,10 +46,15 @@ export default function CreatePollPage() {
 
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
-    if (!token) {
+    const adminData = localStorage.getItem('admin');
+
+    if (!token || !adminData) {
       router.push('/admin/login');
       return;
     }
+
+    const parsed = JSON.parse(adminData);
+    setAdmin(parsed);
 
     // Fetch hackathon info
     fetch(`/api/v1/admin/hackathons/${hackathonId}`, {
@@ -106,8 +122,8 @@ export default function CreatePollPage() {
           allowVoteEditing: formData.allowVoteEditing,
           minVoterParticipation: formData.minVoterParticipation ? parseInt(formData.minVoterParticipation) : null,
           minJudgeParticipation: formData.minJudgeParticipation ? parseInt(formData.minJudgeParticipation) : null,
-          maxRankedPositions: formData.votingMode === 'ranked' && formData.maxRankedPositions 
-            ? parseInt(formData.maxRankedPositions, 10) 
+          maxRankedPositions: formData.votingMode === 'ranked' && formData.maxRankedPositions
+            ? parseInt(formData.maxRankedPositions, 10)
             : null,
           votingSequence: formData.votingSequence,
         }),
@@ -136,210 +152,167 @@ export default function CreatePollPage() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('admin');
-    router.push('/admin/login');
-  };
-
   // Get default times (now and 7 days from now)
   const now = new Date();
   const defaultStart = new Date(now.getTime() + 60 * 60 * 1000).toISOString().slice(0, 16);
   const defaultEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
-      <header className="bg-white border-b border-[#e2e8f0]">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/admin/dashboard" className="text-2xl font-bold text-[#1e40af]">
-            FAIR Admin Dashboard
-          </Link>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleLogout}
-              className="text-[#dc2626] hover:text-[#b91c1c] text-sm"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#F8FAFC] flex">
+      <Sidebar items={sidebarItems} user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
-          <div className="mb-4">
+      <main className="flex-1 p-6 md:p-8 overflow-auto">
+        <div className="max-w-3xl mx-auto">
+          <div className="mb-6">
             <Link
               href={`/admin/hackathons/${hackathonId}`}
-              className="text-[#1e40af] hover:text-[#1e3a8a]"
+              className="text-[#4F46E5] hover:text-[#4338CA] text-sm font-medium flex items-center gap-1 mb-2"
             >
               ← Back to Hackathon
             </Link>
+            <h1 className="text-3xl font-bold text-[#0F172A]">Create New Poll</h1>
+            {hackathon && (
+              <p className="text-[#64748B] mt-1">For hackathon: <span className="font-medium text-[#0F172A]">{hackathon.name}</span></p>
+            )}
           </div>
-          <h1 className="text-3xl font-bold text-[#0f172a] mb-2">Create New Poll</h1>
-          {hackathon && (
-            <p className="text-[#64748b] mb-6">For hackathon: {hackathon.name}</p>
-          )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 text-sm font-medium">
               {error}
             </div>
           )}
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <Card>
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-[#0f172a] mb-1">
-                  Poll Name *
-                </label>
-                <input
-                  id="name"
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              <Input
+                label="Poll Name *"
+                id="name"
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                placeholder="e.g., Best Project Award"
+              />
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <Input
+                  label="Start Time *"
+                  id="startTime"
+                  type="datetime-local"
+                  value={formData.startTime || defaultStart}
+                  onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                   required
-                  className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-                  placeholder="e.g., Best Project Award"
+                />
+
+                <Input
+                  label="End Time *"
+                  id="endTime"
+                  type="datetime-local"
+                  value={formData.endTime || defaultEnd}
+                  onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                  required
                 />
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="startTime" className="block text-sm font-medium text-[#0f172a] mb-1">
-                    Start Time *
-                  </label>
-                  <input
-                    id="startTime"
-                    type="datetime-local"
-                    value={formData.startTime || defaultStart}
-                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="endTime" className="block text-sm font-medium text-[#0f172a] mb-1">
-                    End Time *
-                  </label>
-                  <input
-                    id="endTime"
-                    type="datetime-local"
-                    value={formData.endTime || defaultEnd}
-                    onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-                  />
-                </div>
-              </div>
-
               <div>
-                <label htmlFor="votingMode" className="block text-sm font-medium text-[#0f172a] mb-1">
+                <label htmlFor="votingMode" className="block text-sm font-medium text-[#334155] mb-2">
                   Voting Mode *
                 </label>
-                <select
-                  id="votingMode"
-                  value={formData.votingMode}
-                  onChange={(e) => setFormData({ ...formData, votingMode: e.target.value as any, maxRankedPositions: e.target.value !== 'ranked' ? '' : formData.maxRankedPositions })}
-                  required
-                  className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-                >
-                  <option value="single">Single Vote (one team per voter)</option>
-                  <option value="multiple">Multiple Votes (vote for multiple teams)</option>
-                  <option value="ranked">Ranked Voting (rank teams 1, 2, 3...)</option>
-                </select>
+                <div className="relative">
+                  <select
+                    id="votingMode"
+                    value={formData.votingMode}
+                    onChange={(e) => setFormData({ ...formData, votingMode: e.target.value as any, maxRankedPositions: e.target.value !== 'ranked' ? '' : formData.maxRankedPositions })}
+                    required
+                    className="w-full px-4 py-2.5 rounded-xl border-1.5 border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#EEF2FF] focus:border-[#4F46E5] bg-white appearance-none"
+                  >
+                    <option value="single">Single Vote (one team per voter)</option>
+                    <option value="multiple">Multiple Votes (vote for multiple teams)</option>
+                    <option value="ranked">Ranked Voting (rank teams 1, 2, 3...)</option>
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#64748B]">▼</div>
+                </div>
               </div>
 
               {/* Max Ranked Positions - Only for ranked voting */}
               {formData.votingMode === 'ranked' && (
-                <div>
-                  <label htmlFor="maxRankedPositions" className="block text-sm font-medium text-[#0f172a] mb-1">
-                    Maximum Positions to Rank (Optional)
-                  </label>
-                  <input
-                    id="maxRankedPositions"
-                    type="number"
-                    min="1"
-                    value={formData.maxRankedPositions}
-                    onChange={(e) => setFormData({ ...formData, maxRankedPositions: e.target.value })}
-                    className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-                    placeholder="Leave empty to rank all teams"
-                  />
-                  <p className="text-xs text-[#64748b] mt-1">
-                    Limit how many positions voters/judges can rank (e.g., "3" means rank top 3 only). Leave empty to allow ranking all teams.
-                  </p>
-                </div>
+                <Input
+                  label="Maximum Positions to Rank (Optional)"
+                  id="maxRankedPositions"
+                  type="number"
+                  min="1"
+                  value={formData.maxRankedPositions}
+                  onChange={(e) => setFormData({ ...formData, maxRankedPositions: e.target.value })}
+                  placeholder="Leave empty to rank all teams"
+                  helperText="Limit how many positions voters/judges can rank (e.g., '3' means rank top 3 only). Leave empty to allow ranking all teams."
+                />
               )}
 
               <div>
-                <label htmlFor="votingPermissions" className="block text-sm font-medium text-[#0f172a] mb-1">
+                <label htmlFor="votingPermissions" className="block text-sm font-medium text-[#334155] mb-2">
                   Voting Permissions *
                 </label>
-                <select
-                  id="votingPermissions"
-                  value={formData.votingPermissions}
-                  onChange={(e) => setFormData({ ...formData, votingPermissions: e.target.value as any })}
-                  required
-                  className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-                >
-                  <option value="voters_only">Voters Only</option>
-                  <option value="judges_only">Judges Only</option>
-                  <option value="voters_and_judges">Voters and Judges</option>
-                </select>
+                <div className="relative">
+                  <select
+                    id="votingPermissions"
+                    value={formData.votingPermissions}
+                    onChange={(e) => setFormData({ ...formData, votingPermissions: e.target.value as any })}
+                    required
+                    className="w-full px-4 py-2.5 rounded-xl border-1.5 border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#EEF2FF] focus:border-[#4F46E5] bg-white appearance-none"
+                  >
+                    <option value="voters_only">Voters Only</option>
+                    <option value="judges_only">Judges Only</option>
+                    <option value="voters_and_judges">Voters and Judges</option>
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#64748B]">▼</div>
+                </div>
               </div>
 
               {formData.votingPermissions === 'voters_and_judges' && (
                 <>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="voterWeight" className="block text-sm font-medium text-[#0f172a] mb-1">
-                        Voter Weight
-                      </label>
-                      <input
-                        id="voterWeight"
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={formData.voterWeight}
-                        onChange={(e) => setFormData({ ...formData, voterWeight: e.target.value })}
-                        className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-                      />
-                      <p className="text-xs text-[#64748b] mt-1">Weight multiplier for voter votes</p>
-                    </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <Input
+                      label="Voter Weight"
+                      id="voterWeight"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={formData.voterWeight}
+                      onChange={(e) => setFormData({ ...formData, voterWeight: e.target.value })}
+                      helperText="Weight multiplier for voter votes"
+                    />
 
-                    <div>
-                      <label htmlFor="judgeWeight" className="block text-sm font-medium text-[#0f172a] mb-1">
-                        Judge Weight
-                      </label>
-                      <input
-                        id="judgeWeight"
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={formData.judgeWeight}
-                        onChange={(e) => setFormData({ ...formData, judgeWeight: e.target.value })}
-                        className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-                      />
-                      <p className="text-xs text-[#64748b] mt-1">Weight multiplier for judge votes</p>
-                    </div>
+                    <Input
+                      label="Judge Weight"
+                      id="judgeWeight"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={formData.judgeWeight}
+                      onChange={(e) => setFormData({ ...formData, judgeWeight: e.target.value })}
+                      helperText="Weight multiplier for judge votes"
+                    />
                   </div>
 
                   {/* Voting Sequence - Only when both voters and judges can vote */}
                   <div>
-                    <label htmlFor="votingSequence" className="block text-sm font-medium text-[#0f172a] mb-1">
+                    <label htmlFor="votingSequence" className="block text-sm font-medium text-[#334155] mb-2">
                       Voting Sequence *
                     </label>
-                    <select
-                      id="votingSequence"
-                      value={formData.votingSequence}
-                      onChange={(e) => setFormData({ ...formData, votingSequence: e.target.value as any })}
-                      className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-                    >
-                      <option value="simultaneous">Simultaneous (voters and judges can vote at the same time)</option>
-                      <option value="voters_first">Voters First (judges must wait until all voters have voted)</option>
-                    </select>
-                    <p className="text-xs text-[#64748b] mt-1">
-                      {formData.votingSequence === 'voters_first' 
+                    <div className="relative">
+                      <select
+                        id="votingSequence"
+                        value={formData.votingSequence}
+                        onChange={(e) => setFormData({ ...formData, votingSequence: e.target.value as any })}
+                        className="w-full px-4 py-2.5 rounded-xl border-1.5 border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#EEF2FF] focus:border-[#4F46E5] bg-white appearance-none"
+                      >
+                        <option value="simultaneous">Simultaneous (voters and judges can vote at the same time)</option>
+                        <option value="voters_first">Voters First (judges must wait until all voters have voted)</option>
+                      </select>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#64748B]">▼</div>
+                    </div>
+                    <p className="text-xs text-[#64748B] mt-1.5">
+                      {formData.votingSequence === 'voters_first'
                         ? 'Judges will be blocked from voting until all registered voters have completed their votes.'
                         : 'Both voters and judges can vote at any time during the poll period.'}
                     </p>
@@ -347,16 +320,16 @@ export default function CreatePollPage() {
                 </>
               )}
 
-              <div className="space-y-3">
+              <div className="space-y-4 pt-2">
                 <div className="flex items-center">
                   <input
                     id="allowSelfVote"
                     type="checkbox"
                     checked={formData.allowSelfVote}
                     onChange={(e) => setFormData({ ...formData, allowSelfVote: e.target.checked })}
-                    className="w-4 h-4 text-[#1e40af] border-[#94a3b8] rounded focus:ring-[#1e40af]"
+                    className="w-4 h-4 text-[#4F46E5] border-[#94a3b8] rounded focus:ring-[#4F46E5]"
                   />
-                  <label htmlFor="allowSelfVote" className="ml-2 text-sm text-[#0f172a]">
+                  <label htmlFor="allowSelfVote" className="ml-3 text-sm text-[#334155]">
                     Allow self-voting (voters can vote for their own team)
                   </label>
                 </div>
@@ -367,9 +340,9 @@ export default function CreatePollPage() {
                     type="checkbox"
                     checked={formData.requireTeamNameGate}
                     onChange={(e) => setFormData({ ...formData, requireTeamNameGate: e.target.checked })}
-                    className="w-4 h-4 text-[#1e40af] border-[#94a3b8] rounded focus:ring-[#1e40af]"
+                    className="w-4 h-4 text-[#4F46E5] border-[#94a3b8] rounded focus:ring-[#4F46E5]"
                   />
-                  <label htmlFor="requireTeamNameGate" className="ml-2 text-sm text-[#0f172a]">
+                  <label htmlFor="requireTeamNameGate" className="ml-3 text-sm text-[#334155]">
                     Require team name verification (voters must enter their team name)
                   </label>
                 </div>
@@ -380,9 +353,9 @@ export default function CreatePollPage() {
                     type="checkbox"
                     checked={formData.isPublicResults}
                     onChange={(e) => setFormData({ ...formData, isPublicResults: e.target.checked })}
-                    className="w-4 h-4 text-[#1e40af] border-[#94a3b8] rounded focus:ring-[#1e40af]"
+                    className="w-4 h-4 text-[#4F46E5] border-[#94a3b8] rounded focus:ring-[#4F46E5]"
                   />
-                  <label htmlFor="isPublicResults" className="ml-2 text-sm text-[#0f172a]">
+                  <label htmlFor="isPublicResults" className="ml-3 text-sm text-[#334155]">
                     Make results public (anyone can view results without authentication)
                   </label>
                 </div>
@@ -393,77 +366,69 @@ export default function CreatePollPage() {
                     type="checkbox"
                     checked={formData.allowVoteEditing}
                     onChange={(e) => setFormData({ ...formData, allowVoteEditing: e.target.checked })}
-                    className="w-4 h-4 text-[#1e40af] border-[#94a3b8] rounded focus:ring-[#1e40af]"
+                    className="w-4 h-4 text-[#4F46E5] border-[#94a3b8] rounded focus:ring-[#4F46E5]"
                   />
-                  <label htmlFor="allowVoteEditing" className="ml-2 text-sm text-[#0f172a]">
+                  <label htmlFor="allowVoteEditing" className="ml-3 text-sm text-[#334155]">
                     Allow vote editing (voters and judges can change their votes after submission)
                   </label>
                 </div>
               </div>
 
               {/* Quorum Requirements */}
-              <div className="space-y-4 pt-4 border-t border-[#e2e8f0]">
-                <h3 className="text-lg font-semibold text-[#0f172a]">Quorum Requirements</h3>
-                <p className="text-sm text-[#64748b]">
-                  Set minimum participation thresholds. Leave empty for no requirement.
-                </p>
-                
+              <div className="space-y-6 pt-6 border-t border-[#E2E8F0]">
                 <div>
-                  <label htmlFor="minVoterParticipation" className="block text-sm font-medium text-[#0f172a] mb-1">
-                    Minimum Voter Participation
-                  </label>
-                  <input
+                  <h3 className="text-lg font-semibold text-[#0F172A]">Quorum Requirements</h3>
+                  <p className="text-sm text-[#64748B]">
+                    Set minimum participation thresholds. Leave empty for no requirement.
+                  </p>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <Input
+                    label="Minimum Voter Participation"
                     id="minVoterParticipation"
                     type="number"
                     min="1"
                     value={formData.minVoterParticipation}
                     onChange={(e) => setFormData({ ...formData, minVoterParticipation: e.target.value })}
-                    className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
                     placeholder="Leave empty for no requirement"
+                    helperText="Minimum number of voters who must vote for results to be valid"
                   />
-                  <p className="text-xs text-[#64748b] mt-1">
-                    Minimum number of voters who must vote for results to be valid
-                  </p>
-                </div>
 
-                <div>
-                  <label htmlFor="minJudgeParticipation" className="block text-sm font-medium text-[#0f172a] mb-1">
-                    Minimum Judge Participation
-                  </label>
-                  <input
+                  <Input
+                    label="Minimum Judge Participation"
                     id="minJudgeParticipation"
                     type="number"
                     min="1"
                     value={formData.minJudgeParticipation}
                     onChange={(e) => setFormData({ ...formData, minJudgeParticipation: e.target.value })}
-                    className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
                     placeholder="Leave empty for no requirement"
+                    helperText="Minimum number of judges who must vote for results to be valid"
                   />
-                  <p className="text-xs text-[#64748b] mt-1">
-                    Minimum number of judges who must vote for results to be valid
-                  </p>
                 </div>
               </div>
 
               <div className="flex gap-4 pt-4">
-                <button
+                <Button
                   type="submit"
-                  disabled={loading}
-                  className="flex-1 bg-[#1e40af] text-white py-2 rounded-lg font-semibold hover:bg-[#1e3a8a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  isLoading={loading}
+                  className="flex-1"
                 >
-                  {loading ? 'Creating...' : 'Create Poll'}
-                </button>
+                  Create Poll
+                </Button>
                 <Link
                   href={`/admin/hackathons/${hackathonId}`}
-                  className="flex-1 bg-[#64748b] text-white py-2 rounded-lg font-semibold hover:bg-[#475569] transition-colors text-center"
+                  className="flex-1"
                 >
-                  Cancel
+                  <Button variant="secondary" className="w-full">
+                    Cancel
+                  </Button>
                 </Link>
               </div>
             </form>
-          </div>
+          </Card>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

@@ -125,16 +125,19 @@ export async function updateTokenDeliveryStatus(
   status: TokenDeliveryStatus,
   message?: string
 ): Promise<void> {
+  // Build the delivery log entry as a JSONB object
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    status: status,
+    message: message || null,
+  };
+  
   await query(
     `UPDATE tokens 
-     SET delivery_status = $1,
-         delivery_log = delivery_log || jsonb_build_object(
-           'timestamp', CURRENT_TIMESTAMP,
-           'status', $1,
-           'message', $2
-         )::jsonb
+     SET delivery_status = $1::VARCHAR(50),
+         delivery_log = COALESCE(delivery_log, '[]'::jsonb) || jsonb_build_array($2::jsonb)
      WHERE token_id = $3`,
-    [status, message || null, tokenId]
+    [status, JSON.stringify(logEntry), tokenId]
   );
 }
 

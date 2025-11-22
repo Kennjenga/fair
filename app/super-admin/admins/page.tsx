@@ -3,6 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Sidebar } from '@/components/layouts';
+import { Button, Card } from '@/components/ui';
+
+const sidebarItems = [
+  { label: 'Dashboard', href: '/super-admin/dashboard', icon: '📊' },
+  { label: 'Manage Admins', href: '/super-admin/admins', icon: '👥' },
+  { label: 'Audit Logs', href: '/super-admin/audit-logs', icon: '📋' },
+];
 
 /**
  * Super admin - Manage admins page
@@ -12,6 +20,7 @@ export default function ManageAdminsPage() {
   const [admin, setAdmin] = useState<{ adminId: string; email: string; role: string } | null>(null);
   const [admins, setAdmins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [formData, setFormData] = useState({ email: '', password: '', role: 'admin' });
   const [error, setError] = useState('');
@@ -89,134 +98,129 @@ export default function ManageAdminsPage() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('admin');
-    router.push('/admin/login');
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
-        <div className="text-[#64748b]">Loading...</div>
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+        <div className="text-[#64748B]">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
-      <header className="bg-white border-b border-[#e2e8f0]">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/super-admin/dashboard" className="text-2xl font-bold text-[#1e40af]">
-            FAIR Super Admin
-          </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-[#64748b]">{admin?.email}</span>
-            <button
-              onClick={handleLogout}
-              className="text-[#dc2626] hover:text-[#b91c1c] text-sm"
+    <div className="min-h-screen bg-[#F8FAFC] flex">
+      {/* Sidebar */}
+      <Sidebar items={sidebarItems} user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+
+      {/* Main content */}
+      <main className="flex-1 p-6 md:p-8 overflow-auto">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-[#0F172A] mb-2">Manage Admins</h1>
+            <p className="text-[#64748B]">
+              Create and manage administrator accounts
+              {admin && (
+                <span className="ml-2 px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-[#4F46E5]/10 to-[#6366F1]/10 text-[#4F46E5]">
+                  Super Admin
+                </span>
+              )}
+            </p>
+          </div>
+
+          {/* Create Admin Button */}
+          <div className="mb-6">
+            <Button
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              className="bg-gradient-to-r from-[#4F46E5] to-[#6366F1] hover:shadow-lg transition-all"
             >
-              Logout
-            </button>
+              {showCreateForm ? 'Cancel' : '+ Create Admin'}
+            </Button>
           </div>
-        </div>
-      </header>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-[#0f172a]">Manage Admins</h1>
-          <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="bg-[#1e40af] text-white px-6 py-2 rounded-lg font-semibold hover:bg-[#1e3a8a] transition-colors"
-          >
-            {showCreateForm ? 'Cancel' : 'Create Admin'}
-          </button>
-        </div>
-
-        {showCreateForm && (
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h2 className="text-xl font-semibold text-[#0f172a] mb-4">Create New Admin</h2>
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-                {error}
-              </div>
-            )}
-            <form onSubmit={handleCreateAdmin} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#0f172a] mb-1">Email</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
-                  className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#0f172a] mb-1">Password</label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required
-                  minLength={8}
-                  className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#0f172a] mb-1">Role</label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="w-full px-3 py-2 border border-[#94a3b8] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1e40af]"
+          {/* Create Form */}
+          {showCreateForm && (
+            <Card className="mb-6">
+              <h2 className="text-xl font-semibold text-[#0F172A] mb-4">Create New Admin</h2>
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+                  {error}
+                </div>
+              )}
+              <form onSubmit={handleCreateAdmin} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    required
+                    className="w-full px-4 py-3 border border-[#E2E8F0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Password</label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    required
+                    minLength={8}
+                    className="w-full px-4 py-3 border border-[#E2E8F0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#0F172A] mb-1">Role</label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    className="w-full px-4 py-3 border border-[#E2E8F0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent transition-all"
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
+                </div>
+                <Button
+                  type="submit"
+                  className="bg-gradient-to-r from-[#16A34A] to-[#22C55E] hover:shadow-lg transition-all"
                 >
-                  <option value="admin">Admin</option>
-                  <option value="super_admin">Super Admin</option>
-                </select>
-              </div>
-              <button
-                type="submit"
-                className="bg-[#059669] text-white px-6 py-2 rounded-lg font-semibold hover:bg-[#047857] transition-colors"
-              >
-                Create Admin
-              </button>
-            </form>
-          </div>
-        )}
+                  Create Admin
+                </Button>
+              </form>
+            </Card>
+          )}
 
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6">
-            <h2 className="text-xl font-semibold text-[#0f172a] mb-4">All Admins</h2>
+          {/* Admins List */}
+          <Card>
+            <h2 className="text-xl font-semibold text-[#0F172A] mb-4">
+              All Admins <span className="text-[#64748B] text-lg ml-2">({admins.length})</span>
+            </h2>
             {admins.length === 0 ? (
-              <p className="text-[#64748b]">No admins found</p>
+              <p className="text-[#64748B] text-center py-8">No admins found</p>
             ) : (
               <div className="space-y-3">
                 {admins.map((a) => (
-                  <div key={a.adminId} className="border-b border-[#e2e8f0] pb-3 last:border-0">
+                  <div key={a.adminId} className="border-b border-[#E2E8F0] pb-3 last:border-0">
                     <div className="flex justify-between items-center">
                       <div>
-                        <div className="font-medium text-[#0f172a]">{a.email}</div>
-                        <div className="text-sm text-[#64748b]">
-                          Role: {a.role} • Created: {new Date(a.createdAt).toLocaleDateString()}
+                        <div className="font-medium text-[#0F172A]">{a.email}</div>
+                        <div className="text-sm text-[#64748B]">
+                          Created: {new Date(a.createdAt).toLocaleDateString()}
                         </div>
                       </div>
-                      <span className={`px-3 py-1 rounded text-sm font-medium ${
-                        a.role === 'super_admin' 
-                          ? 'bg-[#d97706] text-white' 
-                          : 'bg-[#0891b2] text-white'
-                      }`}>
-                        {a.role}
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${a.role === 'super_admin'
+                          ? 'bg-gradient-to-r from-[#F59E0B]/20 to-[#FBBF24]/20 text-[#F59E0B]'
+                          : 'bg-gradient-to-r from-[#0EA5E9]/20 to-[#38BDF8]/20 text-[#0EA5E9]'
+                        }`}>
+                        {a.role === 'super_admin' ? 'Super Admin' : 'Admin'}
                       </span>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </Card>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
-
-

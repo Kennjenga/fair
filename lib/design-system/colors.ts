@@ -6,17 +6,14 @@
 export const colors = {
   primary: {
     DEFAULT: '#1e40af',      // Deep blue - Trust, stability, integrity
-    dark: '#1e3a8a',
     light: '#3b82f6',
   },
   secondary: {
     DEFAULT: '#0891b2',       // Teal/cyan - Transparency, clarity
-    dark: '#0e7490',
     light: '#06b6d4',
   },
   accent: {
     DEFAULT: '#059669',       // Green - Success, fairness
-    dark: '#047857',
     light: '#10b981',
   },
   neutral: {

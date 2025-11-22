@@ -27,10 +27,11 @@ export async function POST(
       const { pollId } = await params;
       const body = await req.json();
       
-      // Get tied team IDs from request
-      const { tiedTeamIds, name, startTime, endTime } = body;
+      // Get tied team IDs from request (support both 'tiedTeamIds' and 'teamIds' for compatibility)
+      const { tiedTeamIds, teamIds, name, startTime, endTime } = body;
+      const tiedTeamIdsArray = tiedTeamIds || teamIds;
       
-      if (!tiedTeamIds || !Array.isArray(tiedTeamIds) || tiedTeamIds.length < 2) {
+      if (!tiedTeamIdsArray || !Array.isArray(tiedTeamIdsArray) || tiedTeamIdsArray.length < 2) {
         return NextResponse.json(
           { error: 'At least 2 tied team IDs are required' },
           { status: 400 }
@@ -60,11 +61,11 @@ export async function POST(
         );
       }
       
-      // Verify all tied teams exist and belong to the same hackathon
+      // Verify all tied teams exist in the poll
       const teams = await getTeamsByPoll(pollId);
       const validTeamIds = new Set(teams.map(t => t.team_id));
       
-      for (const teamId of tiedTeamIds) {
+      for (const teamId of tiedTeamIdsArray) {
         if (!validTeamIds.has(teamId)) {
           return NextResponse.json(
             { error: `Team ${teamId} not found in original poll` },
@@ -73,18 +74,9 @@ export async function POST(
         }
       }
       
-      // Get the first team to find hackathon_id
-      const firstTeam = teams.find(t => t.team_id === tiedTeamIds[0]);
-      if (!firstTeam) {
-        return NextResponse.json(
-          { error: 'Failed to find hackathon for teams' },
-          { status: 500 }
-        );
-      }
-      
       // Create tie-breaker poll with same settings as original poll
       const tieBreakerPoll = await createPoll(
-        firstTeam.hackathon_id,
+        originalPoll.hackathon_id,
         name,
         new Date(startTime),
         new Date(endTime),
@@ -103,33 +95,10 @@ export async function POST(
         true // Mark as tie-breaker
       );
       
-      // Create teams for tied teams in the tie-breaker poll
-      const { createTeam } = await import('@/lib/repositories/teams');
-      const createdTeams = [];
-      
-      for (const teamId of tiedTeamIds) {
-        const team = teams.find(t => t.team_id === teamId);
-        if (team) {
-          try {
-            const newTeam = await createTeam(
-              firstTeam.hackathon_id,
-              team.team_name,
-              team.metadata || undefined, // Convert null to undefined
-              {
-                projectName: team.project_name || undefined,
-                projectDescription: team.project_description || undefined,
-                pitch: team.pitch || undefined,
-                liveSiteUrl: team.live_site_url || undefined,
-                githubUrl: team.github_url || undefined,
-              }
-            );
-            createdTeams.push(newTeam);
-          } catch (error) {
-            console.error(`Failed to create team ${team.team_name} in tie-breaker poll:`, error);
-            // Continue with other teams
-          }
-        }
-      }
+      // Migrate (duplicate) teams from original poll to tie-breaker poll
+      // This creates duplicate teams and voters so they can vote again in the tie-breaker
+      const { migrateTeams } = await import('@/lib/repositories/teams');
+      const migratedTeams = await migrateTeams(pollId, tieBreakerPoll.poll_id, tiedTeamIdsArray);
       
       // Log audit
       await logAudit(
@@ -139,17 +108,17 @@ export async function POST(
         admin.role,
         { 
           parentPollId: pollId,
-          tiedTeamIds,
+          tiedTeamIds: tiedTeamIdsArray,
           pollName: tieBreakerPoll.name,
-          teamsCreated: createdTeams.length
+          teamsDuplicated: migratedTeams.length
         },
         getClientIp(req.headers)
       );
       
       return NextResponse.json({ 
         poll: tieBreakerPoll,
-        teams: createdTeams,
-        message: 'Tie-breaker poll created successfully'
+        teams: migratedTeams,
+        message: 'Tie-breaker poll created successfully with teams and voters duplicated'
       }, { status: 201 });
     } catch (error) {
       console.error('Create tie-breaker poll error:', error);
