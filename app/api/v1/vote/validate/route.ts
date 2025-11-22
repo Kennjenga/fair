@@ -51,8 +51,17 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    // Check if token is already used
-    if (tokenRecord.used) {
+    // Get poll first to check vote editing settings
+    const poll = await getPollById(tokenRecord.poll_id);
+    if (!poll) {
+      return NextResponse.json(
+        { error: 'Poll not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Check if token is already used - but allow if vote editing is enabled
+    if (tokenRecord.used && !poll.allow_vote_editing) {
       return NextResponse.json(
         { error: 'Token has already been used' },
         { status: 400 }
@@ -67,18 +76,19 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    // Get poll
-    const poll = await getPollById(tokenRecord.poll_id);
-    if (!poll) {
+    // Check if poll is active (allow access even after poll ends if vote editing is enabled and user has voted)
+    const now = new Date();
+    const hasVoted = tokenRecord.used;
+    if (!hasVoted && (now < poll.start_time || now > poll.end_time)) {
       return NextResponse.json(
-        { error: 'Poll not found' },
-        { status: 404 }
+        { error: 'Poll is not currently active' },
+        { status: 400 }
       );
     }
-    
-    // Check if poll is active
-    const now = new Date();
-    if (now < poll.start_time || now > poll.end_time) {
+    // If user has voted and vote editing is enabled, allow access even after poll ends
+    if (hasVoted && poll.allow_vote_editing && now > poll.end_time) {
+      // Allow editing even after poll ends
+    } else if (hasVoted && !poll.allow_vote_editing && (now < poll.start_time || now > poll.end_time)) {
       return NextResponse.json(
         { error: 'Poll is not currently active' },
         { status: 400 }
@@ -103,9 +113,11 @@ export async function POST(req: NextRequest) {
     
     if (existingVote) {
       // Token has already voted - return existing vote information
+      // If vote editing is enabled, allow user to edit their vote
       return NextResponse.json({
         valid: true,
         alreadyVoted: true,
+        canEdit: poll.allow_vote_editing || false,
         poll: {
           pollId: poll.poll_id,
           name: poll.name,
@@ -113,6 +125,7 @@ export async function POST(req: NextRequest) {
           votingPermissions: poll.voting_permissions,
           requireTeamNameGate: poll.require_team_name_gate,
           allowSelfVote: poll.allow_self_vote,
+          allowVoteEditing: poll.allow_vote_editing || false,
           rankPointsConfig: poll.rank_points_config,
         },
         voterTeam: voterTeam ? {

@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
         ),
         query<{ count: string }>(
           `SELECT COUNT(*) as count FROM teams t
-           INNER JOIN polls p ON t.hackathon_id = p.hackathon_id
+           INNER JOIN polls p ON t.poll_id = p.poll_id
            WHERE p.created_by = $1`,
           [admin.adminId]
         ),
