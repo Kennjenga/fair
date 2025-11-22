@@ -187,7 +187,7 @@ export async function sendVotingTokenEmail(
   teamId: string
 ): Promise<any> {
   const votingUrl = `${APP_URL}/vote?token=${encodeURIComponent(token)}`;
-  const teamDetailsUrl = `${APP_URL}/admin/polls/${pollId}/teams/${teamId}`;
+  const teamDetailsUrl = `${APP_URL}/team/${pollId}/${teamId}?token=${encodeURIComponent(token)}`;
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -224,14 +224,11 @@ export async function sendVotingTokenEmail(
             <code style="word-break: break-all;">${votingUrl}</code>
           </div>
           <p style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-            <strong>Team Details:</strong> You can view and update your team's project information by clicking the link below:
+            <strong>Team Details:</strong> You can view your team's project information by clicking the link below:
           </p>
           <div style="text-align: center;">
             <a href="${teamDetailsUrl}" class="button-secondary">View Team Details</a>
           </div>
-          <p style="font-size: 12px; color: #64748b; margin-top: 10px;">
-            Note: You may need to log in as an admin to access the team details page.
-          </p>
           <p><strong>Important:</strong></p>
           <ul>
             <li>This token can only be used once</li>
@@ -260,9 +257,8 @@ Click the link below to cast your vote:
 ${votingUrl}
 
 Team Details:
-You can view and update your team's project information at:
+You can view your team's project information at:
 ${teamDetailsUrl}
-(Note: You may need to log in as an admin to access this page)
 
 Important:
 - This token can only be used once

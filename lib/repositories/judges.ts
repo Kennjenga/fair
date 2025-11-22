@@ -46,9 +46,9 @@ export async function updateJudgeEmailStatus(
 ): Promise<void> {
   await query(
     `UPDATE poll_judges 
-     SET email_status = $1,
-         email_sent = $1 IN ('sent', 'delivered'),
-         email_sent_at = CASE WHEN $1 IN ('sent', 'delivered') THEN CURRENT_TIMESTAMP ELSE email_sent_at END,
+     SET email_status = $1::VARCHAR(50),
+         email_sent = ($1::VARCHAR(50) IN ('sent', 'delivered')),
+         email_sent_at = CASE WHEN $1::VARCHAR(50) IN ('sent', 'delivered') THEN CURRENT_TIMESTAMP ELSE email_sent_at END,
          email_error_message = $2
      WHERE poll_id = $3 AND email = $4`,
     [status, errorMessage || null, pollId, email]
