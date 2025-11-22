@@ -55,11 +55,12 @@ export async function GET(
       );
     }
 
-    // Validate token
+    // Validate token - just check if it exists and belongs to the team
+    // No need to check if poll is active or token is used - voters should always be able to view their team
     const tokenRecord = await findTokenByPlainToken(token);
     if (!tokenRecord) {
       return NextResponse.json(
-        { error: 'Invalid or expired token' },
+        { error: 'Invalid token' },
         { status: 401 }
       );
     }
