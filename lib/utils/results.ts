@@ -123,6 +123,7 @@ export function calculatePollResults(
     }
   } else if (poll.voting_mode === 'ranked') {
     // Ranked vote mode: sum weighted points from rankings
+    // Extract rankings from voter and judge votes
     const voterRankings: VoteRanking[][] = voterVotes
       .filter(v => v.rankings && Array.isArray(v.rankings))
       .map(v => v.rankings!);
@@ -132,6 +133,7 @@ export function calculatePollResults(
       .map(v => v.rankings!);
 
     // Get all unique team IDs from rankings
+    // This includes all teams that received at least one vote
     const allTeamIds = new Set<string>();
     voterRankings.forEach(rankings => {
       rankings.forEach(r => allTeamIds.add(r.teamId));
@@ -143,6 +145,7 @@ export function calculatePollResults(
     // Calculate points for each team
     // Always use numberOfTeams if provided (actual team count), never estimate from allTeamIds
     // This ensures accurate point calculation: rank 1 gets numberOfTeams points, rank 2 gets numberOfTeams-1, etc.
+    // The points are recalculated on-the-fly to ensure accuracy regardless of stored values
     if (!numberOfTeams || numberOfTeams <= 0) {
       throw new Error('numberOfTeams must be provided for ranked voting point calculation');
     }
@@ -151,7 +154,10 @@ export function calculatePollResults(
     // Calculate position counts for each team (how many times ranked at each position)
     const allRankings = [...voterRankings, ...judgeRankings];
     
+    // Calculate points for each team that received votes
     for (const teamId of allTeamIds) {
+      // Calculate voter points: sum of points from all voter votes, weighted by voter_weight
+      // Points are recalculated based on current numberOfTeams to ensure accuracy
       const voterPoints = calculateTeamRankedPoints(
         teamId,
         voterRankings,
@@ -159,6 +165,9 @@ export function calculatePollResults(
         poll.voter_weight,
         poll.rank_points_config
       );
+      
+      // Calculate judge points: sum of points from all judge votes, weighted by judge_weight
+      // Points are recalculated based on current numberOfTeams to ensure accuracy
       const judgePoints = calculateTeamRankedPoints(
         teamId,
         judgeRankings,
@@ -167,7 +176,7 @@ export function calculatePollResults(
         poll.rank_points_config
       );
 
-      // Calculate position counts for this team
+      // Calculate position counts for this team (statistics: how many times ranked at each position)
       const positionCounts: Record<number, number> = {};
       for (const rankings of allRankings) {
         const teamRanking = rankings.find(r => r.teamId === teamId);
@@ -176,6 +185,8 @@ export function calculatePollResults(
         }
       }
 
+      // Store results for this team
+      // totalScore is the sum of voterPoints and judgePoints
       teamResults.set(teamId, {
         teamId,
         teamName: '',

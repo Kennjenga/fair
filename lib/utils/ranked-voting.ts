@@ -23,6 +23,12 @@ export function calculateRankPoints(
  * @param weight The weight multiplier (voter_weight or judge_weight)
  * @param rankPointsConfig Optional configuration mapping ranks to points (for backward compatibility)
  * @returns Total weighted points for the team
+ * 
+ * IMPORTANT: This function always recalculates points based on the current numberOfTeams,
+ * ignoring any stored points in the database. This ensures accuracy even if:
+ * - Teams were added/removed after votes were cast
+ * - Stored points were calculated with a different number of teams
+ * - There are any inconsistencies in stored data
  */
 export function calculateTeamRankedPoints(
   teamId: string,
@@ -37,18 +43,23 @@ export function calculateTeamRankedPoints(
     // Find the ranking for this team in this vote
     const teamRanking = voteRankings.find(r => r.teamId === teamId);
     if (teamRanking) {
-      // Points should already be calculated in the ranking when vote was submitted
-      // But if not set (undefined), calculate dynamically
-      let points = teamRanking.points;
-      if (points === undefined || points === null) {
-        if (rankPointsConfig && rankPointsConfig[teamRanking.rank.toString()] !== undefined) {
-          points = rankPointsConfig[teamRanking.rank.toString()];
-        } else {
-          // Dynamic calculation: rank 1 gets N points, rank 2 gets N-1, etc.
-          points = numberOfTeams - teamRanking.rank + 1;
-        }
+      // Always recalculate points based on current numberOfTeams and rankPointsConfig
+      // This ensures accuracy regardless of what's stored in the database
+      // Stored points are kept for audit purposes but not used for calculation
+      let points: number;
+      if (rankPointsConfig && rankPointsConfig[teamRanking.rank.toString()] !== undefined) {
+        // Use configured points if available
+        points = rankPointsConfig[teamRanking.rank.toString()];
+      } else {
+        // Dynamic calculation: rank 1 gets N points, rank 2 gets N-1, etc.
+        // Formula: points = numberOfTeams - rank + 1
+        points = numberOfTeams - teamRanking.rank + 1;
       }
-      // Note: points === 0 is valid (for last place), so we don't recalculate in that case
+      
+      // Ensure points are never negative (safety check)
+      points = Math.max(0, points);
+      
+      // Add weighted points to total
       totalPoints += points * weight;
     }
   }
