@@ -16,12 +16,41 @@ export function calculateRankPoints(
 }
 
 /**
+ * Calculate points for a single rank position
+ * Always uses linear calculation based on numberOfTeams to ensure points decrease as rank increases
+ * Formula: points = numberOfTeams - rank + 1
+ * 
+ * Examples:
+ * - 8 teams: Rank 1 = 8 pts, Rank 2 = 7 pts, Rank 3 = 6 pts, ..., Rank 8 = 1 pt
+ * - 10 teams: Rank 1 = 10 pts, Rank 2 = 9 pts, Rank 3 = 8 pts, ..., Rank 10 = 1 pt
+ * 
+ * @param rank The rank position (1, 2, 3, etc.)
+ * @param numberOfTeams The total number of teams (for dynamic point calculation)
+ * @param rankPointsConfig Optional configuration (ignored - always uses linear calculation)
+ * @returns Points for this rank, guaranteed to decrease as rank increases
+ */
+function calculatePointsForRank(
+  rank: number,
+  numberOfTeams: number,
+  rankPointsConfig?: RankPointsConfig
+): number {
+  // Always use linear calculation: rank 1 gets N points, rank 2 gets N-1, etc.
+  // Formula: points = numberOfTeams - rank + 1
+  // This ensures points always decrease as rank increases
+  // rank_points_config is ignored to maintain consistency and simplicity
+  const points = numberOfTeams - rank + 1;
+  
+  // Ensure points are never negative (safety check)
+  return Math.max(0, points);
+}
+
+/**
  * Calculate total weighted points for a team from ranked votes
  * @param teamId The team ID
  * @param rankings Array of vote rankings (each vote can have multiple rankings)
  * @param numberOfTeams The total number of teams (for dynamic point calculation)
  * @param weight The weight multiplier (voter_weight or judge_weight)
- * @param rankPointsConfig Optional configuration mapping ranks to points (for backward compatibility)
+ * @param rankPointsConfig Optional configuration (ignored - always uses linear calculation)
  * @returns Total weighted points for the team
  * 
  * IMPORTANT: This function always recalculates points based on the current numberOfTeams,
@@ -29,6 +58,9 @@ export function calculateRankPoints(
  * - Teams were added/removed after votes were cast
  * - Stored points were calculated with a different number of teams
  * - There are any inconsistencies in stored data
+ * 
+ * CRITICAL: Points are calculated using linear formula (numberOfTeams - rank + 1),
+ * ensuring points always decrease as rank increases. rank_points_config is ignored.
  */
 export function calculateTeamRankedPoints(
   teamId: string,
@@ -43,21 +75,15 @@ export function calculateTeamRankedPoints(
     // Find the ranking for this team in this vote
     const teamRanking = voteRankings.find(r => r.teamId === teamId);
     if (teamRanking) {
-      // Always recalculate points based on current numberOfTeams and rankPointsConfig
+      // Always recalculate points using linear formula: numberOfTeams - rank + 1
       // This ensures accuracy regardless of what's stored in the database
       // Stored points are kept for audit purposes but not used for calculation
-      let points: number;
-      if (rankPointsConfig && rankPointsConfig[teamRanking.rank.toString()] !== undefined) {
-        // Use configured points if available
-        points = rankPointsConfig[teamRanking.rank.toString()];
-      } else {
-        // Dynamic calculation: rank 1 gets N points, rank 2 gets N-1, etc.
-        // Formula: points = numberOfTeams - rank + 1
-        points = numberOfTeams - teamRanking.rank + 1;
-      }
-      
-      // Ensure points are never negative (safety check)
-      points = Math.max(0, points);
+      // rank_points_config is ignored to maintain consistency
+      const points = calculatePointsForRank(
+        teamRanking.rank,
+        numberOfTeams,
+        rankPointsConfig
+      );
       
       // Add weighted points to total
       totalPoints += points * weight;
@@ -69,11 +95,11 @@ export function calculateTeamRankedPoints(
 
 /**
  * Process rankings and calculate points for each team
- * Points are calculated as: N - rank + 1, where N is the number of teams
- * So rank 1 gets N points, rank 2 gets N-1 points, etc.
+ * Points are calculated using linear formula: numberOfTeams - rank + 1
+ * This ensures points always decrease as rank increases
  * @param rankings Array of vote rankings
  * @param numberOfTeams The total number of teams in the poll
- * @param rankPointsConfig Optional configuration mapping ranks to points (for backward compatibility)
+ * @param rankPointsConfig Optional configuration (ignored - always uses linear calculation)
  * @returns Array of rankings with calculated points
  */
 export function processRankings(
@@ -82,16 +108,14 @@ export function processRankings(
   rankPointsConfig?: RankPointsConfig
 ): VoteRanking[] {
   return rankings.map(ranking => {
-    // Calculate points: N - rank + 1
-    // If rankPointsConfig is provided and has a value for this rank, use it (backward compatibility)
-    // Otherwise, use the dynamic calculation
-    let points: number;
-    if (rankPointsConfig && rankPointsConfig[ranking.rank.toString()] !== undefined) {
-      points = rankPointsConfig[ranking.rank.toString()];
-    } else {
-      // Dynamic calculation: rank 1 gets N points, rank 2 gets N-1, etc.
-      points = numberOfTeams - ranking.rank + 1;
-    }
+    // Calculate points using linear formula: numberOfTeams - rank + 1
+    // This ensures consistency between vote submission and results calculation
+    // rank_points_config is ignored to maintain consistency
+    const points = calculatePointsForRank(
+      ranking.rank,
+      numberOfTeams,
+      rankPointsConfig
+    );
     
     return {
       teamId: ranking.teamId,
