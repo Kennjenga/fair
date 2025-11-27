@@ -162,8 +162,7 @@ export function calculatePollResults(
         teamId,
         voterRankings,
         teamsCount,
-        poll.voter_weight,
-        poll.rank_points_config
+        poll.voter_weight
       );
       
       // Calculate judge points: sum of points from all judge votes, weighted by judge_weight
@@ -172,8 +171,7 @@ export function calculatePollResults(
         teamId,
         judgeRankings,
         teamsCount,
-        poll.judge_weight,
-        poll.rank_points_config
+        poll.judge_weight
       );
 
       // Calculate position counts for this team (statistics: how many times ranked at each position)

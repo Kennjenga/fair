@@ -298,8 +298,7 @@ export async function POST(req: NextRequest) {
       const numberOfTeams = allTeams.length;
       voteOptions.rankings = processRankings(
         validated.rankings.map(r => ({ teamId: r.teamId, rank: r.rank, reason: r.reason })),
-        numberOfTeams,
-        poll.rank_points_config
+        numberOfTeams
       );
     }
     
