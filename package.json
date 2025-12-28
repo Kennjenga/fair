@@ -16,7 +16,7 @@
   "dependencies": {
     "@getbrevo/brevo": "^1.0.0",
     "@types/pg": "^8.15.6",
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "csv-parser": "^3.0.0",
     "dotenv": "^17.2.3",

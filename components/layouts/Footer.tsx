@@ -26,7 +26,7 @@ export const Footer = () => {
             <ul className="space-y-2 text-[#9CA3AF]">
               <li><Link href="/vote" className="hover:text-[#818CF8] transition-colors">Cast Vote</Link></li>
               <li><Link href="/results" className="hover:text-[#818CF8] transition-colors">Results</Link></li>
-              <li><Link href="/" className="hover:text-[#818CF8] transition-colors">Documentation</Link></li>
+              <li><Link href="/docs" className="hover:text-[#818CF8] transition-colors">Documentation</Link></li>
             </ul>
           </div>
 
@@ -34,9 +34,9 @@ export const Footer = () => {
           <div>
             <h4 className="font-semibold text-white mb-4">Company</h4>
             <ul className="space-y-2 text-[#9CA3AF]">
-              <li><Link href="/docs" className="hover:text-[#818CF8] transition-colors">About</Link></li>
-              <li><Link href="/docs" className="hover:text-[#818CF8] transition-colors">Blog</Link></li>
-              <li><Link href="/docs" className="hover:text-[#818CF8] transition-colors">Careers</Link></li>
+              <li><Link href="/about" className="hover:text-[#818CF8] transition-colors">About</Link></li>
+              <li><Link href="/blog" className="hover:text-[#818CF8] transition-colors">Blog</Link></li>
+              <li><Link href="/coming-soon" className="hover:text-[#818CF8] transition-colors">Careers</Link></li>
             </ul>
           </div>
 
@@ -44,9 +44,9 @@ export const Footer = () => {
           <div>
             <h4 className="font-semibold text-white mb-4">Legal</h4>
             <ul className="space-y-2 text-[#9CA3AF]">
-              <li><Link href="/docs" className="hover:text-[#818CF8] transition-colors">Privacy</Link></li>
-              <li><Link href="/docs" className="hover:text-[#818CF8] transition-colors">Terms</Link></li>
-              <li><Link href="/docs" className="hover:text-[#818CF8] transition-colors">Contact</Link></li>
+              <li><Link href="/coming-soon" className="hover:text-[#818CF8] transition-colors">Privacy</Link></li>
+              <li><Link href="/coming-soon" className="hover:text-[#818CF8] transition-colors">Terms</Link></li>
+              <li><Link href="/coming-soon" className="hover:text-[#818CF8] transition-colors">Contact</Link></li>
             </ul>
           </div>
         </div>

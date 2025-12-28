@@ -1,6 +1,5 @@
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import type { JWTPayload } from '@/types/auth';
-import type { StringValue } from 'ms';
 
 /**
  * JWT secret from environment variables
@@ -16,7 +15,7 @@ const JWT_EXPIRES_IN: string = process.env.JWT_EXPIRES_IN || '24h';
  */
 export function generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
   const options: SignOptions = {
-    expiresIn: JWT_EXPIRES_IN as StringValue,
+    expiresIn: JWT_EXPIRES_IN as any,
   };
   return jwt.sign(payload, JWT_SECRET, options);
 }
@@ -51,12 +50,12 @@ export function extractTokenFromHeader(authHeader: string | null): string | null
   if (!authHeader) {
     return null;
   }
-  
+
   const parts = authHeader.split(' ');
   if (parts.length !== 2 || parts[0] !== 'Bearer') {
     return null;
   }
-  
+
   return parts[1];
 }
 
