@@ -15,22 +15,22 @@ const navLinks = [
 
 const stats = [
   { value: '2.5M+', label: 'Votes cast securely' },
-  { value: '350+', label: 'Hackathons launched' },
-  { value: '99.98%', label: 'Uptime across events' },
+  { value: '1,200+', label: 'Organizations using FAIR' },
+  { value: '99.98%', label: 'Uptime reliability' },
 ];
 
 const highlights = [
-  'Immutable Avalanche audit trail',
-  'Anonymous voting with role-aware access',
-  'Instant results & quorum enforcement',
+  'Blockchain-backed verifiable audit trail',
+  'Secure voting with granular access controls',
+  'Real-time results & governance enforcement',
 ];
 
 const trustBadges = ['SOC2 Ready', 'KYC Controls', '24/7 Audit Feed'];
 
 const pollItems = [
-  { label: 'UI Innovation', percentage: 42 },
-  { label: 'Best Sustainability Build', percentage: 34 },
-  { label: 'AI for Good', percentage: 24 },
+  { label: 'Approve Budget Allocation', percentage: 42 },
+  { label: 'New Feature Priority', percentage: 34 },
+  { label: 'Policy Amendment', percentage: 24 },
 ];
 
 /**
@@ -283,7 +283,7 @@ export const Hero = () => {
               transition={{ delay: 0.4 }}
             >
               <Badge className="mb-6 bg-gradient-to-r from-[#4F46E5]/10 to-[#6366F1]/10 text-[#4F46E5] border-[#4F46E5]/20">
-                Avalanche powered voting
+                Powered by Avalanche Blockchain
               </Badge>
             </motion.div>
 
@@ -293,7 +293,7 @@ export const Hero = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
             >
-              Fair decisions for every hackathon and product review
+              Decisions built on trust, verified by blockchain
             </motion.h1>
 
             <motion.p
@@ -302,7 +302,7 @@ export const Hero = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
             >
-              Launch tamper-proof voting with organizer-friendly tools, live audits, and instant results your community can trust.
+              FAIR delivers transparent, tamper-proof decision-making for communities and organizations. Every vote is verifiable, every outcome is auditable, and every process is secured by Avalanche blockchain.
             </motion.p>
 
             <motion.div
@@ -313,7 +313,7 @@ export const Hero = () => {
             >
               <Link href="/signup">
                 <Button size="lg" className="bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white hover:shadow-xl transition-all hover:scale-105">
-                  Create an Event
+                  Get Started
                 </Button>
               </Link>
               <Link href="/vote">
@@ -322,7 +322,7 @@ export const Hero = () => {
                   size="lg"
                   className="border-[#4F46E5]/30 text-[#4F46E5] hover:bg-[#4F46E5]/5 transition-all hover:scale-105"
                 >
-                  See Live Demo
+                  Explore Platform
                 </Button>
               </Link>
             </motion.div>
@@ -391,7 +391,7 @@ export const Hero = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-[#64748B]">Live Poll</p>
-                    <p className="text-2xl font-semibold text-[#0F172A]">Hackathon Finals</p>
+                    <p className="text-2xl font-semibold text-[#0F172A]">Governance Vote</p>
                   </div>
                   <motion.span
                     className="rounded-full bg-gradient-to-r from-[#4F46E5]/10 to-[#6366F1]/10 px-3 py-1 text-xs font-medium text-[#4F46E5] border border-[#4F46E5]/20"

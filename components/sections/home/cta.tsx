@@ -93,12 +93,12 @@ export const CTA = () => {
             transition={{ duration: 0.6 }}
             className="lg:pt-8"
           >
-            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-white/90">Ready?</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-white/90">Join FAIR</p>
             <h2 className="mt-4 text-4xl font-semibold text-white md:text-5xl leading-tight">
-              Deliver transparent results your community can trust
+              Experience governance you can trust and verify
             </h2>
             <p className="mt-6 text-lg text-white/95 leading-relaxed">
-              Spin up your first FAIR event for free. Upgrade only when you need dedicated support and advanced compliance features.
+              Start building transparent, accountable decision-making processes today. Free to start, with enterprise features available as you grow.
             </p>
 
             <motion.div
@@ -146,19 +146,19 @@ export const CTA = () => {
                 <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-sm font-semibold text-white">
                   ✓
                 </span>
-                <p className="text-white/90">No credit card required to start</p>
+                <p className="text-white/90">No credit card required</p>
               </div>
               <div className="flex items-start gap-3">
                 <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-sm font-semibold text-white">
                   ✓
                 </span>
-                <p className="text-white/90">Free tier includes unlimited voters</p>
+                <p className="text-white/90">Blockchain-verified transparency</p>
               </div>
               <div className="flex items-start gap-3">
                 <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-sm font-semibold text-white">
                   ✓
                 </span>
-                <p className="text-white/90">Enterprise support available</p>
+                <p className="text-white/90">Dedicated support for organizations</p>
               </div>
             </motion.div>
           </motion.div>
@@ -171,9 +171,9 @@ export const CTA = () => {
             transition={{ delay: 0.3, duration: 0.6 }}
           >
             <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-8 border border-white/20 h-full">
-              <h3 className="text-2xl font-semibold text-white mb-2">Get in Touch</h3>
+              <h3 className="text-2xl font-semibold text-white mb-2">Let's Talk</h3>
               <p className="text-white/90 mb-6">
-                Have questions? Send us a message and we'll get back to you shortly.
+                Ready to bring transparency to your decision-making? We're here to help.
               </p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -220,7 +220,7 @@ export const CTA = () => {
                     onChange={handleChange}
                     rows={5}
                     className="w-full px-4 py-3 rounded-lg bg-white/20 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all resize-none"
-                    placeholder="Tell us about your event or ask us anything..."
+                    placeholder="Tell us about your use case or ask us anything..."
                     required
                   />
                 </div>

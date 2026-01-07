@@ -6,40 +6,40 @@ import { Card, Badge } from '@/components/ui';
 
 const features = [
   {
-    icon: Zap,
-    title: 'Real-time Results',
-    description: 'Results update instantly on-chain with verifiable hashes.',
-    gradient: 'from-yellow-400 to-orange-500',
-  },
-  {
     icon: Shield,
-    title: 'Self-Vote Prevention',
-    description: 'Smart rules block teams from voting for themselves.',
+    title: 'Blockchain Verification',
+    description: 'Every vote is cryptographically secured and recorded on Avalanche for permanent, tamper-proof verification.',
     gradient: 'from-blue-400 to-indigo-500',
   },
   {
-    icon: BarChart3,
-    title: 'Advanced Modes',
-    description: 'Ranked choice, juried scoring, and dynamic weighting.',
-    gradient: 'from-green-400 to-teal-500',
-  },
-  {
     icon: CheckCircle,
-    title: 'Quorum Controls',
-    description: 'Set minimum participation and auto-hold results if unmet.',
+    title: 'Privacy & Access Control',
+    description: 'Granular permissions ensure only authorized participants can vote while maintaining voter privacy when needed.',
     gradient: 'from-purple-400 to-pink-500',
   },
   {
-    icon: RefreshCw,
-    title: 'Vote Editing',
-    description: 'Allow secure edits until polls close with full audit logs.',
-    gradient: 'from-cyan-400 to-blue-500',
+    icon: BarChart3,
+    title: 'Flexible Voting Methods',
+    description: 'Support for ranked choice, weighted voting, approval voting, and custom scoring systems for any decision type.',
+    gradient: 'from-green-400 to-teal-500',
+  },
+  {
+    icon: Zap,
+    title: 'Real-time Transparency',
+    description: 'Live dashboards show participation rates and results as they happen, with instant blockchain confirmation.',
+    gradient: 'from-yellow-400 to-orange-500',
   },
   {
     icon: TrendingUp,
-    title: 'Tie Resolution',
-    description: 'Edge-case intelligence with configurable tie-breakers.',
+    title: 'Governance Enforcement',
+    description: 'Automated quorum checks, participation thresholds, and configurable rules ensure valid, binding outcomes.',
     gradient: 'from-rose-400 to-red-500',
+  },
+  {
+    icon: RefreshCw,
+    title: 'Complete Audit Trails',
+    description: 'Immutable logs capture every action with exportable proofs for compliance and accountability.',
+    gradient: 'from-cyan-400 to-blue-500',
   },
 ];
 
@@ -86,9 +86,9 @@ export const Features = () => {
           <Badge variant="secondary" className="mb-4">
             Platform pillars
           </Badge>
-          <h2 className="text-3xl font-semibold text-[#0F172A] md:text-5xl">Powerful, configurable controls</h2>
+          <h2 className="text-3xl font-semibold text-[#0F172A] md:text-5xl">Verifiable integrity in every decision</h2>
           <p className="mt-4 text-lg text-[#334155]">
-            FAIR wraps enterprise-grade voting security in an organizer-friendly experience.
+            Transparent governance meets blockchain security—designed for organizations that demand accountability and trust.
           </p>
         </motion.div>
 

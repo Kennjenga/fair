@@ -7,20 +7,20 @@ import { Card, Badge } from '@/components/ui';
 const benefits = [
   {
     icon: Rocket,
-    title: 'Launch in minutes',
-    description: 'Guided setup, presets, and templates remove guesswork for organizers.',
+    title: 'Simple to deploy',
+    description: 'Launch secure decision-making processes in minutes with intuitive templates—no blockchain expertise required.',
     gradient: 'from-blue-500 to-indigo-600',
   },
   {
     icon: Users,
-    title: 'Judge-grade controls',
-    description: 'Role-based permissions, single-use tokens, and multi-factor invites.',
+    title: 'Granular access control',
+    description: 'Define roles, permissions, and voting rights with precision—ensuring the right people make the right decisions.',
     gradient: 'from-purple-500 to-pink-600',
   },
   {
     icon: FileCheck,
-    title: 'Transparent audits',
-    description: 'Immutable logs with exportable proofs keep every vote accountable.',
+    title: 'Immutable verification',
+    description: 'Every vote is recorded on Avalanche blockchain—creating permanent, tamper-proof audit trails anyone can verify.',
     gradient: 'from-green-500 to-teal-600',
   },
 ];
@@ -46,10 +46,10 @@ export const Benefits = () => {
         >
           <Badge variant="secondary">Why FAIR</Badge>
           <h2 className="mt-4 text-3xl font-semibold text-[#0F172A] md:text-5xl">
-            Designed for modern hackathons and review boards
+            Trust through transparency, verified by blockchain
           </h2>
           <p className="mt-4 text-lg text-[#334155]">
-            Skip spreadsheets and clunky manual tallying. FAIR unifies setup, live monitoring, and post-event reporting in one interface.
+            FAIR transforms how communities and organizations make decisions—combining user-friendly governance tools with the security of blockchain verification.
           </p>
         </motion.div>
 
