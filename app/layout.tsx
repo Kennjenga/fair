@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FAIR - Anonymous Blockchain Voting Platform",
-  description: "Transparent, tamper-proof voting powered by Avalanche blockchain for hackathons and team-based competitions",
+  title: "FAIR - Reliable and Verifiable",
+  description: "Creating a space where every decision and process is transparent, accountable, and trustworthy. Integrity built in from start to finish."
 };
 
 export default function RootLayout({
