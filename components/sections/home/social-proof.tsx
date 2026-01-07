@@ -29,7 +29,7 @@ export const SocialProof = () => {
 
       <div className="mx-auto max-w-7xl px-4 relative">
         <p className="text-center text-sm font-medium text-[#64748B] mb-8 uppercase tracking-wider">
-          Trusted by leading hackathon organizers
+          Trusted by leading organizations and communities
         </p>
 
         {/* Continuous scrolling container */}

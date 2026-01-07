@@ -14,24 +14,24 @@ type Step = {
 const steps: Step[] = [
   {
     title: '1. Configure',
-    description: 'Import teams, judges, and scoring rules.',
-    detail: 'Create categories, quorum rules, and tokenized invites in under five minutes.',
+    description: 'Define participants, roles, and voting rules.',
+    detail: 'Set up access controls, decision criteria, and participation requirements in minutes.',
     icon: Settings,
     status: 'Setup Mode',
   },
   {
-    title: '2. Launch',
-    description: 'Share single-use voting links.',
-    detail: 'Live dashboards highlight participation, while automations nudge missing voters.',
+    title: '2. Execute',
+    description: 'Secure voting with real-time transparency.',
+    detail: 'Live dashboards track participation while blockchain records every vote immutably.',
     icon: Play,
-    status: 'Live Voting',
+    status: 'Active Voting',
   },
   {
-    title: '3. Review',
-    description: 'Export results and audit logs.',
-    detail: 'Download hash-backed proofs or sync data to Slack, Notion, and Airtable.',
+    title: '3. Verify',
+    description: 'Export results with cryptographic proof.',
+    detail: 'Download blockchain-verified audit trails and integrate with your existing tools.',
     icon: Award,
-    status: 'Post Event',
+    status: 'Complete',
   },
 ];
 
@@ -54,12 +54,12 @@ export const Workflow = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#6366F1]">Workflow</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#6366F1]">How It Works</p>
           <h2 className="mt-4 text-3xl font-semibold text-[#0F172A] md:text-5xl">
-            Launch → Monitor → Celebrate
+            Configure → Execute → Verify
           </h2>
           <p className="mt-4 text-lg text-[#334155]">
-            FAIR compresses the entire voting lifecycle into three guided steps.
+            FAIR streamlines the entire decision-making lifecycle into three transparent steps.
           </p>
         </motion.header>
 
