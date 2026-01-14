@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import InstallButton from '@/components/InstallButton';
 
 /**
  * Footer component
@@ -48,6 +49,19 @@ export const Footer = () => {
               <li><Link href="/coming-soon" className="hover:text-[#818CF8] transition-colors">Terms</Link></li>
               <li><Link href="/coming-soon" className="hover:text-[#818CF8] transition-colors">Contact</Link></li>
             </ul>
+          </div>
+        </div>
+
+        {/* Install App Section */}
+        <div className="border-t border-[#374151] pt-8 pb-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="text-center md:text-left">
+              <h4 className="font-semibold text-white mb-1">Get the Fair App</h4>
+              <p className="text-[#9CA3AF] text-sm">
+                Install our app for quick access and offline support
+              </p>
+            </div>
+            <InstallButton />
           </div>
         </div>
 

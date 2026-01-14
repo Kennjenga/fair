@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import InstallPWA from "@/components/InstallPWA";
+import UpdateNotification from "@/components/UpdateNotification";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,6 +43,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#F8FAFC]`}>
         {children}
         <InstallPWA />
+        <UpdateNotification />
       </body>
     </html>
   );
