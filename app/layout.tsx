@@ -14,7 +14,17 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "FAIR - Reliable and Verifiable",
-  description: "Creating a space where every decision and process is transparent, accountable, and trustworthy. Integrity built in from start to finish."
+  description: "Creating a space where every decision and process is transparent, accountable, and trustworthy. Integrity built in from start to finish.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Fair App",
+  },
+};
+
+export const viewport = {
+  themeColor: "#000000",
 };
 
 export default function RootLayout({
@@ -24,6 +34,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#F8FAFC]`}>
         {children}
       </body>
