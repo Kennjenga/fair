@@ -3,7 +3,9 @@
   "short_name": "Fair",
   "description": "A fair and just application for everyone.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#000000",
   "icons": [

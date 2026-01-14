@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import PwaRegister from "@/components/PwaRegister";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,10 +37,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+         <link rel="manifest" href="/manifest.json" />
          <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#F8FAFC]`}>
         {children}
+        <PwaRegister />
       </body>
     </html>
   );
