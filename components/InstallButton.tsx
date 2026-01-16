@@ -11,27 +11,27 @@ interface BeforeInstallPromptEvent extends Event {
 export default function InstallButton() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
-  const [showButton, setShowButton] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
     // Check if already installed
     const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
     const isInWebAppiOS = (window.navigator as any).standalone === true;
-    
+
     if (isStandalone || isInWebAppiOS) {
-      return; // Already installed
+      setIsInstalled(true);
+      return;
     }
 
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setShowButton(true);
     };
 
     window.addEventListener("beforeinstallprompt", handler);
 
     window.addEventListener("appinstalled", () => {
-      setShowButton(false);
+      setIsInstalled(true);
       setDeferredPrompt(null);
     });
 
@@ -42,6 +42,13 @@ export default function InstallButton() {
 
   const handleInstall = async () => {
     if (!deferredPrompt) {
+      // Provide manual install instructions if no deferred prompt
+      alert(
+        "To install FAIR:\n\n" +
+        "Chrome/Edge: Click the install icon (⊕) in the address bar\n" +
+        "Safari (iOS): Tap Share → Add to Home Screen\n" +
+        "Firefox: Look for 'Install' in the browser menu"
+      );
       return;
     }
 
@@ -50,22 +57,25 @@ export default function InstallButton() {
 
     if (outcome === "accepted") {
       setDeferredPrompt(null);
-      setShowButton(false);
+      setIsInstalled(true);
     }
   };
 
-  if (!showButton) {
+  // Hide button if already installed (in standalone mode)
+  if (isInstalled) {
     return null;
   }
 
+  // Always show button in browser mode
   return (
     <button
       onClick={handleInstall}
-      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 shadow-md"
+      className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white rounded-xl font-semibold hover:shadow-lg transition-all hover:scale-105 active:scale-95 browser-only"
       title="Install Fair App"
     >
       <Download size={18} />
-      <span className="hidden sm:inline">Install App</span>
+      <span className="hidden sm:inline">{deferredPrompt ? "Install App" : "How to Install"}</span>
+      <span className="sm:hidden">Install</span>
     </button>
   );
 }
