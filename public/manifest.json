@@ -1,7 +1,7 @@
 {
-  "name": "Fair App",
+  "name": "FAIR - Reliable and Verifiable",
   "short_name": "Fair",
-  "description": "A fair and just application for everyone.",
+  "description": "Creating a space where every decision and process is transparent, accountable, and trustworthy. Integrity built in from start to finish.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
