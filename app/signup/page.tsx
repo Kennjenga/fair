@@ -158,7 +158,7 @@ export default function SignupPage() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 w-full max-w-6xl grid lg:grid-cols-2 gap-12 items-center">
+      <div className="relative z-20 w-full max-w-6xl grid lg:grid-cols-2 gap-12 items-center app-layout">
         {/* Left side - Branding & Benefits */}
         <motion.div
           className="hidden lg:block"
@@ -166,7 +166,7 @@ export default function SignupPage() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <Link href="/" className="inline-flex items-center gap-2 text-[#334155] hover:text-[#4F46E5] transition-colors mb-8 group">
+          <Link href="/" className="inline-flex items-center gap-2 text-[#334155] hover:text-[#4F46E5] transition-colors mb-8 group browser-only">
             <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
             <span className="text-sm font-medium">Back to Home</span>
           </Link>
@@ -234,7 +234,7 @@ export default function SignupPage() {
             transition={{ type: 'spring', stiffness: 300 }}
           >
             {/* Mobile back button */}
-            <Link href="/" className="lg:hidden inline-flex items-center gap-2 text-[#334155] hover:text-[#4F46E5] transition-colors mb-6 group">
+            <Link href="/" className="lg:hidden inline-flex items-center gap-2 text-[#334155] hover:text-[#4F46E5] transition-colors mb-6 group browser-only">
               <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
               <span className="text-sm font-medium">Back to Home</span>
             </Link>

@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import InstallPWA from "@/components/InstallPWA";
 import UpdateNotification from "@/components/UpdateNotification";
+import { AppEnvironmentProvider } from "@/components/providers";
+import { LayoutSwitcher } from "@/components/LayoutSwitcher";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,7 +28,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#000000",
+  themeColor: "#4F46E5",
 };
 
 export default function RootLayout({
@@ -37,13 +39,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-         <link rel="manifest" href="/manifest.json" />
-         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#F8FAFC]`}>
-        {children}
-        <InstallPWA />
-        <UpdateNotification />
+        <AppEnvironmentProvider>
+          <LayoutSwitcher>
+            {children}
+          </LayoutSwitcher>
+          <InstallPWA />
+          <UpdateNotification />
+        </AppEnvironmentProvider>
       </body>
     </html>
   );

@@ -155,7 +155,7 @@ function AdminLoginContent() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 w-full max-w-md">
+      <div className="relative z-20 w-full max-w-md app-layout">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -167,7 +167,7 @@ function AdminLoginContent() {
             transition={{ type: 'spring', stiffness: 300 }}
           >
             {/* Back to home link */}
-            <Link href="/" className="inline-flex items-center gap-2 text-[#334155] hover:text-[#4F46E5] transition-colors mb-6 group">
+            <Link href="/" className="inline-flex items-center gap-2 text-[#334155] hover:text-[#4F46E5] transition-colors mb-6 group browser-only">
               <motion.div
                 className="group-hover:-translate-x-1 transition-transform"
                 whileHover={{ x: -4 }}
@@ -273,5 +273,3 @@ export default function AdminLogin() {
     </Suspense>
   );
 }
-
-
