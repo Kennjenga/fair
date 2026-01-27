@@ -36,57 +36,72 @@ export async function GET(req: NextRequest) {
           'SELECT COUNT(*) as count FROM hackathons WHERE created_by = $1',
           [admin.adminId]
         ),
+        // Get poll counts - include polls created by admin AND polls in hackathons they created
         query<{ count: string }>(
-          'SELECT COUNT(*) as count FROM polls WHERE created_by = $1',
+          `SELECT COUNT(DISTINCT p.poll_id) as count 
+           FROM polls p
+           LEFT JOIN hackathons h ON p.hackathon_id = h.hackathon_id
+           WHERE p.created_by = $1 OR h.created_by = $1`,
           [admin.adminId]
         ),
         query<{ count: string }>(
-          `SELECT COUNT(*) as count FROM polls 
-           WHERE created_by = $1 
-           AND start_time <= CURRENT_TIMESTAMP 
-           AND end_time >= CURRENT_TIMESTAMP`,
+          `SELECT COUNT(DISTINCT p.poll_id) as count 
+           FROM polls p
+           LEFT JOIN hackathons h ON p.hackathon_id = h.hackathon_id
+           WHERE (p.created_by = $1 OR h.created_by = $1)
+           AND p.start_time <= CURRENT_TIMESTAMP 
+           AND p.end_time >= CURRENT_TIMESTAMP`,
           [admin.adminId]
         ),
         query<{ count: string }>(
-          `SELECT COUNT(*) as count FROM polls 
-           WHERE created_by = $1 
-           AND end_time < CURRENT_TIMESTAMP`,
+          `SELECT COUNT(DISTINCT p.poll_id) as count 
+           FROM polls p
+           LEFT JOIN hackathons h ON p.hackathon_id = h.hackathon_id
+           WHERE (p.created_by = $1 OR h.created_by = $1)
+           AND p.end_time < CURRENT_TIMESTAMP`,
           [admin.adminId]
         ),
         query<{ count: string }>(
-          `SELECT COUNT(*) as count FROM polls 
-           WHERE created_by = $1 
-           AND start_time > CURRENT_TIMESTAMP`,
+          `SELECT COUNT(DISTINCT p.poll_id) as count 
+           FROM polls p
+           LEFT JOIN hackathons h ON p.hackathon_id = h.hackathon_id
+           WHERE (p.created_by = $1 OR h.created_by = $1)
+           AND p.start_time > CURRENT_TIMESTAMP`,
           [admin.adminId]
         ),
         query<{ count: string }>(
           `SELECT COUNT(*) as count FROM votes v
            INNER JOIN polls p ON v.poll_id = p.poll_id
-           WHERE p.created_by = $1`,
+           LEFT JOIN hackathons h ON p.hackathon_id = h.hackathon_id
+           WHERE p.created_by = $1 OR h.created_by = $1`,
           [admin.adminId]
         ),
         query<{ count: string }>(
           `SELECT COUNT(*) as count FROM tokens t
            INNER JOIN polls p ON t.poll_id = p.poll_id
-           WHERE p.created_by = $1`,
+           LEFT JOIN hackathons h ON p.hackathon_id = h.hackathon_id
+           WHERE p.created_by = $1 OR h.created_by = $1`,
           [admin.adminId]
         ),
         query<{ count: string }>(
           `SELECT COUNT(*) as count FROM tokens t
            INNER JOIN polls p ON t.poll_id = p.poll_id
-           WHERE p.created_by = $1 AND t.used = true`,
+           LEFT JOIN hackathons h ON p.hackathon_id = h.hackathon_id
+           WHERE (p.created_by = $1 OR h.created_by = $1) AND t.used = true`,
           [admin.adminId]
         ),
         query<{ count: string }>(
           `SELECT COUNT(*) as count FROM teams t
            INNER JOIN polls p ON t.poll_id = p.poll_id
-           WHERE p.created_by = $1`,
+           LEFT JOIN hackathons h ON p.hackathon_id = h.hackathon_id
+           WHERE p.created_by = $1 OR h.created_by = $1`,
           [admin.adminId]
         ),
         query<{ count: string }>(
           `SELECT COUNT(*) as count FROM poll_judges j
            INNER JOIN polls p ON j.poll_id = p.poll_id
-           WHERE p.created_by = $1`,
+           LEFT JOIN hackathons h ON p.hackathon_id = h.hackathon_id
+           WHERE p.created_by = $1 OR h.created_by = $1`,
           [admin.adminId]
         ),
       ]);
@@ -116,9 +131,45 @@ export async function GET(req: NextRequest) {
         created_at: h.created_at,
       }));
       
-      // Get admin's polls
-      const polls = await getPollsByAdmin(admin.adminId);
-      const recentPolls = polls.slice(0, 10).map(p => ({
+      // Get admin's polls - include polls they created AND polls in hackathons they created
+      const pollsCreatedByAdmin = await getPollsByAdmin(admin.adminId);
+      
+      // Get polls from hackathons created by this admin
+      const hackathonsCreatedByAdmin = await getHackathonsByAdmin(admin.adminId);
+      const hackathonIds = hackathonsCreatedByAdmin.map(h => h.hackathon_id);
+      
+      let pollsFromHackathons: any[] = [];
+      if (hackathonIds.length > 0) {
+        const { getPollsByHackathon } = await import('@/lib/repositories/polls');
+        const allHackathonPolls = await Promise.all(
+          hackathonIds.map(id => getPollsByHackathon(id))
+        );
+        pollsFromHackathons = allHackathonPolls.flat();
+      }
+      
+      // Combine and deduplicate polls (a poll might be both created by admin and in their hackathon)
+      const pollMap = new Map<string, any>();
+      
+      // Add polls created by admin
+      pollsCreatedByAdmin.forEach(p => {
+        pollMap.set(p.poll_id, p);
+      });
+      
+      // Add polls from hackathons (won't overwrite if already exists)
+      pollsFromHackathons.forEach(p => {
+        if (!pollMap.has(p.poll_id)) {
+          pollMap.set(p.poll_id, p);
+        }
+      });
+      
+      const allPollsArray = Array.from(pollMap.values());
+      
+      // Sort by created_at descending
+      allPollsArray.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      
+      const recentPolls = allPollsArray.slice(0, 10).map(p => ({
         poll_id: p.poll_id,
         hackathon_id: p.hackathon_id,
         name: p.name,
@@ -131,7 +182,7 @@ export async function GET(req: NextRequest) {
         is_tie_breaker: p.is_tie_breaker || false,
       }));
       
-      const allPolls = polls.map(p => ({
+      const allPolls = allPollsArray.map(p => ({
         poll_id: p.poll_id,
         hackathon_id: p.hackathon_id,
         name: p.name,

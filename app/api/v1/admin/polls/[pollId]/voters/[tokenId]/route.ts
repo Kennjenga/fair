@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/auth/middleware';
-import { getPollById } from '@/lib/repositories/polls';
+import { getPollById, hasPollAccess } from '@/lib/repositories/polls';
 import { getTokenById, deleteToken } from '@/lib/repositories/tokens';
 import { query } from '@/lib/db';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
@@ -33,7 +33,9 @@ export async function DELETE(
         );
       }
       
-      if (admin.role === 'admin' && poll.created_by !== admin.adminId) {
+      // Check access: admins can access polls they created OR polls in hackathons they created
+      const hasAccess = await hasPollAccess(poll, admin.adminId, admin.role);
+      if (!hasAccess) {
         return NextResponse.json(
           { error: 'Access denied' },
           { status: 403 }

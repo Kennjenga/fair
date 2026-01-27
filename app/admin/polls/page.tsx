@@ -12,7 +12,10 @@ const sidebarItems = [
     { label: 'Polls', href: '/admin/polls', icon: '🗳️' },
 ];
 
-// Calculate stats from polls
+/**
+ * Calculate statistics from polls
+ * Counts active, upcoming, and ended polls based on current time
+ */
 function calculateStats(polls: any[]) {
     const now = new Date();
     const stats = {
@@ -23,14 +26,26 @@ function calculateStats(polls: any[]) {
     };
 
     polls.forEach((poll) => {
+        // Ensure dates are parsed correctly (handles ISO strings from database)
         const startTime = new Date(poll.start_time);
         const endTime = new Date(poll.end_time);
 
+        // Skip invalid dates
+        if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+            stats.ended++; // Invalid dates default to ended
+            return;
+        }
+
+        // Active: current time is between start and end (inclusive)
         if (startTime <= now && endTime >= now) {
             stats.active++;
-        } else if (endTime < now) {
+        } 
+        // Ended: end time has passed
+        else if (endTime < now) {
             stats.ended++;
-        } else {
+        } 
+        // Upcoming: start time is in the future
+        else {
             stats.upcoming++;
         }
     });
@@ -131,13 +146,32 @@ export default function PollsPage() {
         }
     };
 
+    /**
+     * Get poll status based on current time
+     * A poll is active if current time is between start_time and end_time (inclusive)
+     */
     const getPollStatus = (poll: any) => {
         const now = new Date();
+        // Ensure dates are parsed correctly (handles ISO strings from database)
         const startTime = new Date(poll.start_time);
         const endTime = new Date(poll.end_time);
 
-        if (startTime <= now && endTime >= now) return 'active';
-        if (endTime < now) return 'ended';
+        // Check if dates are valid
+        if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+            return 'ended'; // Invalid dates default to ended
+        }
+
+        // Active: current time is between start and end (inclusive)
+        if (startTime <= now && endTime >= now) {
+            return 'active';
+        }
+        
+        // Ended: end time has passed
+        if (endTime < now) {
+            return 'ended';
+        }
+        
+        // Upcoming: start time is in the future
         return 'upcoming';
     };
 

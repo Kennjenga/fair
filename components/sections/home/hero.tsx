@@ -6,11 +6,17 @@ import { motion, AnimatePresence, useScroll } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { Button, Badge } from '@/components/ui';
 
+/**
+ * Navigation links used in the hero section.
+ * Anchor links are used for in-page navigation, while `/templates`
+ * is a full page route for browsing decision templates.
+ */
 const navLinks = [
-  { label: 'Features', href: '#features' },
-  { label: 'Workflow', href: '#workflow' },
-  { label: 'Trust', href: '#trust' },
-  { label: 'FAQ', href: '#faq' },
+  { label: 'Features', href: '#features', isRoute: false },
+  { label: 'Workflow', href: '#workflow', isRoute: false },
+  { label: 'Trust', href: '#trust', isRoute: false },
+  { label: 'Templates', href: '/templates', isRoute: true },
+  { label: 'FAQ', href: '#faq', isRoute: false },
 ];
 
 const stats = [
@@ -47,7 +53,23 @@ export const Hero = () => {
     });
   }, [scrollY]);
 
-  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+  /**
+   * Handle navigation clicks for both in-page anchors and full routes.
+   * For anchors we scroll smoothly; for full routes (like `/templates`)
+   * we delegate to Next.js `Link` to handle navigation.
+   */
+  const handleNavClick = (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    href: string,
+    isRoute: boolean,
+  ) => {
+    if (isRoute) {
+      // Let Next.js handle client-side routing for full pages.
+      setMobileMenuOpen(false);
+      return;
+    }
+
+    // For on-page anchors, prevent a full navigation and scroll smoothly.
     e.preventDefault();
     setMobileMenuOpen(false);
     const element = document.querySelector(href);
@@ -176,16 +198,31 @@ export const Hero = () => {
 
               {/* Desktop Navigation */}
               <nav className="hidden items-center gap-8 text-sm font-medium md:flex" aria-label="Primary">
-                {navLinks.map((link) => (
-                  <a
-                    key={link.href}
-                    href={link.href}
-                    onClick={(e) => handleNavClick(e, link.href)}
-                    className="text-[#334155] transition hover:text-[#4F46E5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5]/60 focus-visible:ring-offset-2 rounded-full px-3 py-1"
-                  >
-                    {link.label}
-                  </a>
-                ))}
+                {navLinks.map((link) =>
+                  link.isRoute ? (
+                    /**
+                     * For full routes like `/templates` we use the modern `Link`
+                     * API directly, avoiding nested anchor elements.
+                     */
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="text-[#334155] transition hover:text-[#4F46E5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5]/60 focus-visible:ring-offset-2 rounded-full px-3 py-1"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      {link.label}
+                    </Link>
+                  ) : (
+                    <a
+                      key={link.href}
+                      href={link.href}
+                      onClick={(e) => handleNavClick(e, link.href, false)}
+                      className="text-[#334155] transition hover:text-[#4F46E5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4F46E5]/60 focus-visible:ring-offset-2 rounded-full px-3 py-1"
+                    >
+                      {link.label}
+                    </a>
+                  ),
+                )}
               </nav>
 
               {/* Desktop CTAs */}
@@ -235,19 +272,32 @@ export const Hero = () => {
                   className="absolute top-full left-0 right-0 mt-2 rounded-2xl bg-white/95 backdrop-blur-xl border border-[#E2E8F0] shadow-xl p-6"
                 >
                   <nav className="flex flex-col gap-3 mb-6">
-                    {navLinks.map((link, index) => (
-                      <motion.a
-                        key={link.href}
-                        href={link.href}
-                        onClick={(e) => handleNavClick(e, link.href)}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="text-[#334155] hover:text-[#4F46E5] text-base font-medium py-2 px-4 rounded-lg hover:bg-[#F8FAFC] transition-colors"
-                      >
-                        {link.label}
-                      </motion.a>
-                    ))}
+                    {navLinks.map((link, index) =>
+                      link.isRoute ? (
+                        <Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)}>
+                          <motion.span
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            className="block text-[#334155] hover:text-[#4F46E5] text-base font-medium py-2 px-4 rounded-lg hover:bg-[#F8FAFC] transition-colors"
+                          >
+                            {link.label}
+                          </motion.span>
+                        </Link>
+                      ) : (
+                        <motion.a
+                          key={link.href}
+                          href={link.href}
+                          onClick={(e) => handleNavClick(e, link.href, false)}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="text-[#334155] hover:text-[#4F46E5] text-base font-medium py-2 px-4 rounded-lg hover:bg-[#F8FAFC] transition-colors"
+                        >
+                          {link.label}
+                        </motion.a>
+                      ),
+                    )}
                   </nav>
 
                   <div className="flex flex-col gap-3">

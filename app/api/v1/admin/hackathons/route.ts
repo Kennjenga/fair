@@ -71,7 +71,8 @@ export async function POST(req: NextRequest) {
         admin.adminId,
         validated.description,
         validated.startDate ? new Date(validated.startDate) : undefined,
-        validated.endDate ? new Date(validated.endDate) : undefined
+        validated.endDate ? new Date(validated.endDate) : undefined,
+        validated.votingClosesAt ? new Date(validated.votingClosesAt) : undefined
       );
       
       // Log audit

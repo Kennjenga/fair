@@ -4,7 +4,8 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from '@/components/layouts';
-import { Button, Card, Input, Badge } from '@/components/ui';
+import { Button, Card, Input, Badge, DateTimeInput } from '@/components/ui';
+import { Search } from 'lucide-react';
 
 const sidebarItems = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
@@ -96,6 +97,12 @@ function PollManagementPageContent() {
   const [availablePolls, setAvailablePolls] = useState<any[]>([]);
   const [selectedTeamsToMigrate, setSelectedTeamsToMigrate] = useState<string[]>([]);
   const [targetPollId, setTargetPollId] = useState('');
+  
+  // Search and filter states
+  const [teamsSearch, setTeamsSearch] = useState('');
+  const [votersSearch, setVotersSearch] = useState('');
+  const [votersFilter, setVotersFilter] = useState<'all' | 'voted' | 'not_voted'>('all');
+  const [teamsFilter, setTeamsFilter] = useState<'all' | 'with_members' | 'no_members'>('all');
 
   useEffect(() => {
     if (!pollId) return;
@@ -548,6 +555,111 @@ function PollManagementPageContent() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-[#0F172A]">Teams</h2>
                 <div className="flex gap-3">
+                  <Button 
+                    onClick={async () => {
+                      // Send update emails to team leads
+                      const token = localStorage.getItem('auth_token');
+                      if (!token) return;
+                      setSubmitting(true);
+                      setError('');
+                      setSuccess('');
+                      try {
+                        const response = await fetch(`/api/v1/admin/polls/${pollId}/teams/send-update-emails`, {
+                          method: 'POST',
+                          headers: { Authorization: `Bearer ${token}` },
+                        });
+                        
+                        if (!response.ok) {
+                          const errorData = await response.json();
+                          throw new Error(errorData.error || 'Failed to send emails');
+                        }
+                        
+                        const data = await response.json();
+                        if (data.sent > 0) {
+                          setSuccess(`Successfully sent ${data.sent} email(s) to team leads${data.failed > 0 ? ` (${data.failed} failed)` : ''}`);
+                        } else {
+                          setError(data.message || 'No emails were sent');
+                        }
+                        
+                        if (data.errors && data.errors.length > 0) {
+                          console.warn('Email errors:', data.errors);
+                        }
+                      } catch (err: any) {
+                        setError(err.message || 'Failed to send emails to team leads');
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                    isLoading={submitting}
+                    variant="outline"
+                    className="border-[#0891b2] text-[#0891b2] hover:bg-[#0891b2]/10"
+                  >
+                    Request Team Updates
+                  </Button>
+                  <Button 
+                    onClick={async () => {
+                      // Pull teams from hackathon
+                      const token = localStorage.getItem('auth_token');
+                      if (!token) return;
+                      setSubmitting(true);
+                      setError('');
+                      setSuccess('');
+                      try {
+                        // Get hackathon teams
+                        const hackathonTeamsRes = await fetch(`/api/v1/admin/polls/${pollId}/hackathon-teams`, {
+                          headers: { Authorization: `Bearer ${token}` },
+                        });
+                        if (!hackathonTeamsRes.ok) {
+                          const errorData = await hackathonTeamsRes.json();
+                          throw new Error(errorData.error || 'Failed to fetch hackathon teams');
+                        }
+                        const hackathonTeamsData = await hackathonTeamsRes.json();
+                        const hackathonTeams = hackathonTeamsData.teams || [];
+                        
+                        if (hackathonTeams.length === 0) {
+                          setError('No teams found in hackathon. Teams must be created through team_formation submissions first.');
+                          return;
+                        }
+                        
+                        // Create teams in poll that don't exist
+                        const existingTeamNames = new Set(teams.map(t => t.team_name));
+                        const teamsToCreate = hackathonTeams.filter((ht: any) => !existingTeamNames.has(ht.teamName));
+                        
+                        if (teamsToCreate.length === 0) {
+                          setSuccess('All hackathon teams are already in this poll.');
+                          return;
+                        }
+                        
+                        // Create teams
+                        for (const hackathonTeam of teamsToCreate) {
+                          try {
+                            await fetch(`/api/v1/admin/polls/${pollId}/teams`, {
+                              method: 'POST',
+                              headers: {
+                                Authorization: `Bearer ${token}`,
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({ teamName: hackathonTeam.teamName }),
+                            });
+                          } catch (err) {
+                            console.error(`Failed to create team "${hackathonTeam.teamName}":`, err);
+                          }
+                        }
+                        
+                        setSuccess(`Successfully imported ${teamsToCreate.length} team(s) from hackathon!`);
+                        fetchPollData(token);
+                      } catch (err: any) {
+                        setError(err.message || 'Failed to pull teams from hackathon');
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                    isLoading={submitting}
+                    variant="outline"
+                    className="border-[#059669] text-[#059669] hover:bg-[#059669]/10"
+                  >
+                    Pull from Hackathon
+                  </Button>
                   {teams.length > 0 && (
                     <Button 
                       onClick={async () => {
@@ -580,70 +692,119 @@ function PollManagementPageContent() {
                   </Button>
                 </div>
               </div>
-              {teams.length === 0 ? (
-                <p className="text-[#64748B] text-center py-8">No teams added yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {teams.map((team) => {
+              
+              {/* Search and Filter */}
+              <div className="flex gap-3 mb-4">
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    placeholder="Search teams..."
+                    value={teamsSearch}
+                    onChange={(e) => setTeamsSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                </div>
+                <select
+                  value={teamsFilter}
+                  onChange={(e) => setTeamsFilter(e.target.value as any)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Teams</option>
+                  <option value="with_members">With Members</option>
+                  <option value="no_members">No Members</option>
+                </select>
+              </div>
+              
+              {(() => {
+                // Filter teams based on search and filter
+                let filteredTeams = teams;
+                
+                if (teamsSearch) {
+                  const query = teamsSearch.toLowerCase();
+                  filteredTeams = filteredTeams.filter(t => 
+                    t.team_name.toLowerCase().includes(query)
+                  );
+                }
+                
+                if (teamsFilter !== 'all') {
+                  filteredTeams = filteredTeams.filter(team => {
                     const memberCount = tokens.filter(t =>
                       t.team_id === team.team_id || t.teamId === team.team_id
                     ).length;
-                    return (
-                      <div key={team.team_id} className="border border-[#E2E8F0] rounded-xl p-4 flex justify-between items-center hover:border-[#4F46E5]/50 transition-colors">
-                        <div>
-                          <div className="font-medium text-[#0F172A]">{team.team_name}</div>
-                          <div className="text-sm text-[#64748B] mt-1">{memberCount} member(s)</div>
+                    return teamsFilter === 'with_members' ? memberCount > 0 : memberCount === 0;
+                  });
+                }
+                
+                return filteredTeams.length === 0 ? (
+                  <p className="text-[#64748B] text-center py-8">
+                    {teams.length === 0 
+                      ? 'No teams added yet.' 
+                      : 'No teams match your search criteria.'}
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredTeams.map((team) => {
+                      const memberCount = tokens.filter(t =>
+                        t.team_id === team.team_id || t.teamId === team.team_id
+                      ).length;
+                      return (
+                        <div key={team.team_id} className="border border-[#E2E8F0] rounded-xl p-4 flex justify-between items-center hover:border-[#4F46E5]/50 transition-colors">
+                          <div>
+                            <div className="font-medium text-[#0F172A]">{team.team_name}</div>
+                            <div className="text-sm text-[#64748B] mt-1">{memberCount} member(s)</div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => router.push(`/admin/polls/${pollId}/teams/${team.team_id}`)}
+                              className="text-[#059669] hover:text-[#047857] hover:bg-[#ecfdf5]"
+                            >
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setEditingTeam(team);
+                                setEditTeamName(team.team_name);
+                                setShowEditTeam(true);
+                              }}
+                              className="text-[#0891b2] hover:text-[#0e7490] hover:bg-[#ecfeff]"
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={async () => {
+                                if (!confirm(`Are you sure you want to delete "${team.team_name}"?`)) return;
+                                const token = localStorage.getItem('auth_token');
+                                if (!token) return;
+                                try {
+                                  const response = await fetch(`/api/v1/admin/polls/${pollId}/teams/${team.team_id}`, {
+                                    method: 'DELETE',
+                                    headers: { Authorization: `Bearer ${token}` },
+                                  });
+                                  if (!response.ok) throw new Error('Failed to delete');
+                                  setSuccess('Team deleted successfully');
+                                  fetchPollData(token);
+                                } catch (err) {
+                                  setError('Failed to delete team');
+                                }
+                              }}
+                              className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                            >
+                              Delete
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => router.push(`/admin/polls/${pollId}/teams/${team.team_id}`)}
-                            className="text-[#059669] hover:text-[#047857] hover:bg-[#ecfdf5]"
-                          >
-                            View
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setEditingTeam(team);
-                              setEditTeamName(team.team_name);
-                              setShowEditTeam(true);
-                            }}
-                            className="text-[#0891b2] hover:text-[#0e7490] hover:bg-[#ecfeff]"
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={async () => {
-                              if (!confirm(`Are you sure you want to delete "${team.team_name}"?`)) return;
-                              const token = localStorage.getItem('auth_token');
-                              if (!token) return;
-                              try {
-                                const response = await fetch(`/api/v1/admin/polls/${pollId}/teams/${team.team_id}`, {
-                                  method: 'DELETE',
-                                  headers: { Authorization: `Bearer ${token}` },
-                                });
-                                if (!response.ok) throw new Error('Failed to delete');
-                                setSuccess('Team deleted successfully');
-                                fetchPollData(token);
-                              } catch (err) {
-                                setError('Failed to delete team');
-                              }
-                            }}
-                            className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </Card>
           )}
 
@@ -652,6 +813,38 @@ function PollManagementPageContent() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-[#0F172A]">Voters</h2>
                 <div className="flex gap-3">
+                  <Button 
+                    onClick={async () => {
+                      // Auto-populate voters from team members
+                      const token = localStorage.getItem('auth_token');
+                      if (!token) return;
+                      setSubmitting(true);
+                      setError('');
+                      setSuccess('');
+                      try {
+                        const response = await fetch(`/api/v1/admin/polls/${pollId}/auto-populate-voters`, {
+                          method: 'POST',
+                          headers: { Authorization: `Bearer ${token}` },
+                        });
+                        const data = await response.json();
+                        if (response.ok) {
+                          setSuccess(`Auto-populated ${data.votersCreated} voter(s) from ${data.teamsCreated} team(s)!`);
+                          fetchPollData(token);
+                        } else {
+                          setError(data.error || 'Failed to auto-populate voters');
+                        }
+                      } catch (err: any) {
+                        setError(err.message || 'An error occurred');
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                    isLoading={submitting}
+                    variant="outline"
+                    className="border-[#059669] text-[#059669] hover:bg-[#059669]/10"
+                  >
+                    Auto-Populate from Teams
+                  </Button>
                   <Button onClick={() => setShowRegisterVoters(true)} className="bg-[#059669] hover:bg-[#047857]">
                     Register Voters
                   </Button>
@@ -691,11 +884,63 @@ function PollManagementPageContent() {
                   )}
                 </div>
               </div>
-              {tokens.length === 0 ? (
-                <p className="text-[#64748B] text-center py-8">No voters registered yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {tokens.map((token) => {
+              
+              {/* Search and Filter */}
+              <div className="flex gap-3 mb-4">
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    placeholder="Search voters by email or team..."
+                    value={votersSearch}
+                    onChange={(e) => setVotersSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                </div>
+                <select
+                  value={votersFilter}
+                  onChange={(e) => setVotersFilter(e.target.value as any)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Voters</option>
+                  <option value="voted">Voted</option>
+                  <option value="not_voted">Not Voted</option>
+                </select>
+              </div>
+              
+              {(() => {
+                // Filter voters based on search and filter
+                let filteredTokens = tokens;
+                
+                if (votersSearch) {
+                  const query = votersSearch.toLowerCase();
+                  filteredTokens = filteredTokens.filter(token => {
+                    const team = teams.find(t => t.team_id === token.team_id || t.team_id === token.teamId);
+                    return (
+                      token.email.toLowerCase().includes(query) ||
+                      team?.team_name.toLowerCase().includes(query)
+                    );
+                  });
+                }
+                
+                if (votersFilter !== 'all') {
+                  filteredTokens = filteredTokens.filter(token => {
+                    const hasVoted = token.hasVoted !== undefined 
+                      ? token.hasVoted 
+                      : token.used;
+                    return votersFilter === 'voted' ? hasVoted : !hasVoted;
+                  });
+                }
+                
+                return filteredTokens.length === 0 ? (
+                  <p className="text-[#64748B] text-center py-8">
+                    {tokens.length === 0 
+                      ? 'No voters registered yet.' 
+                      : 'No voters match your search criteria.'}
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredTokens.map((token) => {
                     const team = teams.find(t => t.team_id === token.team_id || t.team_id === token.teamId);
                     const getDeliveryStatusDisplay = (status: string | undefined) => {
                       if (!status || status === 'queued') return { text: 'Email not sent', color: 'text-gray-500' };
@@ -766,7 +1011,8 @@ function PollManagementPageContent() {
                     );
                   })}
                 </div>
-              )}
+                );
+              })()}
             </Card>
           )}
 
@@ -1111,17 +1357,20 @@ function PollManagementPageContent() {
           <Card className="w-full max-w-md p-6">
             <h3 className="text-xl font-semibold text-[#0F172A] mb-4">Adjust Poll Timeline</h3>
             <div className="space-y-4">
-              <Input
-                label="Start Time *"
-                type="datetime-local"
+              <DateTimeInput
+                label="Start Time"
+                id="startTime"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={(value) => setStartTime(value)}
+                required
               />
-              <Input
-                label="End Time *"
-                type="datetime-local"
+              <DateTimeInput
+                label="End Time"
+                id="endTime"
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                onChange={(value) => setEndTime(value)}
+                required
+                min={startTime}
               />
               <div className="flex gap-3 justify-end mt-6">
                 <Button variant="outline" onClick={() => setShowEditTimeline(false)}>Cancel</Button>
@@ -1143,17 +1392,20 @@ function PollManagementPageContent() {
                 onChange={(e) => setTieBreakerName(e.target.value)}
               />
               <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Start Time *"
-                  type="datetime-local"
+                <DateTimeInput
+                  label="Start Time"
+                  id="tieBreakerStartTime"
                   value={tieBreakerStartTime}
-                  onChange={(e) => setTieBreakerStartTime(e.target.value)}
+                  onChange={(value) => setTieBreakerStartTime(value)}
+                  required
                 />
-                <Input
-                  label="End Time *"
-                  type="datetime-local"
+                <DateTimeInput
+                  label="End Time"
+                  id="tieBreakerEndTime"
                   value={tieBreakerEndTime}
-                  onChange={(e) => setTieBreakerEndTime(e.target.value)}
+                  onChange={(value) => setTieBreakerEndTime(value)}
+                  required
+                  min={tieBreakerStartTime}
                 />
               </div>
 
@@ -1240,8 +1492,21 @@ function PollManagementPageContent() {
             <div className="space-y-4">
               <Input label="Poll Name *" value={editPollName} onChange={(e) => setEditPollName(e.target.value)} />
               <div className="grid md:grid-cols-2 gap-4">
-                <Input label="Start Time *" type="datetime-local" value={editPollStartTime} onChange={(e) => setEditPollStartTime(e.target.value)} />
-                <Input label="End Time *" type="datetime-local" value={editPollEndTime} onChange={(e) => setEditPollEndTime(e.target.value)} />
+                <DateTimeInput
+                  label="Start Time"
+                  id="editPollStartTime"
+                  value={editPollStartTime}
+                  onChange={(value) => setEditPollStartTime(value)}
+                  required
+                />
+                <DateTimeInput
+                  label="End Time"
+                  id="editPollEndTime"
+                  value={editPollEndTime}
+                  onChange={(value) => setEditPollEndTime(value)}
+                  required
+                  min={editPollStartTime}
+                />
               </div>
               {/* Selects are not yet standard components, keeping native select with styling */}
               <div className="grid md:grid-cols-2 gap-4">

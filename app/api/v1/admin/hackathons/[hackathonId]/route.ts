@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/auth/middleware';
 import { updateHackathonSchema } from '@/lib/validation/schemas';
 import { getHackathonById, updateHackathon, deleteHackathon } from '@/lib/repositories/hackathons';
+import { getHackathonByIdExtended } from '@/lib/repositories/hackathons-extended';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
 import type { AuthenticatedRequest } from '@/lib/auth/middleware';
 
@@ -23,7 +24,8 @@ export async function GET(
       const admin = req.admin!;
       const { hackathonId } = await params;
       
-      const hackathon = await getHackathonById(hackathonId);
+      // Use extended version to get all fields including voting_closes_at
+      const hackathon = await getHackathonByIdExtended(hackathonId);
       
       if (!hackathon) {
         return NextResponse.json(
@@ -95,6 +97,7 @@ export async function PUT(
         description: validated.description,
         startDate: validated.startDate ? new Date(validated.startDate) : undefined,
         endDate: validated.endDate ? new Date(validated.endDate) : undefined,
+        votingClosesAt: validated.votingClosesAt ? new Date(validated.votingClosesAt) : undefined,
       });
       
       // Log audit

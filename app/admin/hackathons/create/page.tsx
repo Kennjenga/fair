@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Button, Card, Input } from '@/components/ui';
+import { Button, Card, Input, DateTimeInput } from '@/components/ui';
 import { Sidebar } from '@/components/layouts';
 
 const sidebarItems = [
@@ -13,15 +13,22 @@ const sidebarItems = [
 ];
 
 /**
- * Create hackathon page
+ * Create hackathon page content component (uses useSearchParams)
  */
-export default function CreateHackathonPage() {
+function CreateHackathonPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const templateId = searchParams.get('template');
+
+  const [template, setTemplate] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     startDate: '',
     endDate: '',
+    votingClosesAt: '', // When voting closes, status changes to 'closed'
+    submissionDeadline: '',
+    evaluationDeadline: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,7 +47,27 @@ export default function CreateHackathonPage() {
 
     const parsed = JSON.parse(adminData);
     setAdmin(parsed);
-  }, [router]);
+
+    // Fetch template if templateId is provided
+    if (templateId) {
+      fetchTemplate(templateId, token);
+    }
+  }, [router, templateId]);
+
+  const fetchTemplate = async (id: string, token: string) => {
+    try {
+      const response = await fetch(`/api/v1/admin/templates/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTemplate(data.template);
+      }
+    } catch (error) {
+      console.error('Error fetching template:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,21 +96,52 @@ export default function CreateHackathonPage() {
         setLoading(false);
         return;
       }
+
+      // Validate votingClosesAt if provided
+      if (formData.votingClosesAt) {
+        const votingClosesAt = new Date(formData.votingClosesAt);
+        if (isNaN(votingClosesAt.getTime())) {
+          setError('Invalid voting closes at format');
+          setLoading(false);
+          return;
+        }
+        if (votingClosesAt < startDate || votingClosesAt > endDate) {
+          setError('Voting closes at must be between start date and end date');
+          setLoading(false);
+          return;
+        }
+      }
     }
 
     try {
-      const response = await fetch('/api/v1/admin/hackathons', {
+      // Use template endpoint if templateId is provided
+      const endpoint = templateId ? '/api/v1/admin/hackathons/from-template' : '/api/v1/admin/hackathons';
+      const requestBody = templateId
+        ? {
+            templateId,
+            name: formData.name,
+            description: formData.description || undefined,
+            startDate: formData.startDate || undefined,
+            endDate: formData.endDate || undefined,
+            votingClosesAt: formData.votingClosesAt || undefined,
+            submissionDeadline: formData.submissionDeadline || undefined,
+            evaluationDeadline: formData.evaluationDeadline || undefined,
+          }
+        : {
+            name: formData.name,
+            description: formData.description || undefined,
+            startDate: formData.startDate || undefined,
+            endDate: formData.endDate || undefined,
+            votingClosesAt: formData.votingClosesAt || undefined,
+          };
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name: formData.name,
-          description: formData.description || undefined,
-          startDate: formData.startDate || undefined,
-          endDate: formData.endDate || undefined,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
@@ -115,7 +173,15 @@ export default function CreateHackathonPage() {
 
       <main className="flex-1 p-6 md:p-8 overflow-auto">
         <div className="max-w-3xl mx-auto">
-          <h1 className="text-3xl font-bold text-[#0F172A] mb-6">Create New Hackathon</h1>
+          <h1 className="text-3xl font-bold text-[#0F172A] mb-2">Create New Hackathon</h1>
+          {template && (
+            <p className="text-[#64748B] mb-6">
+              Using template: <span className="font-semibold">{template.name}</span>
+            </p>
+          )}
+          {!template && templateId && (
+            <p className="text-[#64748B] mb-6">Loading template...</p>
+          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 text-sm font-medium">
@@ -167,6 +233,56 @@ export default function CreateHackathonPage() {
                 />
               </div>
 
+              {/* Voting Closes At - determines when hackathon status changes to 'closed' */}
+              <DateTimeInput
+                label="Voting Closes At"
+                id="votingClosesAt"
+                value={formData.votingClosesAt}
+                onChange={(value) => setFormData({ ...formData, votingClosesAt: value })}
+                helperText="When voting closes, the hackathon status will automatically change to 'closed'. When the end date is reached, status changes to 'finalized'."
+              />
+
+              {/* Deadlines (only show if using template) */}
+              {templateId && (
+                <div className="grid md:grid-cols-2 gap-6">
+                  <DateTimeInput
+                    label="Submission Deadline"
+                    id="submissionDeadline"
+                    value={formData.submissionDeadline}
+                    onChange={(value) => setFormData({ ...formData, submissionDeadline: value })}
+                  />
+
+                  <DateTimeInput
+                    label="Evaluation Deadline"
+                    id="evaluationDeadline"
+                    value={formData.evaluationDeadline}
+                    onChange={(value) => setFormData({ ...formData, evaluationDeadline: value })}
+                  />
+                </div>
+              )}
+
+              {/* Form Fields Preview */}
+              {template && template.default_form_fields && template.default_form_fields.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Participation Form Fields</h3>
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                    {template.default_form_fields.map((field: any, index: number) => (
+                      <div key={index} className="flex items-center gap-3 text-sm">
+                        <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-medium text-xs">
+                          {index + 1}
+                        </span>
+                        <span className="font-medium text-gray-900">{field.fieldLabel}</span>
+                        <span className="text-gray-500">({field.fieldType})</span>
+                        {field.isRequired && <span className="text-red-500 text-xs">Required</span>}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">
+                    You can customize these fields after creating the hackathon
+                  </p>
+                </div>
+              )}
+
               <div className="flex gap-4 pt-4">
                 <Button
                   type="submit"
@@ -192,3 +308,18 @@ export default function CreateHackathonPage() {
   );
 }
 
+/**
+ * Create hackathon page (supports template-based creation)
+ * Wrapped in Suspense to handle useSearchParams()
+ */
+export default function CreateHackathonPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+        <div className="text-[#64748B]">Loading...</div>
+      </div>
+    }>
+      <CreateHackathonPageContent />
+    </Suspense>
+  );
+}

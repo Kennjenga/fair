@@ -65,4 +65,3 @@ export interface UpdateTeamRequest {
   teamName?: string;
   metadata?: Partial<TeamProjectMetadata>;
 }
-

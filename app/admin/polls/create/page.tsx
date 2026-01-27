@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Button, Card, Input } from '@/components/ui';
+import { Button, Card, Input, DateTimeInput } from '@/components/ui';
 import { Sidebar } from '@/components/layouts';
 
 const sidebarItems = [
@@ -160,22 +160,22 @@ export default function CreatePollPage() {
               />
 
               <div className="grid md:grid-cols-2 gap-6">
-                <Input
-                  label="Start Time *"
+                <DateTimeInput
+                  label="Start Time"
                   id="startTime"
-                  type="datetime-local"
                   value={formData.startTime}
-                  onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, startTime: value })}
                   required
+                  min={new Date().toISOString().slice(0, 16)}
                 />
 
-                <Input
-                  label="End Time *"
+                <DateTimeInput
+                  label="End Time"
                   id="endTime"
-                  type="datetime-local"
                   value={formData.endTime}
-                  onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                  onChange={(value) => setFormData({ ...formData, endTime: value })}
                   required
+                  min={formData.startTime || new Date().toISOString().slice(0, 16)}
                 />
               </div>
 
