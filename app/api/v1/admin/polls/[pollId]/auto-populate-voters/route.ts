@@ -90,7 +90,8 @@ export async function POST(
       
       // Process each hackathon team
       for (const row of teamsResult.rows) {
-        const teamName = row.team_name;
+        // Type assertion: team_name from query is always a string
+        const teamName = row.team_name as string;
         const teamMembers = row.team_members
           ? typeof row.team_members === 'string'
             ? JSON.parse(row.team_members)

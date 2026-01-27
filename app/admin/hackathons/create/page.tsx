@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button, Card, Input, DateTimeInput } from '@/components/ui';
@@ -13,9 +13,9 @@ const sidebarItems = [
 ];
 
 /**
- * Create hackathon page (supports template-based creation)
+ * Create hackathon page content component (uses useSearchParams)
  */
-export default function CreateHackathonPage() {
+function CreateHackathonPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const templateId = searchParams.get('template');
@@ -308,3 +308,18 @@ export default function CreateHackathonPage() {
   );
 }
 
+/**
+ * Create hackathon page (supports template-based creation)
+ * Wrapped in Suspense to handle useSearchParams()
+ */
+export default function CreateHackathonPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+        <div className="text-[#64748B]">Loading...</div>
+      </div>
+    }>
+      <CreateHackathonPageContent />
+    </Suspense>
+  );
+}
