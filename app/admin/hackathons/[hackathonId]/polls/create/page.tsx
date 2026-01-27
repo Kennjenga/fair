@@ -20,13 +20,25 @@ export default function CreatePollPage() {
   const params = useParams();
   const hackathonId = params.hackathonId as string;
 
+  // Compute sensible default times (start in 1 hour, end in 7 days).
+  // These are used to initialise the form so that both date and time
+  // are editable immediately without triggering validation errors.
+  const now = new Date();
+  const defaultStart = new Date(now.getTime() + 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 16);
+  const defaultEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 16);
+
   const [admin, setAdmin] = useState<{ adminId: string; email: string; role: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
-    startTime: '',
-    endTime: '',
+    // Pre-populate with default values so both date and time can be edited.
+    startTime: defaultStart,
+    endTime: defaultEnd,
     votingMode: 'single' as 'single' | 'multiple' | 'ranked',
     votingPermissions: 'voters_and_judges' as 'voters_only' | 'judges_only' | 'voters_and_judges',
     voterWeight: '1.0',
@@ -152,11 +164,6 @@ export default function CreatePollPage() {
     }
   };
 
-  // Get default times (now and 7 days from now)
-  const now = new Date();
-  const defaultStart = new Date(now.getTime() + 60 * 60 * 1000).toISOString().slice(0, 16);
-  const defaultEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
-
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex">
       <Sidebar items={sidebarItems} user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
@@ -199,7 +206,7 @@ export default function CreatePollPage() {
                   label="Start Time *"
                   id="startTime"
                   type="datetime-local"
-                  value={formData.startTime || defaultStart}
+                  value={formData.startTime}
                   onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                   required
                 />
@@ -208,7 +215,7 @@ export default function CreatePollPage() {
                   label="End Time *"
                   id="endTime"
                   type="datetime-local"
-                  value={formData.endTime || defaultEnd}
+                  value={formData.endTime}
                   onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                   required
                 />

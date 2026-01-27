@@ -34,6 +34,14 @@ export const createHackathonSchema = z.object({
     },
     { message: 'Invalid end date format' }
   ).optional(),
+  votingClosesAt: z.string().refine(
+    (val) => {
+      if (!val) return true;
+      const date = new Date(val);
+      return !isNaN(date.getTime());
+    },
+    { message: 'Invalid voting closes at format' }
+  ).optional(),
 }).refine(
   (data) => {
     if (data.startDate && data.endDate) {
@@ -46,6 +54,21 @@ export const createHackathonSchema = z.object({
   {
     message: 'End date must be after start date',
     path: ['endDate'],
+  }
+).refine(
+  (data) => {
+    // votingClosesAt must be between startDate and endDate if all are provided
+    if (data.startDate && data.endDate && data.votingClosesAt) {
+      const startDate = new Date(data.startDate);
+      const endDate = new Date(data.endDate);
+      const votingClosesAt = new Date(data.votingClosesAt);
+      return votingClosesAt >= startDate && votingClosesAt <= endDate;
+    }
+    return true;
+  },
+  {
+    message: 'Voting closes at must be between start date and end date',
+    path: ['votingClosesAt'],
   }
 );
 
@@ -71,6 +94,14 @@ export const updateHackathonSchema = z.object({
     },
     { message: 'Invalid end date format' }
   ).optional(),
+  votingClosesAt: z.string().refine(
+    (val) => {
+      if (!val) return true;
+      const date = new Date(val);
+      return !isNaN(date.getTime());
+    },
+    { message: 'Invalid voting closes at format. Use datetime-local format (YYYY-MM-DDTHH:mm)' }
+  ).optional(),
 }).refine(
   (data) => {
     if (data.startDate && data.endDate) {
@@ -83,6 +114,21 @@ export const updateHackathonSchema = z.object({
   {
     message: 'End date must be after start date',
     path: ['endDate'],
+  }
+).refine(
+  (data) => {
+    // Validate votingClosesAt is between startDate and endDate if all are provided
+    if (data.votingClosesAt && data.startDate && data.endDate) {
+      const votingClosesAt = new Date(data.votingClosesAt);
+      const startDate = new Date(data.startDate);
+      const endDate = new Date(data.endDate);
+      return votingClosesAt >= startDate && votingClosesAt <= endDate;
+    }
+    return true;
+  },
+  {
+    message: 'Voting closes at must be between start date and end date',
+    path: ['votingClosesAt'],
   }
 );
 

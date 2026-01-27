@@ -30,6 +30,7 @@ export default function HackathonsPage() {
     description: '',
     startDate: '',
     endDate: '',
+    votingClosesAt: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -118,11 +119,24 @@ export default function HackathonsPage() {
 
   const handleEditClick = (hackathon: any) => {
     setEditingHackathon(hackathon);
+    // Format dates for datetime-local input (YYYY-MM-DDTHH:mm)
+    const formatDateTimeLocal = (dateString: string | null) => {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+    
     setEditForm({
       name: hackathon.name,
       description: hackathon.description || '',
       startDate: hackathon.start_date ? new Date(hackathon.start_date).toISOString().split('T')[0] : '',
       endDate: hackathon.end_date ? new Date(hackathon.end_date).toISOString().split('T')[0] : '',
+      votingClosesAt: formatDateTimeLocal(hackathon.voting_closes_at),
     });
     setError('');
     setSuccess('');
@@ -141,7 +155,7 @@ export default function HackathonsPage() {
       if (!token) return;
 
       const response = await fetch(`/api/v1/admin/hackathons/${editingHackathon.hackathon_id}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -151,6 +165,7 @@ export default function HackathonsPage() {
           description: editForm.description,
           startDate: editForm.startDate,
           endDate: editForm.endDate,
+          votingClosesAt: editForm.votingClosesAt || undefined,
         }),
       });
 
@@ -332,6 +347,14 @@ export default function HackathonsPage() {
                   onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
                 />
               </div>
+
+              <Input
+                label="Voting Closes At"
+                type="datetime-local"
+                value={editForm.votingClosesAt}
+                onChange={(e) => setEditForm({ ...editForm, votingClosesAt: e.target.value })}
+                helperText="When voting closes, the hackathon status will automatically change to 'closed'. Must be between start and end date."
+              />
 
               <div className="flex gap-3 justify-end mt-6">
                 <Button variant="outline" onClick={() => setShowEditModal(false)}>Cancel</Button>

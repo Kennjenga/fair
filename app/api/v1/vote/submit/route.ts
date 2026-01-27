@@ -9,6 +9,7 @@ import { isJudgeForPoll } from '@/lib/repositories/judges';
 import { processRankings } from '@/lib/utils/ranked-voting';
 import { createVoteHash, submitVoteToBlockchain, getExplorerUrl } from '@/lib/blockchain/avalanche';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
+import { getHackathonByIdExtended } from '@/lib/repositories/hackathons-extended';
 import crypto from 'crypto';
 
 /**
@@ -74,6 +75,37 @@ export async function POST(req: NextRequest) {
           { error: 'Poll not found' },
           { status: 404 }
         );
+      }
+
+      // Check if hackathon is closed or finalized (voting not allowed)
+      if (poll.hackathon_id) {
+        const hackathon = await getHackathonByIdExtended(poll.hackathon_id);
+        if (hackathon) {
+          if (hackathon.status === 'closed' || hackathon.status === 'finalized') {
+            return NextResponse.json(
+              { 
+                error: `Voting is closed. The hackathon status is '${hackathon.status}'.`,
+                hackathonStatus: hackathon.status,
+              },
+              { status: 403 }
+            );
+          }
+
+          // Also check if voting_closes_at has passed
+          if (hackathon.voting_closes_at) {
+            const votingClosesAt = new Date(hackathon.voting_closes_at);
+            const now = new Date();
+            if (now >= votingClosesAt) {
+              return NextResponse.json(
+                { 
+                  error: `Voting closed at ${votingClosesAt.toLocaleString()}. No new votes can be submitted.`,
+                  votingClosesAt: votingClosesAt.toISOString(),
+                },
+                { status: 403 }
+              );
+            }
+          }
+        }
       }
       
       // Check voting permissions for voters

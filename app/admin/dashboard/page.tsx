@@ -9,6 +9,7 @@ import { Sidebar } from '@/components/layouts';
 const sidebarItems = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
   { label: 'Hackathons', href: '/admin/hackathons', icon: '🏆' },
+  // Templates have been removed from the admin UI; keep the sidebar focused on active features.
   { label: 'Polls', href: '/admin/polls', icon: '🗳️' },
 ];
 
@@ -20,6 +21,7 @@ export default function AdminDashboard() {
   const [admin, setAdmin] = useState<{ adminId: string; email: string; role: string } | null>(null);
   const [hackathons, setHackathons] = useState<any[]>([]);
   const [dashboard, setDashboard] = useState<any>(null);
+  const [decisions, setDecisions] = useState<{ created: any[]; participated: any[] }>({ created: [], participated: [] });
   const [loading, setLoading] = useState(true);
   const [showAllHackathons, setShowAllHackathons] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -39,7 +41,26 @@ export default function AdminDashboard() {
 
     // Fetch dashboard data
     fetchDashboard(token);
+    fetchDecisions(token);
   }, [router]);
+
+  const fetchDecisions = async (token: string) => {
+    try {
+      const response = await fetch('/api/v1/admin/dashboard/decisions', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDecisions({
+          created: data.decisionsCreated || [],
+          participated: data.decisionsParticipated || [],
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching decisions:', error);
+    }
+  };
 
   const fetchDashboard = async (token: string) => {
     try {
@@ -227,6 +248,89 @@ export default function AdminDashboard() {
               </div>
             )}
           </div>
+
+          {/* My Decisions Section */}
+          {(decisions.created.length > 0 || decisions.participated.length > 0) && (
+            <div className="mt-12">
+              <h2 className="text-2xl font-bold text-[#0F172A] mb-6">My Decisions</h2>
+
+              {/* Decisions Created */}
+              {decisions.created.length > 0 && (
+                <div className="mb-8">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Decisions I Created</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {decisions.created.map((decision: any) => (
+                      <Link key={decision.hackathonId} href={`/admin/hackathons/${decision.hackathonId}`}>
+                        <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="font-semibold text-gray-900">{decision.hackathonName}</h4>
+                            {/* Map decision status to a valid Badge variant for consistent styling */}
+                            <Badge variant={
+                              decision.status === 'live' ? 'success' :
+                              decision.status === 'draft' ? 'warning' :
+                              decision.status === 'closed' ? 'secondary' : 'secondary'
+                            }>
+                              {decision.status}
+                            </Badge>
+                          </div>
+                          {decision.description && (
+                            <p className="text-sm text-gray-600 mb-3 line-clamp-2">{decision.description}</p>
+                          )}
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                              {decision.governanceModel?.replace('_', ' ') || 'Custom'}
+                            </span>
+                            <span className={`px-2 py-1 rounded ${
+                              decision.integrityStatus === 'verifiable' ? 'bg-green-100 text-green-700' :
+                              decision.integrityStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {decision.integrityStatus}
+                            </span>
+                          </div>
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Decisions Participated In */}
+              {decisions.participated.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Decisions I Participated In</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {decisions.participated.map((decision: any) => (
+                      <Link key={decision.hackathonId} href={`/admin/hackathons/${decision.hackathonId}`}>
+                        <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="font-semibold text-gray-900">{decision.hackathonName}</h4>
+                            {/* Use a neutral badge variant to label the participant role */}
+                            <Badge variant="secondary">{decision.role}</Badge>
+                          </div>
+                          {decision.description && (
+                            <p className="text-sm text-gray-600 mb-3 line-clamp-2">{decision.description}</p>
+                          )}
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                              {decision.governanceModel?.replace('_', ' ') || 'Custom'}
+                            </span>
+                            <span className={`px-2 py-1 rounded ${
+                              decision.integrityStatus === 'verifiable' ? 'bg-green-100 text-green-700' :
+                              decision.integrityStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {decision.integrityStatus}
+                            </span>
+                          </div>
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* All Hackathons Modal */}
           {showAllHackathons && (

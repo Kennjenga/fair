@@ -11,6 +11,7 @@ export interface HackathonRecord extends QueryRow {
   description: string | null;
   start_date: Date | null;
   end_date: Date | null;
+  voting_closes_at: Date | null; // When voting closes, status should change to 'closed'
   created_by: string;
   created_at: Date;
   updated_at: Date;
@@ -19,18 +20,25 @@ export interface HackathonRecord extends QueryRow {
 /**
  * Create a new hackathon
  */
+/**
+ * Create a new hackathon.
+ * 
+ * @param votingClosesAt - Optional datetime when voting closes. When this time is reached,
+ *                        the hackathon status should automatically change to 'closed'.
+ */
 export async function createHackathon(
   name: string,
   createdBy: string,
   description?: string,
   startDate?: Date,
-  endDate?: Date
+  endDate?: Date,
+  votingClosesAt?: Date
 ): Promise<HackathonRecord> {
   const result = await query<HackathonRecord>(
-    `INSERT INTO hackathons (name, description, start_date, end_date, created_by)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO hackathons (name, description, start_date, end_date, voting_closes_at, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING *`,
-    [name, description || null, startDate || null, endDate || null, createdBy]
+    [name, description || null, startDate || null, endDate || null, votingClosesAt || null, createdBy]
   );
   
   return result.rows[0];
@@ -81,6 +89,7 @@ export async function updateHackathon(
     description?: string;
     startDate?: Date | null;
     endDate?: Date | null;
+    votingClosesAt?: Date | null;
   }
 ): Promise<HackathonRecord> {
   const fields: string[] = [];
@@ -102,6 +111,10 @@ export async function updateHackathon(
   if (updates.endDate !== undefined) {
     fields.push(`end_date = $${paramIndex++}`);
     values.push(updates.endDate);
+  }
+  if (updates.votingClosesAt !== undefined) {
+    fields.push(`voting_closes_at = $${paramIndex++}`);
+    values.push(updates.votingClosesAt);
   }
 
   if (fields.length === 0) {
