@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/auth/middleware';
 import { updateTeamSchema } from '@/lib/validation/schemas';
-import { getPollById } from '@/lib/repositories/polls';
+import { getPollById, hasPollAccess } from '@/lib/repositories/polls';
 import { getTeamById, updateTeam, deleteTeam } from '@/lib/repositories/teams';
 import { getTokensByTeam, reassignTokenToTeam } from '@/lib/repositories/tokens';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
@@ -34,7 +34,9 @@ export async function GET(
         );
       }
       
-      if (admin.role === 'admin' && poll.created_by !== admin.adminId) {
+      // Check access: admins can access polls they created OR polls in hackathons they created
+      const hasAccess = await hasPollAccess(poll, admin.adminId, admin.role);
+      if (!hasAccess) {
         return NextResponse.json(
           { error: 'Access denied' },
           { status: 403 }
@@ -111,7 +113,9 @@ export async function PATCH(
         );
       }
       
-      if (admin.role === 'admin' && poll.created_by !== admin.adminId) {
+      // Check access: admins can access polls they created OR polls in hackathons they created
+      const hasAccess = await hasPollAccess(poll, admin.adminId, admin.role);
+      if (!hasAccess) {
         return NextResponse.json(
           { error: 'Access denied' },
           { status: 403 }
@@ -209,7 +213,9 @@ export async function DELETE(
         );
       }
       
-      if (admin.role === 'admin' && poll.created_by !== admin.adminId) {
+      // Check access: admins can access polls they created OR polls in hackathons they created
+      const hasAccess = await hasPollAccess(poll, admin.adminId, admin.role);
+      if (!hasAccess) {
         return NextResponse.json(
           { error: 'Access denied' },
           { status: 403 }

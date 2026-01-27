@@ -32,6 +32,45 @@ export interface PollRecord extends QueryRow {
 }
 
 /**
+ * Check if an admin has access to a poll.
+ * Admins have access if:
+ * 1. They created the poll, OR
+ * 2. They created the hackathon that the poll belongs to, OR
+ * 3. They are a super_admin
+ * 
+ * @param poll - The poll record
+ * @param adminId - The admin ID to check
+ * @param adminRole - The admin role ('admin' or 'super_admin')
+ * @returns True if admin has access, false otherwise
+ */
+export async function hasPollAccess(
+  poll: PollRecord,
+  adminId: string,
+  adminRole: string
+): Promise<boolean> {
+  // Super admins have access to all polls
+  if (adminRole === 'super_admin') {
+    return true;
+  }
+  
+  // Admins have access if they created the poll
+  if (poll.created_by === adminId) {
+    return true;
+  }
+  
+  // Admins have access if they created the hackathon that the poll belongs to
+  if (poll.hackathon_id) {
+    const { getHackathonById } = await import('@/lib/repositories/hackathons');
+    const hackathon = await getHackathonById(poll.hackathon_id);
+    if (hackathon && hackathon.created_by === adminId) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
  * Create a new poll
  */
 export async function createPoll(
@@ -166,8 +205,6 @@ export async function updatePoll(
     isPublicResults?: boolean;
     maxRankedPositions?: number | null;
     votingSequence?: 'simultaneous' | 'voters_first';
-    parentPollId?: string | null;
-    isTieBreaker?: boolean;
     allowVoteEditing?: boolean;
     minVoterParticipation?: number | null;
     minJudgeParticipation?: number | null;
@@ -176,7 +213,7 @@ export async function updatePoll(
   const fields: string[] = [];
   const values: unknown[] = [];
   let paramIndex = 1;
-  
+
   if (updates.name !== undefined) {
     fields.push(`name = $${paramIndex++}`);
     values.push(updates.name);
@@ -229,14 +266,6 @@ export async function updatePoll(
     fields.push(`voting_sequence = $${paramIndex++}`);
     values.push(updates.votingSequence);
   }
-  if (updates.parentPollId !== undefined) {
-    fields.push(`parent_poll_id = $${paramIndex++}`);
-    values.push(updates.parentPollId);
-  }
-  if (updates.isTieBreaker !== undefined) {
-    fields.push(`is_tie_breaker = $${paramIndex++}`);
-    values.push(updates.isTieBreaker);
-  }
   if (updates.allowVoteEditing !== undefined) {
     fields.push(`allow_vote_editing = $${paramIndex++}`);
     values.push(updates.allowVoteEditing);
@@ -249,23 +278,33 @@ export async function updatePoll(
     fields.push(`min_judge_participation = $${paramIndex++}`);
     values.push(updates.minJudgeParticipation);
   }
-  
+
+  if (fields.length === 0) {
+    const poll = await getPollById(pollId);
+    if (!poll) {
+      throw new Error('Poll not found');
+    }
+    return poll;
+  }
+
   fields.push(`updated_at = CURRENT_TIMESTAMP`);
   values.push(pollId);
-  
+
   const result = await query<PollRecord>(
-    `UPDATE polls SET ${fields.join(', ')}
-     WHERE poll_id = $${paramIndex}
-     RETURNING *`,
+    `UPDATE polls SET ${fields.join(', ')} WHERE poll_id = $${paramIndex} RETURNING *`,
     values
   );
-  
+
+  if (!result.rows[0]) {
+    throw new Error('Poll not found');
+  }
+
   // Parse JSONB fields
   const poll = result.rows[0];
   if (poll.rank_points_config && typeof poll.rank_points_config === 'string') {
     poll.rank_points_config = JSON.parse(poll.rank_points_config);
   }
-  
+
   return poll;
 }
 
@@ -273,19 +312,12 @@ export async function updatePoll(
  * Delete poll
  */
 export async function deletePoll(pollId: string): Promise<void> {
-  await query('DELETE FROM polls WHERE poll_id = $1', [pollId]);
-}
+  const result = await query(
+    'DELETE FROM polls WHERE poll_id = $1',
+    [pollId]
+  );
 
-/**
- * Check if poll is active (within start/end time)
- */
-export async function isPollActive(pollId: string): Promise<boolean> {
-  const poll = await getPollById(pollId);
-  if (!poll) {
-    return false;
+  if (result.rowCount === 0) {
+    throw new Error('Poll not found');
   }
-  
-  const now = new Date();
-  return now >= poll.start_time && now <= poll.end_time;
 }
-

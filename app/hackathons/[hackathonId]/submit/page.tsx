@@ -78,6 +78,15 @@ export default function HackathonSubmitPage() {
             if (pollsRes.ok) {
               const pollsData = await pollsRes.json();
               setPolls(pollsData.polls || []);
+              
+              // If poll_id is provided in URL, try to pre-populate form with team details
+              const pollIdFromUrl = searchParams.get('poll_id');
+              if (pollIdFromUrl && formKey === 'project_details') {
+                // Try to get team details from the poll
+                // We'll need the team name, which we can get from the user's email if they're logged in
+                // For now, we'll skip pre-population if team name is not available
+                // The form will be populated when the user submits (server-side validation will link to team)
+              }
             }
           } catch (err) {
             console.error('Error fetching polls:', err);

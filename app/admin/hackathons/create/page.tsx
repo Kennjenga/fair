@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Button, Card, Input } from '@/components/ui';
+import { Button, Card, Input, DateTimeInput } from '@/components/ui';
 import { Sidebar } from '@/components/layouts';
 
 const sidebarItems = [
@@ -234,32 +234,29 @@ export default function CreateHackathonPage() {
               </div>
 
               {/* Voting Closes At - determines when hackathon status changes to 'closed' */}
-              <Input
+              <DateTimeInput
                 label="Voting Closes At"
                 id="votingClosesAt"
-                type="datetime-local"
                 value={formData.votingClosesAt}
-                onChange={(e) => setFormData({ ...formData, votingClosesAt: e.target.value })}
+                onChange={(value) => setFormData({ ...formData, votingClosesAt: value })}
                 helperText="When voting closes, the hackathon status will automatically change to 'closed'. When the end date is reached, status changes to 'finalized'."
               />
 
               {/* Deadlines (only show if using template) */}
               {templateId && (
                 <div className="grid md:grid-cols-2 gap-6">
-                  <Input
+                  <DateTimeInput
                     label="Submission Deadline"
                     id="submissionDeadline"
-                    type="datetime-local"
                     value={formData.submissionDeadline}
-                    onChange={(e) => setFormData({ ...formData, submissionDeadline: e.target.value })}
+                    onChange={(value) => setFormData({ ...formData, submissionDeadline: value })}
                   />
 
-                  <Input
+                  <DateTimeInput
                     label="Evaluation Deadline"
                     id="evaluationDeadline"
-                    type="datetime-local"
                     value={formData.evaluationDeadline}
-                    onChange={(e) => setFormData({ ...formData, evaluationDeadline: e.target.value })}
+                    onChange={(value) => setFormData({ ...formData, evaluationDeadline: value })}
                   />
                 </div>
               )}

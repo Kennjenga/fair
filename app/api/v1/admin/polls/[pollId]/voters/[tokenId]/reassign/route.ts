@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/auth/middleware';
 import { z } from 'zod';
-import { getPollById } from '@/lib/repositories/polls';
+import { getPollById, hasPollAccess } from '@/lib/repositories/polls';
 import { getTeamById } from '@/lib/repositories/teams';
 import { getTokenById, reassignTokenToTeam } from '@/lib/repositories/tokens';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
@@ -42,7 +42,9 @@ export async function POST(
         );
       }
       
-      if (admin.role === 'admin' && poll.created_by !== admin.adminId) {
+      // Check access: admins can access polls they created OR polls in hackathons they created
+      const hasAccess = await hasPollAccess(poll, admin.adminId, admin.role);
+      if (!hasAccess) {
         return NextResponse.json(
           { error: 'Access denied' },
           { status: 403 }

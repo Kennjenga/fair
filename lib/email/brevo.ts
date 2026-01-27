@@ -543,6 +543,125 @@ Welcome aboard!
 }
 
 /**
+ * Send team lead update request email
+ * @param email - Team lead email address
+ * @param pollName - Name of the poll
+ * @param teamName - Name of the team
+ * @param hackathonId - Hackathon ID for the submission form
+ * @param pollId - Poll ID (optional, for linking)
+ * @param teamLeadName - Team lead's name (optional)
+ * @returns Email send result
+ */
+export async function sendTeamLeadUpdateEmail(
+  email: string,
+  pollName: string,
+  teamName: string,
+  hackathonId: string,
+  pollId?: string,
+  teamLeadName?: string
+): Promise<any> {
+  // Build submission URL with poll_id if provided
+  const submissionUrl = pollId 
+    ? `${APP_URL}/hackathons/${hackathonId}/submit?form=project_details&poll_id=${encodeURIComponent(pollId)}`
+    : `${APP_URL}/hackathons/${hackathonId}/submit?form=project_details`;
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%); color: white; padding: 30px; text-align: center; border-radius: 12px 12px 0 0; }
+        .content { background: #f8fafc; padding: 30px; border-radius: 0 0 12px 12px; }
+        .button { display: inline-block; background: #0891b2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 12px; margin: 20px 0; font-weight: 600; }
+        .info-box { background: white; border-left: 4px solid #0891b2; padding: 15px; margin: 20px 0; border-radius: 8px; }
+        .footer { text-align: center; margin-top: 30px; color: #64748b; font-size: 12px; }
+        .logo { width: 48px; height: 48px; margin: 0 auto 10px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo">📝</div>
+          <h1>FAIR Voting Platform</h1>
+        </div>
+        <div class="content">
+          <h2>Update Your Team Details</h2>
+          <p>Hello${teamLeadName ? ` ${teamLeadName}` : ''},</p>
+          <p>You are the team lead for <strong>${teamName}</strong> in the poll: <strong>${pollName}</strong>.</p>
+          <p>We need you to update your team's project details to ensure everything is up to date for the voting process.</p>
+          <div class="info-box">
+            <p><strong>Please update the following information:</strong></p>
+            <ul>
+              <li>Project Name</li>
+              <li>Problem Statement</li>
+              <li>Proposed Solution</li>
+              <li>GitHub Repository Link (if available)</li>
+              <li>Live Demo Link (if available)</li>
+            </ul>
+          </div>
+          <p>Click the button below to update your team's project details:</p>
+          <div style="text-align: center;">
+            <a href="${submissionUrl}" class="button">Update Team Details</a>
+          </div>
+          <p>Or copy and paste this link into your browser:</p>
+          <div style="background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 12px;">
+            <code style="word-break: break-all; font-size: 12px;">${submissionUrl}</code>
+          </div>
+          <p><strong>Important:</strong></p>
+          <ul>
+            <li>Only team leads can update team details</li>
+            <li>Make sure all information is accurate and up to date</li>
+            <li>You can update your details multiple times if needed</li>
+          </ul>
+          <p>Thank you for keeping your team information current!</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated message from FAIR Voting Platform. Please do not reply to this email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const textContent = `
+FAIR Voting Platform - Update Your Team Details
+
+Hello${teamLeadName ? ` ${teamLeadName}` : ''},
+
+You are the team lead for ${teamName} in the poll: ${pollName}.
+
+We need you to update your team's project details to ensure everything is up to date for the voting process.
+
+Please update the following information:
+- Project Name
+- Problem Statement
+- Proposed Solution
+- GitHub Repository Link (if available)
+- Live Demo Link (if available)
+
+Click the link below to update your team's project details:
+${submissionUrl}
+
+Important:
+- Only team leads can update team details
+- Make sure all information is accurate and up to date
+- You can update your details multiple times if needed
+
+Thank you for keeping your team information current!
+  `;
+
+  return await sendEmail({
+    to: email,
+    subject: `Update Team Details for ${pollName} - ${teamName}`,
+    html: htmlContent,
+    text: textContent,
+  });
+}
+
+/**
  * Update email delivery status in database
  * This should be called by webhook handler when Brevo sends delivery updates
  * @param messageId - Brevo message ID

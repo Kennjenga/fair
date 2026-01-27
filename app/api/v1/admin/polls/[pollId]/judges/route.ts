@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/auth/middleware';
 import { createJudgeSchema } from '@/lib/validation/schemas';
-import { getPollById } from '@/lib/repositories/polls';
+import { getPollById, hasPollAccess } from '@/lib/repositories/polls';
 import { addJudgeToPoll, removeJudgeFromPoll, getJudgesByPoll } from '@/lib/repositories/judges';
 import { hasJudgeVoted } from '@/lib/repositories/votes';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
@@ -34,7 +34,9 @@ export async function GET(
         );
       }
       
-      if (admin.role === 'admin' && poll.created_by !== admin.adminId) {
+      // Check access: admins can access polls they created OR polls in hackathons they created
+      const hasAccess = await hasPollAccess(poll, admin.adminId, admin.role);
+      if (!hasAccess) {
         return NextResponse.json(
           { error: 'Access denied' },
           { status: 403 }
@@ -95,7 +97,9 @@ export async function POST(
         );
       }
       
-      if (admin.role === 'admin' && poll.created_by !== admin.adminId) {
+      // Check access: admins can access polls they created OR polls in hackathons they created
+      const hasAccess = await hasPollAccess(poll, admin.adminId, admin.role);
+      if (!hasAccess) {
         return NextResponse.json(
           { error: 'Access denied' },
           { status: 403 }

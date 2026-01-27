@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from '@/components/layouts';
-import { Button, Card, Input, Badge } from '@/components/ui';
+import { Button, Card, Input, Badge, DateTimeInput } from '@/components/ui';
 import { Search } from 'lucide-react';
 
 const sidebarItems = [
@@ -555,6 +555,47 @@ function PollManagementPageContent() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-[#0F172A]">Teams</h2>
                 <div className="flex gap-3">
+                  <Button 
+                    onClick={async () => {
+                      // Send update emails to team leads
+                      const token = localStorage.getItem('auth_token');
+                      if (!token) return;
+                      setSubmitting(true);
+                      setError('');
+                      setSuccess('');
+                      try {
+                        const response = await fetch(`/api/v1/admin/polls/${pollId}/teams/send-update-emails`, {
+                          method: 'POST',
+                          headers: { Authorization: `Bearer ${token}` },
+                        });
+                        
+                        if (!response.ok) {
+                          const errorData = await response.json();
+                          throw new Error(errorData.error || 'Failed to send emails');
+                        }
+                        
+                        const data = await response.json();
+                        if (data.sent > 0) {
+                          setSuccess(`Successfully sent ${data.sent} email(s) to team leads${data.failed > 0 ? ` (${data.failed} failed)` : ''}`);
+                        } else {
+                          setError(data.message || 'No emails were sent');
+                        }
+                        
+                        if (data.errors && data.errors.length > 0) {
+                          console.warn('Email errors:', data.errors);
+                        }
+                      } catch (err: any) {
+                        setError(err.message || 'Failed to send emails to team leads');
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                    isLoading={submitting}
+                    variant="outline"
+                    className="border-[#0891b2] text-[#0891b2] hover:bg-[#0891b2]/10"
+                  >
+                    Request Team Updates
+                  </Button>
                   <Button 
                     onClick={async () => {
                       // Pull teams from hackathon
@@ -1316,17 +1357,20 @@ function PollManagementPageContent() {
           <Card className="w-full max-w-md p-6">
             <h3 className="text-xl font-semibold text-[#0F172A] mb-4">Adjust Poll Timeline</h3>
             <div className="space-y-4">
-              <Input
-                label="Start Time *"
-                type="datetime-local"
+              <DateTimeInput
+                label="Start Time"
+                id="startTime"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={(value) => setStartTime(value)}
+                required
               />
-              <Input
-                label="End Time *"
-                type="datetime-local"
+              <DateTimeInput
+                label="End Time"
+                id="endTime"
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                onChange={(value) => setEndTime(value)}
+                required
+                min={startTime}
               />
               <div className="flex gap-3 justify-end mt-6">
                 <Button variant="outline" onClick={() => setShowEditTimeline(false)}>Cancel</Button>
@@ -1348,17 +1392,20 @@ function PollManagementPageContent() {
                 onChange={(e) => setTieBreakerName(e.target.value)}
               />
               <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Start Time *"
-                  type="datetime-local"
+                <DateTimeInput
+                  label="Start Time"
+                  id="tieBreakerStartTime"
                   value={tieBreakerStartTime}
-                  onChange={(e) => setTieBreakerStartTime(e.target.value)}
+                  onChange={(value) => setTieBreakerStartTime(value)}
+                  required
                 />
-                <Input
-                  label="End Time *"
-                  type="datetime-local"
+                <DateTimeInput
+                  label="End Time"
+                  id="tieBreakerEndTime"
                   value={tieBreakerEndTime}
-                  onChange={(e) => setTieBreakerEndTime(e.target.value)}
+                  onChange={(value) => setTieBreakerEndTime(value)}
+                  required
+                  min={tieBreakerStartTime}
                 />
               </div>
 
@@ -1445,8 +1492,21 @@ function PollManagementPageContent() {
             <div className="space-y-4">
               <Input label="Poll Name *" value={editPollName} onChange={(e) => setEditPollName(e.target.value)} />
               <div className="grid md:grid-cols-2 gap-4">
-                <Input label="Start Time *" type="datetime-local" value={editPollStartTime} onChange={(e) => setEditPollStartTime(e.target.value)} />
-                <Input label="End Time *" type="datetime-local" value={editPollEndTime} onChange={(e) => setEditPollEndTime(e.target.value)} />
+                <DateTimeInput
+                  label="Start Time"
+                  id="editPollStartTime"
+                  value={editPollStartTime}
+                  onChange={(value) => setEditPollStartTime(value)}
+                  required
+                />
+                <DateTimeInput
+                  label="End Time"
+                  id="editPollEndTime"
+                  value={editPollEndTime}
+                  onChange={(value) => setEditPollEndTime(value)}
+                  required
+                  min={editPollStartTime}
+                />
               </div>
               {/* Selects are not yet standard components, keeping native select with styling */}
               <div className="grid md:grid-cols-2 gap-4">

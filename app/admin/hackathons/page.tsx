@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from '@/components/layouts';
-import { Button, Card, Input } from '@/components/ui';
+import { Button, Card, Input, DateTimeInput } from '@/components/ui';
 
 const sidebarItems = [
   { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
@@ -348,11 +348,11 @@ export default function HackathonsPage() {
                 />
               </div>
 
-              <Input
+              <DateTimeInput
                 label="Voting Closes At"
-                type="datetime-local"
+                id="votingClosesAt"
                 value={editForm.votingClosesAt}
-                onChange={(e) => setEditForm({ ...editForm, votingClosesAt: e.target.value })}
+                onChange={(value) => setEditForm({ ...editForm, votingClosesAt: value })}
                 helperText="When voting closes, the hackathon status will automatically change to 'closed'. Must be between start and end date."
               />
 

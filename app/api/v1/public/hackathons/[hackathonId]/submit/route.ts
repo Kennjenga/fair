@@ -3,6 +3,8 @@ import { createSubmission, findTeamByTeamLead, isTeamLead } from '@/lib/reposito
 import { getFormFields } from '@/lib/repositories/form-fields';
 import { trackParticipation } from '@/lib/repositories/participation';
 import { uploadFile } from '@/lib/cloudinary';
+import { getTeamByName, updateTeam } from '@/lib/repositories/teams';
+import { getPollById } from '@/lib/repositories/polls';
 import type { FileReference } from '@/types/submission';
 
 /**
@@ -174,6 +176,32 @@ export async function POST(
         hackathonId,
         'participant'
       );
+    }
+
+    // For project_details form, update the poll team with project information
+    if (isProjectDetailsForm && pollId && teamName) {
+      try {
+        // Verify poll exists and belongs to the hackathon
+        const poll = await getPollById(pollId);
+        if (poll && poll.hackathon_id === hackathonId) {
+          // Find the team in the poll by team name
+          const pollTeam = await getTeamByName(pollId, teamName);
+          
+          if (pollTeam) {
+            // Update the team with project details from submission
+            await updateTeam(pollTeam.team_id, {
+              projectName: submissionData.project_name || undefined,
+              projectDescription: submissionData.problem_statement || submissionData.project_description || undefined,
+              pitch: submissionData.solution || submissionData.pitch || undefined,
+              liveSiteUrl: submissionData.live_link || submissionData.live_site_url || undefined,
+              githubUrl: submissionData.github_link || submissionData.github_url || undefined,
+            });
+          }
+        }
+      } catch (error: any) {
+        // Log error but don't fail the submission if team update fails
+        console.error('Error updating poll team details:', error);
+      }
     }
 
     return NextResponse.json(

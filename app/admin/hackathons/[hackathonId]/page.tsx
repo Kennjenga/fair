@@ -263,7 +263,9 @@ export default function HackathonDetailPage() {
         setHackathon(data.hackathon);
         setStatusError('');
         // Refresh hackathon data to get updated status
-        await fetchHackathonData(token);
+        if (token) {
+          await fetchHackathonData(token);
+        }
       } else {
         const error = await response.json();
         // Show validation error from server (e.g., "Cannot change to 'live' because voting closed at...")
