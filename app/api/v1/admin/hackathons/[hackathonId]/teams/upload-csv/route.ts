@@ -71,24 +71,32 @@ function parseTeamMembers(row: Record<string, string>): Array<{
   // Try numbered member columns (member_1_email, member_2_email, etc.)
   let memberIndex = 1;
   while (true) {
+    // Try multiple key variations for each field
     const emailKey = `member_${memberIndex}_email`;
-    const firstNameKey = `member_${memberIndex}_first_name` || `member_${memberIndex}_firstName`;
-    const lastNameKey = `member_${memberIndex}_last_name` || `member_${memberIndex}_lastName`;
+    const firstNameKey1 = `member_${memberIndex}_first_name`;
+    const firstNameKey2 = `member_${memberIndex}_firstName`;
+    const lastNameKey1 = `member_${memberIndex}_last_name`;
+    const lastNameKey2 = `member_${memberIndex}_lastName`;
     const phoneKey = `member_${memberIndex}_phone`;
     const roleKey = `member_${memberIndex}_role`;
-    const isLeadKey = `member_${memberIndex}_is_lead` || `member_${memberIndex}_isLead`;
+    const isLeadKey1 = `member_${memberIndex}_is_lead`;
+    const isLeadKey2 = `member_${memberIndex}_isLead`;
 
-    if (!row[emailKey] && !row[firstNameKey] && !row[lastNameKey]) {
+    // Check if any member data exists for this index
+    const email = row[emailKey] || '';
+    const firstName = row[firstNameKey1] || row[firstNameKey2] || '';
+    const lastName = row[lastNameKey1] || row[lastNameKey2] || '';
+    const phone = row[phoneKey] || '';
+    const role = row[roleKey] || '';
+    const isLeadValue = row[isLeadKey1] || row[isLeadKey2] || '';
+    const isLead = isLeadValue === 'true' || isLeadValue === '1' || isLeadValue === 'yes' || memberIndex === 1;
+
+    // If no data found for this member index, stop
+    if (!email && !firstName && !lastName) {
       break; // No more members
     }
 
-    const email = row[emailKey] || '';
-    const firstName = row[firstNameKey] || '';
-    const lastName = row[lastNameKey] || '';
-    const phone = row[phoneKey] || '';
-    const role = row[roleKey] || '';
-    const isLead = row[isLeadKey] === 'true' || row[isLeadKey] === '1' || row[isLeadKey] === 'yes' || memberIndex === 1;
-
+    // Add member if we have at least email, first name, or last name
     if (email || firstName || lastName) {
       members.push({
         email,
@@ -106,13 +114,78 @@ function parseTeamMembers(row: Record<string, string>): Array<{
 
   // If no members found with numbered format, try single row format
   if (members.length === 0) {
-    const email = row.email || row.member_email || '';
-    const firstName = row.first_name || row.firstName || row.member_first_name || '';
-    const lastName = row.last_name || row.lastName || row.member_last_name || '';
-    const phone = row.phone || row.member_phone || '';
-    const role = row.role || row.member_role || '';
-    const isLead = row.is_lead === 'true' || row.is_lead === '1' || row.is_lead === 'yes' || row.isLead === 'true' || true; // Default to true for single member
+    // Try various column name formats (case-insensitive matching)
+    const getValue = (keys: string[]) => {
+      for (const key of keys) {
+        // Try exact match first
+        if (row[key]) return row[key];
+        // Try case-insensitive match
+        const lowerKey = key.toLowerCase();
+        for (const rowKey in row) {
+          if (rowKey.toLowerCase() === lowerKey) {
+            return row[rowKey];
+          }
+        }
+      }
+      return '';
+    };
 
+    const email = getValue(['email', 'member_email', 'Email', 'Email Address', 'e-mail']);
+    const firstName = getValue(['first_name', 'firstName', 'firstname', 'first name', 'First Name', 'fname', 'member_first_name']);
+    const lastName = getValue(['last_name', 'lastName', 'lastname', 'last name', 'Last Name', 'lname', 'member_last_name']);
+    const phone = getValue(['phone', 'Phone', 'phone_number', 'Phone Number', 'member_phone', 'telephone']);
+    const role = getValue(['role', 'Role', 'member_role', 'position']);
+    const isLeadValue = getValue(['is_lead', 'isLead', 'is_leader', 'leader', 'team_lead']);
+    const isLead = isLeadValue === 'true' || isLeadValue === '1' || isLeadValue === 'yes' || isLeadValue === 'Yes' || true; // Default to true for single member
+
+    if (email || firstName || lastName) {
+      members.push({
+        email: email.trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: phone.trim(),
+        role: role.trim(),
+        isLead,
+      });
+    }
+  }
+
+  // Final fallback: if still no members found, try to extract from any available columns
+  if (members.length === 0) {
+    // Look for any column that might contain member data
+    const allKeys = Object.keys(row);
+    const emailPattern = /email|e-mail|mail/i;
+    const firstNamePattern = /first[_\s]?name|fname|given[_\s]?name/i;
+    const lastNamePattern = /last[_\s]?name|lname|surname|family[_\s]?name/i;
+    const phonePattern = /phone|tel|mobile|cell/i;
+    const rolePattern = /role|position|title/i;
+
+    let email = '';
+    let firstName = '';
+    let lastName = '';
+    let phone = '';
+    let role = '';
+
+    // Try to find columns matching patterns
+    for (const key of allKeys) {
+      const value = (row[key] || '').trim();
+      if (!value) continue;
+
+      const lowerKey = key.toLowerCase();
+      if (emailPattern.test(key) && !email && value.includes('@')) {
+        email = value;
+      } else if (firstNamePattern.test(key) && !firstName) {
+        firstName = value;
+      } else if (lastNamePattern.test(key) && !lastName) {
+        lastName = value;
+      } else if (phonePattern.test(key) && !phone) {
+        phone = value;
+      } else if (rolePattern.test(key) && !role) {
+        role = value;
+      }
+    }
+
+    // If we found at least email, first name, or last name, create a member
     if (email || firstName || lastName) {
       members.push({
         email,
@@ -120,7 +193,7 @@ function parseTeamMembers(row: Record<string, string>): Array<{
         lastName,
         phone,
         role,
-        isLead,
+        isLead: true, // Default to lead for single member
       });
     }
   }
@@ -203,29 +276,81 @@ export async function POST(
         const row = rows[i];
         const rowNumber = i + 2; // +2 because row 1 is header, and arrays are 0-indexed
 
-        const teamName = (row.team_name || row.teamName || '').trim();
-        if (!teamName) {
-          errors.push(`Row ${rowNumber}: Missing team_name`);
-          errorCount += 1;
-          continue;
-        }
-
-        const teamDescription = (row.team_description || row.teamDescription || '').trim();
-
-        // Parse team members
+        // Parse team members first to help generate team name if needed
         const members = parseTeamMembers(row);
 
         if (members.length === 0) {
-          errors.push(`Row ${rowNumber}: No team members found for team "${teamName}"`);
+          errors.push(`Row ${rowNumber}: No team members found`);
           errorCount += 1;
           continue;
         }
+
+        // Extract team name with flexible column name matching
+        const getTeamName = () => {
+          // Try exact matches first
+          if (row.team_name) return row.team_name.trim();
+          if (row.teamName) return row.teamName.trim();
+          if (row['Team Name']) return row['Team Name'].trim();
+          if (row['team name']) return row['team name'].trim();
+          
+          // Try case-insensitive match
+          const teamNamePattern = /team[_\s]?name/i;
+          for (const key in row) {
+            if (teamNamePattern.test(key) && row[key] && row[key].trim()) {
+              return row[key].trim();
+            }
+          }
+          
+          return '';
+        };
+
+        let teamName = getTeamName();
+        if (!teamName) {
+          // Try to generate from first member's name
+          const firstMember = members[0];
+          if (firstMember.firstName && firstMember.lastName) {
+            teamName = `${firstMember.firstName} ${firstMember.lastName}'s Team`;
+          } else if (firstMember.firstName) {
+            teamName = `${firstMember.firstName}'s Team`;
+          } else if (firstMember.email) {
+            teamName = `Team ${firstMember.email.split('@')[0]}`;
+          } else {
+            teamName = `Team Row ${rowNumber}`;
+          }
+        }
+
+        // Extract team description with flexible column name matching
+        const getTeamDescription = () => {
+          // Try exact matches first
+          if (row.team_description) return row.team_description.trim();
+          if (row.teamDescription) return row.teamDescription.trim();
+          if (row['Team Description']) return row['Team Description'].trim();
+          if (row['team description']) return row['team description'].trim();
+          if (row.description) return row.description.trim();
+          if (row.Description) return row.Description.trim();
+          
+          // Try case-insensitive match
+          const descPattern = /team[_\s]?description|description/i;
+          for (const key in row) {
+            if (descPattern.test(key) && row[key] && row[key].trim()) {
+              return row[key].trim();
+            }
+          }
+          
+          return '';
+        };
+
+        const teamDescription = getTeamDescription();
 
         // Check if team already exists in this batch
         if (teamsMap.has(teamName)) {
           // Add members to existing team (for single-member-per-row format)
           const existingTeam = teamsMap.get(teamName)!;
           existingTeam.members.push(...members);
+          // Update description if current row has one and existing doesn't
+          if (teamDescription && !existingTeam.teamDescription) {
+            existingTeam.teamDescription = teamDescription;
+          }
         } else {
           // Create new team entry
           teamsMap.set(teamName, {
