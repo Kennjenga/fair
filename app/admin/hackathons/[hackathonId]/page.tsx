@@ -193,6 +193,33 @@ function HackathonDetailPageContent() {
     }
   }, [activeTab, hackathonId]);
 
+  // Refresh results when results tab becomes active
+  useEffect(() => {
+    if (pollManagementTab === 'results' && selectedPollId) {
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        // Refresh just the results
+        fetch(`/api/v1/results/${selectedPollId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then((res) => {
+            if (res.ok) {
+              return res.json();
+            }
+            return null;
+          })
+          .then((resultsData) => {
+            if (resultsData) {
+              setPollResults(resultsData);
+            }
+          })
+          .catch((error) => {
+            console.error('Error refreshing results:', error);
+          });
+      }
+    }
+  }, [pollManagementTab, selectedPollId]);
+
   /**
    * Fetch submissions with pagination and search
    */
@@ -2920,8 +2947,9 @@ function HackathonDetailPageContent() {
                 <div className="space-y-6">
                     {/* Back Button and Header */}
                   <Card>
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-4">
+                    <div className="mb-6">
+                      {/* Back Button - Separate row */}
+                      <div className="mb-4">
                         <Button
                           variant="secondary"
                           onClick={handleBackToPollsList}
@@ -2930,52 +2958,55 @@ function HackathonDetailPageContent() {
                           <ChevronLeft className="w-4 h-4" />
                           Back to Polls
                         </Button>
-                        <div>
-                          <h3 className="text-2xl font-bold text-gray-900">{selectedPoll.name}</h3>
+                      </div>
+                      {/* Title and Actions - Separate row */}
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-2xl font-bold text-gray-900 break-words">{selectedPoll.name}</h3>
                           <p className="text-sm text-gray-600 mt-1">
                             {new Date(selectedPoll.start_time).toLocaleString()} - {new Date(selectedPoll.end_time).toLocaleString()}
                           </p>
                         </div>
-                      </div>
-                      <div className="flex gap-3">
-                        <Button 
-                          onClick={() => {
-                            setShowEditTimeline(true);
-                          }} 
-                          variant="outline"
-                        >
-                          Adjust Timeline
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            setEditPollName(selectedPoll.name);
-                            const start = new Date(selectedPoll.start_time);
-                            const end = new Date(selectedPoll.end_time);
-                            setEditPollStartTime(start.toISOString().slice(0, 16));
-                            setEditPollEndTime(end.toISOString().slice(0, 16));
-                            setEditPollVotingMode(selectedPoll.voting_mode || 'single');
-                            setEditPollVotingPermissions(selectedPoll.voting_permissions || 'voters_and_judges');
-                            setEditPollVoterWeight(selectedPoll.voter_weight?.toString() || '1.0');
-                            setEditPollJudgeWeight(selectedPoll.judge_weight?.toString() || '1.0');
-                            setEditPollAllowSelfVote(selectedPoll.allow_self_vote || false);
-                            setEditPollRequireTeamNameGate(selectedPoll.require_team_name_gate !== false);
-                            setEditPollIsPublicResults(selectedPoll.is_public_results || false);
-                            setEditPollMaxRankedPositions(selectedPoll.max_ranked_positions?.toString() || '');
-                            setEditPollVotingSequence(selectedPoll.voting_sequence || 'simultaneous');
-                            setEditPollAllowVoteEditing(selectedPoll.allow_vote_editing || false);
-                            setEditPollMinVoterParticipation(selectedPoll.min_voter_participation?.toString() || '');
-                            setEditPollMinJudgeParticipation(selectedPoll.min_judge_participation?.toString() || '');
-                            setShowEditPoll(true);
-                          }}
-                          className="bg-gradient-to-r from-[#4F46E5] to-[#6366F1]"
-                        >
-                          Edit Details
-                        </Button>
-                        <Link href={`/admin/polls/${selectedPollId}`} target="_blank">
-                          <Button variant="outline">
-                            Open in New Tab
+                        <div className="flex gap-3 flex-shrink-0">
+                          <Button 
+                            onClick={() => {
+                              setShowEditTimeline(true);
+                            }} 
+                            variant="outline"
+                          >
+                            Adjust Timeline
                           </Button>
-                        </Link>
+                          <Button
+                            onClick={() => {
+                              setEditPollName(selectedPoll.name);
+                              const start = new Date(selectedPoll.start_time);
+                              const end = new Date(selectedPoll.end_time);
+                              setEditPollStartTime(start.toISOString().slice(0, 16));
+                              setEditPollEndTime(end.toISOString().slice(0, 16));
+                              setEditPollVotingMode(selectedPoll.voting_mode || 'single');
+                              setEditPollVotingPermissions(selectedPoll.voting_permissions || 'voters_and_judges');
+                              setEditPollVoterWeight(selectedPoll.voter_weight?.toString() || '1.0');
+                              setEditPollJudgeWeight(selectedPoll.judge_weight?.toString() || '1.0');
+                              setEditPollAllowSelfVote(selectedPoll.allow_self_vote || false);
+                              setEditPollRequireTeamNameGate(selectedPoll.require_team_name_gate !== false);
+                              setEditPollIsPublicResults(selectedPoll.is_public_results || false);
+                              setEditPollMaxRankedPositions(selectedPoll.max_ranked_positions?.toString() || '');
+                              setEditPollVotingSequence(selectedPoll.voting_sequence || 'simultaneous');
+                              setEditPollAllowVoteEditing(selectedPoll.allow_vote_editing || false);
+                              setEditPollMinVoterParticipation(selectedPoll.min_voter_participation?.toString() || '');
+                              setEditPollMinJudgeParticipation(selectedPoll.min_judge_participation?.toString() || '');
+                              setShowEditPoll(true);
+                            }}
+                            className="bg-gradient-to-r from-[#4F46E5] to-[#6366F1]"
+                          >
+                            Edit Details
+                          </Button>
+                          <Link href={`/admin/polls/${selectedPollId}`} target="_blank">
+                            <Button variant="outline">
+                              Open in New Tab
+                            </Button>
+                          </Link>
+                        </div>
                       </div>
                     </div>
                     
@@ -3741,17 +3772,62 @@ function HackathonDetailPageContent() {
                         {pollManagementTab === 'results' && (
                           <Card className="p-6">
                             <div className="flex justify-between items-center mb-6">
-                              <h2 className="text-xl font-semibold text-gray-900">Results</h2>
-                              <Link href={`/admin/polls/${selectedPollId}`} target="_blank">
-                                <Button variant="outline">View Full Results</Button>
-                              </Link>
+                              <h2 className="text-xl font-semibold text-[#0F172A]">Results</h2>
+                              <div className="flex gap-3">
+                                <Link href={`/results/${selectedPollId}`} target="_blank">
+                                  <Button className="bg-[#0891b2] hover:bg-[#0e7490]">View Full Results →</Button>
+                                </Link>
+                              </div>
                             </div>
-                            {pollResults ? (
-                              <div className="space-y-4">
-                                <p className="text-gray-600">Results are available. Click the button above to view detailed results.</p>
+                            <p className="text-[#64748B] mb-6">
+                              {selectedPoll?.is_public_results ? 'Results are publicly available.' : 'Results are private.'}
+                            </p>
+                            {pollResults && pollResults.results && pollResults.results.teams && pollResults.results.teams.length > 0 ? (
+                              <div className="space-y-6">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="bg-[#F8FAFC] rounded-xl p-4 text-center border border-[#E2E8F0]">
+                                    <div className="text-2xl font-bold text-[#1e40af]">{pollResults.results.totalVotes || 0}</div>
+                                    <div className="text-sm text-[#64748B]">Total Votes</div>
+                                  </div>
+                                  <div className="bg-[#F8FAFC] rounded-xl p-4 text-center border border-[#E2E8F0]">
+                                    <div className="text-2xl font-bold text-[#059669]">{pollResults.results.teams.length}</div>
+                                    <div className="text-sm text-[#64748B]">Teams</div>
+                                  </div>
+                                </div>
+                                <div className="space-y-3">
+                                  <h3 className="font-semibold text-[#0F172A]">Rankings</h3>
+                                  {pollResults.results.teams
+                                    .sort((a: any, b: any) => b.totalScore - a.totalScore)
+                                    .slice(0, 5)
+                                    .map((team: any, index: number) => (
+                                      <div key={team.teamId || team.team_id} className="flex items-center justify-between p-4 border border-[#E2E8F0] rounded-xl">
+                                        <div className="flex items-center gap-4">
+                                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${index === 0 ? 'bg-[#059669]' : index === 1 ? 'bg-[#0891b2]' : index === 2 ? 'bg-[#1e40af]' : 'bg-[#64748B]'}`}>
+                                            {index + 1}
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-[#0F172A]">{team.teamName || team.team_name}</div>
+                                            {selectedPoll?.voting_mode === 'ranked' && team.positionCounts && (
+                                              <div className="flex flex-wrap gap-1 mt-1">
+                                                {Object.entries(team.positionCounts).slice(0, 3).map(([pos, count]: [string, any]) => (
+                                                  <span key={pos} className="text-xs px-1.5 py-0.5 rounded bg-[#e0f2fe] text-[#0369a1]">
+                                                    #{pos}: {count}×
+                                                  </span>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className="text-right">
+                                          <div className="font-bold text-[#1e40af]">{Number(team.totalScore || 0).toFixed(2)}</div>
+                                          <div className="text-xs text-[#64748B]">points</div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                </div>
                               </div>
                             ) : (
-                              <p className="text-gray-600 text-center py-8">No results available yet.</p>
+                              <div className="text-center py-8 text-[#64748B]">No votes recorded yet.</div>
                             )}
                           </Card>
                         )}

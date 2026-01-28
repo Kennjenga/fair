@@ -147,17 +147,7 @@ export async function POST(req: NextRequest) {
         }
         // Vote editing is allowed - we'll update the vote later in the flow
       }
-      
-      // Verify team name if required
-      if (poll.require_team_name_gate && validated.teamName) {
-        const voterTeam = await getTeamById(tokenRecord.team_id);
-        if (!voterTeam || voterTeam.team_name !== validated.teamName) {
-          return NextResponse.json(
-            { error: 'Team name does not match token assignment' },
-            { status: 400 }
-          );
-        }
-      }
+      // Team is automatically verified from token - no manual verification needed
     } else if (validated.judgeEmail && validated.pollId) {
       // Judge vote
       voteType = 'judge';

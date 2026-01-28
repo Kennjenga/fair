@@ -35,7 +35,7 @@ async function checkColumnType() {
     console.log(JSON.stringify(sampleResult.rows, null, 2));
 
     // Check if we need to convert TEXT to JSONB
-    const textCountResult = await query(`
+    const textCountResult = await query<{ count: string }>(`
       SELECT COUNT(*) as count
       FROM information_schema.columns
       WHERE table_name = 'hackathon_submissions'
@@ -43,7 +43,12 @@ async function checkColumnType() {
         AND data_type = 'text'
     `);
 
-    if (parseInt(textCountResult.rows[0]?.count || '0', 10) > 0) {
+    const textCount = parseInt(
+      String(textCountResult.rows[0]?.count ?? '0'),
+      10
+    );
+
+    if (textCount > 0) {
       console.log('\n⚠️  WARNING: submission_data column is TEXT, not JSONB!');
       console.log('You may need to run a migration to convert it to JSONB.');
     } else {

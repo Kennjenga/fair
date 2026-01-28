@@ -205,7 +205,7 @@ export async function getDecisionsCreated(adminId: string): Promise<DecisionSumm
     const canVerify = true; // Always available
     
     // Determine integrity state
-    const integrityState = hasCommitments ? 'anchored' : 'pending';
+    const integrityState: 'anchored' | 'pending' = hasCommitments ? 'anchored' : 'pending';
     
     // Map governance model to decision type
     const decisionTypeMap: Record<string, string> = {
@@ -370,7 +370,11 @@ export async function getDecisionsParticipated(email: string): Promise<DecisionS
     const canVerify = true; // Always available for verification
     
     // Determine outcome state
-    const outcomeState = isFinalized && hasCommitments ? 'verified' : isFinalized ? 'published' : undefined;
+    const outcomeState: 'verified' | 'published' | undefined =
+      isFinalized && hasCommitments ? 'verified' : isFinalized ? 'published' : undefined;
+    
+    // Determine integrity state
+    const integrityState: 'anchored' | 'pending' = hasCommitments ? 'anchored' : 'pending';
     
     // Map governance model to decision type
     const decisionTypeMap: Record<string, string> = {
@@ -394,7 +398,7 @@ export async function getDecisionsParticipated(email: string): Promise<DecisionS
       role: row.role,
       participatedAt: row.participated_at,
       integrityStatus: row.integrity_status,
-      integrityState: hasCommitments ? 'anchored' : 'pending',
+      integrityState,
       lastActivity: row.last_activity,
       startDate: row.start_date,
       endDate: row.end_date,
