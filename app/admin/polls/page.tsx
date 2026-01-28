@@ -6,11 +6,6 @@ import Link from 'next/link';
 import { Sidebar } from '@/components/layouts';
 import { Button, Card, Badge, LoadingSpinner } from '@/components/ui';
 
-const sidebarItems = [
-    { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
-    { label: 'Hackathons', href: '/admin/hackathons', icon: '🏆' },
-    { label: 'Polls', href: '/admin/polls', icon: '🗳️' },
-];
 
 /**
  * Calculate statistics from polls
@@ -204,7 +199,7 @@ export default function PollsPage() {
     return (
         <div className="min-h-screen bg-[#F8FAFC] flex">
             {/* Sidebar */}
-            <Sidebar items={sidebarItems} user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+            <Sidebar user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
             {/* Main content */}
             <main className="flex-1 p-6 md:p-8 overflow-auto">

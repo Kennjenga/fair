@@ -7,11 +7,6 @@ import { Sidebar } from '@/components/layouts';
 import { Button, Card, Input, Badge, DateTimeInput } from '@/components/ui';
 import { Search } from 'lucide-react';
 
-const sidebarItems = [
-  { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
-  { label: 'Hackathons', href: '/admin/hackathons', icon: '🏆' },
-  { label: 'Polls', href: '/admin/polls', icon: '🗳️' },
-];
 
 /**
  * Poll management page content with modern design
@@ -432,7 +427,7 @@ function PollManagementPageContent() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex">
-      <Sidebar items={sidebarItems} user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+      <Sidebar user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
       <main className="flex-1 p-6 md:p-8 overflow-auto">
         <div className="max-w-7xl mx-auto">
@@ -630,16 +625,45 @@ function PollManagementPageContent() {
                           return;
                         }
                         
-                        // Create teams
+                        // Create teams with project details from submissions
                         for (const hackathonTeam of teamsToCreate) {
                           try {
+                            // Build metadata object with project details if available
+                            const metadata: any = {};
+                            if (hackathonTeam.projectName) {
+                              metadata.projectName = hackathonTeam.projectName;
+                            }
+                            if (hackathonTeam.projectDescription) {
+                              metadata.projectDescription = hackathonTeam.projectDescription;
+                            }
+                            if (hackathonTeam.pitch) {
+                              metadata.pitch = hackathonTeam.pitch;
+                            }
+                            if (hackathonTeam.liveSiteUrl) {
+                              metadata.liveSiteUrl = hackathonTeam.liveSiteUrl;
+                            }
+                            if (hackathonTeam.githubUrl) {
+                              metadata.githubUrl = hackathonTeam.githubUrl;
+                            }
+                            
+                            // Include team description and members in metadata if available
+                            if (hackathonTeam.teamDescription) {
+                              metadata.teamDescription = hackathonTeam.teamDescription;
+                            }
+                            if (hackathonTeam.teamMembers && hackathonTeam.teamMembers.length > 0) {
+                              metadata.teamMembers = hackathonTeam.teamMembers;
+                            }
+                            
                             await fetch(`/api/v1/admin/polls/${pollId}/teams`, {
                               method: 'POST',
                               headers: {
                                 Authorization: `Bearer ${token}`,
                                 'Content-Type': 'application/json',
                               },
-                              body: JSON.stringify({ teamName: hackathonTeam.teamName }),
+                              body: JSON.stringify({ 
+                                teamName: hackathonTeam.teamName,
+                                metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+                              }),
                             });
                           } catch (err) {
                             console.error(`Failed to create team "${hackathonTeam.teamName}":`, err);

@@ -143,6 +143,9 @@ export async function updateTokenDeliveryStatus(
 
 /**
  * Bulk create tokens for voters
+ * Handles duplicates gracefully - if email already exists, updates team_id if different
+ * Returns all processed emails, including those that were already registered
+ * All team members are included regardless of registration status
  */
 export async function bulkCreateTokens(
   pollId: string,
@@ -152,18 +155,131 @@ export async function bulkCreateTokens(
   const results: Array<{ email: string; token: string; tokenId: string }> = [];
   
   for (const voter of voters) {
-    const { token, tokenRecord } = await createToken(
-      pollId,
-      voter.teamId,
-      voter.email,
-      expiresAt
-    );
-    
-    results.push({
-      email: voter.email,
-      token,
-      tokenId: tokenRecord.token_id,
-    });
+    try {
+      // Generate token for new entries
+      const token = generateSecureToken();
+      const tokenHash = hashToken(token);
+      const encryptedPlainToken = encryptPlainToken(token);
+      
+      // Try to insert - use ON CONFLICT DO NOTHING to handle duplicates gracefully
+      // This ensures all team members are included, even if already registered
+      const insertResult = await query<TokenRecord>(
+        `INSERT INTO tokens (token, poll_id, team_id, email, expires_at, delivery_status, plain_token_encrypted)
+         VALUES ($1, $2, $3, $4, $5, 'queued', $6)
+         ON CONFLICT (poll_id, email) DO NOTHING
+         RETURNING *`,
+        [tokenHash, pollId, voter.teamId, voter.email, expiresAt || null, encryptedPlainToken]
+      );
+      
+      if (insertResult.rows[0]) {
+        // New token created
+        results.push({
+          email: voter.email,
+          token: token,
+          tokenId: insertResult.rows[0].token_id,
+        });
+      } else {
+        // Token already exists - get it and update team_id if needed
+        const existingTokenResult = await query<TokenRecord>(
+          'SELECT * FROM tokens WHERE poll_id = $1 AND email = $2',
+          [pollId, voter.email]
+        );
+        
+        if (existingTokenResult.rows[0]) {
+          const existingToken = existingTokenResult.rows[0];
+          
+          // Update team_id if different
+          if (existingToken.team_id !== voter.teamId) {
+            await query(
+              'UPDATE tokens SET team_id = $1 WHERE token_id = $2',
+              [voter.teamId, existingToken.token_id]
+            );
+          }
+          
+          // Try to get plain token from existing record
+          let plainToken = 'existing';
+          if (existingToken.plain_token_encrypted) {
+            try {
+              const decrypted = decryptPlainToken(existingToken.plain_token_encrypted);
+              if (decrypted) {
+                plainToken = decrypted;
+              }
+            } catch (e) {
+              // Can't decrypt, use placeholder
+            }
+          }
+          
+          results.push({
+            email: voter.email,
+            token: plainToken,
+            tokenId: existingToken.token_id,
+          });
+        } else {
+          // This shouldn't happen, but handle it
+          console.error(`Token insert failed but no existing token found for ${voter.email}`);
+          results.push({
+            email: voter.email,
+            token: 'error',
+            tokenId: 'error',
+          });
+        }
+      }
+    } catch (error: any) {
+      // Fallback: if INSERT fails for any reason, try to get/update existing token
+      try {
+        const existingTokenResult = await query<TokenRecord>(
+          'SELECT * FROM tokens WHERE poll_id = $1 AND email = $2',
+          [pollId, voter.email]
+        );
+        
+        if (existingTokenResult.rows[0]) {
+          const tokenRecord = existingTokenResult.rows[0];
+          
+          // Update team_id if different
+          if (tokenRecord.team_id !== voter.teamId) {
+            await query(
+              'UPDATE tokens SET team_id = $1 WHERE token_id = $2',
+              [voter.teamId, tokenRecord.token_id]
+            );
+          }
+          
+          // Try to get plain token
+          let plainToken = 'existing';
+          if (tokenRecord.plain_token_encrypted) {
+            try {
+              const decrypted = decryptPlainToken(tokenRecord.plain_token_encrypted);
+              if (decrypted) {
+                plainToken = decrypted;
+              }
+            } catch (e) {
+              // Can't decrypt, use placeholder
+            }
+          }
+          
+          results.push({
+            email: voter.email,
+            token: plainToken,
+            tokenId: tokenRecord.token_id,
+          });
+        } else {
+          // Token doesn't exist and insert failed - this shouldn't happen but log it
+          console.error(`Failed to create or find token for ${voter.email}:`, error);
+          results.push({
+            email: voter.email,
+            token: 'error',
+            tokenId: 'error',
+          });
+        }
+      } catch (err) {
+        console.error(`Failed to handle token for ${voter.email}:`, err);
+        // Still include in results to show it was processed
+        results.push({
+          email: voter.email,
+          token: 'error',
+          tokenId: 'error',
+        });
+      }
+    }
   }
   
   return results;

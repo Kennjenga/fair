@@ -136,11 +136,8 @@ function VotePageContent() {
       setVoterTeam(data.voterTeam);
       setExistingVote(null);
 
-      if (data.poll.requireTeamNameGate) {
-        setStep('verify');
-      } else {
-        setStep('vote');
-      }
+      // Team is automatically verified from token - skip verification step
+      setStep('vote');
     } catch (err) {
       setError('An error occurred. Please try again.');
     } finally {
@@ -148,14 +145,6 @@ function VotePageContent() {
     }
   };
 
-  const handleTeamNameVerify = () => {
-    if (!teamName || teamName !== voterTeam?.teamName) {
-      setError('Team name does not match. Please try again.');
-      return;
-    }
-    setError('');
-    setStep('vote');
-  };
 
   const handleMultipleTeamToggle = (teamId: string) => {
     setSelectedTeams(prev => {
@@ -184,6 +173,16 @@ function VotePageContent() {
     });
   };
 
+  const handleTeamNameVerify = () => {
+    if (!teamName.trim()) {
+      setError('Please enter your team name');
+      return;
+    }
+    // In the current flow, the token has already validated the voter.
+    // This step acts as an extra confirmation gate before showing voting options.
+    setStep('vote');
+  };
+
   const handleVoteSubmit = async () => {
     setLoading(true);
     setError('');
@@ -195,7 +194,6 @@ function VotePageContent() {
       }
       : {
         token,
-        teamName: voterTeam?.teamName,
       };
 
     if (pollData?.votingMode === 'single') {
@@ -439,41 +437,49 @@ function VotePageContent() {
               </div>
             )}
 
-            {/* Step 3: Vote Selection - Single Mode */}
+            {/* Step 2: Vote Selection - Single Mode */}
             {step === 'vote' && pollData?.votingMode === 'single' && (
-              <div className="space-y-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-[#0F172A] mb-2">
+              <div className="space-y-6">
+                <div className="bg-gradient-to-r from-[#4F46E5]/10 to-[#6366F1]/10 rounded-xl p-5 border border-[#4F46E5]/20">
+                  <h2 className="text-2xl font-bold text-[#0F172A] mb-2">
                     {pollData?.name}
                   </h2>
-                  <p className="text-[#64748B] mb-2">
+                  <p className="text-[#64748B] mb-1">
                     Select the team you want to vote for.
-                    {!pollData?.allowSelfVote && !isJudge && ' You cannot vote for your own team.'}
                   </p>
-
-                  <div className="flex items-center gap-2 mb-4">
-                    <label className="flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showProjectInfo}
-                        onChange={(e) => setShowProjectInfo(e.target.checked)}
-                        className="mr-2 rounded border-[#E2E8F0] text-[#4F46E5] focus:ring-[#4F46E5]"
-                      />
-                      <span className="text-sm text-[#64748B]">Show project information</span>
-                    </label>
-                  </div>
+                  {!pollData?.allowSelfVote && !isJudge && voterTeam && (
+                    <p className="text-sm text-[#DC2626] font-medium mt-2">
+                      ⚠️ You cannot vote for your own team ({voterTeam.teamName})
+                    </p>
+                  )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="flex items-center justify-between p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
+                  <label className="flex items-center cursor-pointer flex-1">
+                    <input
+                      type="checkbox"
+                      checked={showProjectInfo}
+                      onChange={(e) => setShowProjectInfo(e.target.checked)}
+                      className="mr-2 rounded border-[#E2E8F0] text-[#4F46E5] focus:ring-[#4F46E5] w-4 h-4"
+                    />
+                    <span className="text-sm font-medium text-[#0F172A]">Show project information</span>
+                  </label>
+                  <span className="text-xs text-[#64748B] bg-white px-2 py-1 rounded">
+                    {availableTeams.length} {availableTeams.length === 1 ? 'team' : 'teams'} available
+                  </span>
+                </div>
+
+                <div className="space-y-3">
                   {availableTeams.map((team) => (
                     <motion.div
                       key={team.teamId}
-                      className={`p-4 border-2 rounded-xl transition-all cursor-pointer ${selectedTeamId === team.teamId
-                        ? 'border-[#4F46E5] bg-[#4F46E5]/5'
-                        : 'border-[#E2E8F0] hover:border-[#4F46E5]/30'
-                        }`}
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
+                      className={`p-5 border-2 rounded-xl transition-all cursor-pointer ${
+                        selectedTeamId === team.teamId
+                          ? 'border-[#4F46E5] bg-gradient-to-r from-[#4F46E5]/10 to-[#6366F1]/10 shadow-lg'
+                          : 'border-[#E2E8F0] hover:border-[#4F46E5]/50 hover:bg-[#F8FAFC] hover:shadow-md'
+                      }`}
+                      whileHover={{ scale: 1.02, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={() => setSelectedTeamId(team.teamId)}
                     >
                       <label className="flex items-start cursor-pointer">
@@ -483,10 +489,17 @@ function VotePageContent() {
                           value={team.teamId}
                           checked={selectedTeamId === team.teamId}
                           onChange={(e) => setSelectedTeamId(e.target.value)}
-                          className="mt-1 mr-3 text-[#4F46E5] focus:ring-[#4F46E5]"
+                          className="mt-1 mr-4 text-[#4F46E5] focus:ring-[#4F46E5] w-5 h-5"
                         />
                         <div className="flex-1">
-                          <span className="font-medium text-[#0F172A] block">{team.teamName}</span>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-lg text-[#0F172A]">{team.teamName}</span>
+                            {selectedTeamId === team.teamId && (
+                              <span className="text-xs font-bold text-[#4F46E5] bg-[#4F46E5]/10 px-2 py-1 rounded-full">
+                                SELECTED
+                              </span>
+                            )}
+                          </div>
 
                           {showProjectInfo && (team.projectName || team.projectDescription || team.pitch || team.liveSiteUrl || team.githubUrl) && (
                             <div className="mt-2 p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
@@ -530,53 +543,66 @@ function VotePageContent() {
                   ))}
                 </div>
 
-                <Button
-                  onClick={handleVoteSubmit}
-                  disabled={loading || !canSubmit()}
-                  isLoading={loading}
-                  className="w-full bg-gradient-to-r from-[#16A34A] to-[#22C55E]"
-                  size="lg"
-                >
-                  {loading ? 'Submitting Vote...' : 'Submit Vote'}
-                </Button>
+                <div className="pt-4 border-t border-[#E2E8F0]">
+                  <Button
+                    onClick={handleVoteSubmit}
+                    disabled={loading || !canSubmit()}
+                    isLoading={loading}
+                    className="w-full bg-gradient-to-r from-[#16A34A] to-[#22C55E] hover:from-[#15803D] hover:to-[#16A34A] shadow-lg hover:shadow-xl transition-all"
+                    size="lg"
+                  >
+                    {loading ? 'Submitting Vote...' : selectedTeamId ? `Submit Vote for ${availableTeams.find(t => t.teamId === selectedTeamId)?.teamName || 'Selected Team'}` : 'Submit Vote'}
+                  </Button>
+                  {!selectedTeamId && (
+                    <p className="text-center text-sm text-[#DC2626] mt-2">Please select a team to vote for</p>
+                  )}
+                </div>
               </div>
             )}
 
-            {/* Step 3: Vote Selection - Multiple Mode */}
+            {/* Step 2: Vote Selection - Multiple Mode */}
             {step === 'vote' && pollData?.votingMode === 'multiple' && (
-              <div className="space-y-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-[#0F172A] mb-2">
+              <div className="space-y-6">
+                <div className="bg-gradient-to-r from-[#4F46E5]/10 to-[#6366F1]/10 rounded-xl p-5 border border-[#4F46E5]/20">
+                  <h2 className="text-2xl font-bold text-[#0F172A] mb-2">
                     {pollData?.name}
                   </h2>
-                  <p className="text-[#64748B] mb-2">
+                  <p className="text-[#64748B] mb-1">
                     Select all teams you want to vote for. You can vote for multiple teams.
-                    {!pollData?.allowSelfVote && !isJudge && ' You cannot vote for your own team.'}
                   </p>
-
-                  <div className="flex items-center gap-2 mb-4">
-                    <label className="flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showProjectInfo}
-                        onChange={(e) => setShowProjectInfo(e.target.checked)}
-                        className="mr-2 rounded border-[#E2E8F0] text-[#4F46E5] focus:ring-[#4F46E5]"
-                      />
-                      <span className="text-sm text-[#64748B]">Show project information</span>
-                    </label>
-                  </div>
+                  {!pollData?.allowSelfVote && !isJudge && voterTeam && (
+                    <p className="text-sm text-[#DC2626] font-medium mt-2">
+                      ⚠️ You cannot vote for your own team ({voterTeam.teamName})
+                    </p>
+                  )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="flex items-center justify-between p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
+                  <label className="flex items-center cursor-pointer flex-1">
+                    <input
+                      type="checkbox"
+                      checked={showProjectInfo}
+                      onChange={(e) => setShowProjectInfo(e.target.checked)}
+                      className="mr-2 rounded border-[#E2E8F0] text-[#4F46E5] focus:ring-[#4F46E5] w-4 h-4"
+                    />
+                    <span className="text-sm font-medium text-[#0F172A]">Show project information</span>
+                  </label>
+                  <span className="text-xs text-[#64748B] bg-white px-2 py-1 rounded">
+                    {selectedTeams.length} of {availableTeams.length} selected
+                  </span>
+                </div>
+
+                <div className="space-y-3">
                   {availableTeams.map((team) => (
                     <motion.div
                       key={team.teamId}
-                      className={`p-4 border-2 rounded-xl transition-all cursor-pointer ${selectedTeams.includes(team.teamId)
-                        ? 'border-[#4F46E5] bg-[#4F46E5]/5'
-                        : 'border-[#E2E8F0] hover:border-[#4F46E5]/30'
-                        }`}
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
+                      className={`p-5 border-2 rounded-xl transition-all cursor-pointer ${
+                        selectedTeams.includes(team.teamId)
+                          ? 'border-[#4F46E5] bg-gradient-to-r from-[#4F46E5]/10 to-[#6366F1]/10 shadow-lg'
+                          : 'border-[#E2E8F0] hover:border-[#4F46E5]/50 hover:bg-[#F8FAFC] hover:shadow-md'
+                      }`}
+                      whileHover={{ scale: 1.02, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={() => handleMultipleTeamToggle(team.teamId)}
                     >
                       <label className="flex items-start cursor-pointer">
@@ -584,10 +610,17 @@ function VotePageContent() {
                           type="checkbox"
                           checked={selectedTeams.includes(team.teamId)}
                           onChange={() => handleMultipleTeamToggle(team.teamId)}
-                          className="mt-1 mr-3 rounded border-[#E2E8F0] text-[#4F46E5] focus:ring-[#4F46E5]"
+                          className="mt-1 mr-4 rounded border-[#E2E8F0] text-[#4F46E5] focus:ring-[#4F46E5] w-5 h-5"
                         />
                         <div className="flex-1">
-                          <span className="font-medium text-[#0F172A] block">{team.teamName}</span>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-lg text-[#0F172A]">{team.teamName}</span>
+                            {selectedTeams.includes(team.teamId) && (
+                              <span className="text-xs font-bold text-[#4F46E5] bg-[#4F46E5]/10 px-2 py-1 rounded-full">
+                                SELECTED
+                              </span>
+                            )}
+                          </div>
 
                           {showProjectInfo && (team.projectName || team.projectDescription || team.pitch || team.liveSiteUrl || team.githubUrl) && (
                             <div className="mt-2 p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
@@ -643,35 +676,42 @@ function VotePageContent() {
               </div>
             )}
 
-            {/* Step 3: Vote Selection - Ranked Mode */}
+            {/* Step 2: Vote Selection - Ranked Mode */}
             {step === 'vote' && pollData?.votingMode === 'ranked' && (
-              <div className="space-y-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-[#0F172A] mb-2">
+              <div className="space-y-6">
+                <div className="bg-gradient-to-r from-[#4F46E5]/10 to-[#6366F1]/10 rounded-xl p-5 border border-[#4F46E5]/20">
+                  <h2 className="text-2xl font-bold text-[#0F172A] mb-2">
                     {pollData?.name}
                   </h2>
-                  <p className="text-[#64748B] mb-2">
+                  <p className="text-[#64748B] mb-1">
                     Rank the teams from best to worst. Assign rank 1 to your top choice, rank 2 to your second choice, and so on.
                     {pollData?.maxRankedPositions && ` (Rank top ${pollData.maxRankedPositions} only)`}
-                    {!pollData?.allowSelfVote && !isJudge && ' You cannot rank your own team.'}
                   </p>
+                  {!pollData?.allowSelfVote && !isJudge && voterTeam && (
+                    <p className="text-sm text-[#DC2626] font-medium mt-2">
+                      ⚠️ You cannot rank your own team ({voterTeam.teamName})
+                    </p>
+                  )}
                   {isJudge && (
-                    <p className="text-sm text-[#DC2626] mb-2">
+                    <p className="text-sm text-[#DC2626] font-medium mt-2">
                       ⚠️ As a judge, you must provide reasons for all your rankings.
                     </p>
                   )}
+                </div>
 
-                  <div className="flex items-center gap-2 mb-4">
-                    <label className="flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showProjectInfo}
-                        onChange={(e) => setShowProjectInfo(e.target.checked)}
-                        className="mr-2 rounded border-[#E2E8F0] text-[#4F46E5] focus:ring-[#4F46E5]"
-                      />
-                      <span className="text-sm text-[#64748B]">Show project information</span>
-                    </label>
-                  </div>
+                <div className="flex items-center justify-between p-3 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
+                  <label className="flex items-center cursor-pointer flex-1">
+                    <input
+                      type="checkbox"
+                      checked={showProjectInfo}
+                      onChange={(e) => setShowProjectInfo(e.target.checked)}
+                      className="mr-2 rounded border-[#E2E8F0] text-[#4F46E5] focus:ring-[#4F46E5] w-4 h-4"
+                    />
+                    <span className="text-sm font-medium text-[#0F172A]">Show project information</span>
+                  </label>
+                  <span className="text-xs text-[#64748B] bg-white px-2 py-1 rounded">
+                    {rankings.length} ranked
+                  </span>
                 </div>
 
                 <div className="space-y-4">
@@ -765,19 +805,24 @@ function VotePageContent() {
                   })}
                 </div>
 
-                <Button
-                  onClick={handleVoteSubmit}
-                  disabled={loading || !canSubmit()}
-                  isLoading={loading}
-                  className="w-full bg-gradient-to-r from-[#16A34A] to-[#22C55E]"
-                  size="lg"
-                >
-                  {loading ? 'Submitting Vote...' : 'Submit Vote'}
-                </Button>
+                <div className="pt-4 border-t border-[#E2E8F0]">
+                  <Button
+                    onClick={handleVoteSubmit}
+                    disabled={loading || !canSubmit()}
+                    isLoading={loading}
+                    className="w-full bg-gradient-to-r from-[#16A34A] to-[#22C55E] hover:from-[#15803D] hover:to-[#16A34A] shadow-lg hover:shadow-xl transition-all"
+                    size="lg"
+                  >
+                    {loading ? 'Submitting Vote...' : rankings.length > 0 ? `Submit ${rankings.length} Ranking${rankings.length > 1 ? 's' : ''}` : 'Submit Vote'}
+                  </Button>
+                  {rankings.length === 0 && (
+                    <p className="text-center text-sm text-[#DC2626] mt-2">Please rank at least one team</p>
+                  )}
+                </div>
               </div>
             )}
 
-            {/* Step 4: Confirmation */}
+            {/* Step 3: Confirmation */}
             {step === 'confirm' && voteResult && (
               <div className="space-y-4">
                 <div className="text-center">

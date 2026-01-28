@@ -6,11 +6,6 @@ import Link from 'next/link';
 import { Button, Card, Input, DateTimeInput } from '@/components/ui';
 import { Sidebar } from '@/components/layouts';
 
-const sidebarItems = [
-  { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
-  { label: 'Hackathons', href: '/admin/hackathons', icon: '🏆' },
-  { label: 'Polls', href: '/admin/polls', icon: '🗳️' },
-];
 
 /**
  * Create hackathon page content component (uses useSearchParams)
@@ -30,6 +25,8 @@ function CreateHackathonPageContent() {
     submissionDeadline: '',
     evaluationDeadline: '',
   });
+  // Template-specific configuration data (stored in governance_config)
+  const [templateConfig, setTemplateConfig] = useState<Record<string, any>>({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -116,6 +113,15 @@ function CreateHackathonPageContent() {
     try {
       // Use template endpoint if templateId is provided
       const endpoint = templateId ? '/api/v1/admin/hackathons/from-template' : '/api/v1/admin/hackathons';
+      
+      // Merge template config with custom template-specific settings
+      const customConfig = templateId && Object.keys(templateConfig).length > 0
+        ? {
+            ...template.config,
+            templateSettings: templateConfig, // Store template-specific settings separately
+          }
+        : undefined;
+
       const requestBody = templateId
         ? {
             templateId,
@@ -126,6 +132,7 @@ function CreateHackathonPageContent() {
             votingClosesAt: formData.votingClosesAt || undefined,
             submissionDeadline: formData.submissionDeadline || undefined,
             evaluationDeadline: formData.evaluationDeadline || undefined,
+            customConfig, // Include template-specific settings
           }
         : {
             name: formData.name,
@@ -169,15 +176,29 @@ function CreateHackathonPageContent() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex">
-      <Sidebar items={sidebarItems} user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+      <Sidebar user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
       <main className="flex-1 p-6 md:p-8 overflow-auto">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-3xl font-bold text-[#0F172A] mb-2">Create New Hackathon</h1>
           {template && (
-            <p className="text-[#64748B] mb-6">
-              Using template: <span className="font-semibold">{template.name}</span>
-            </p>
+            <div className="mb-6">
+              <div className="bg-gradient-to-r from-[#4F46E5]/10 to-[#6366F1]/10 border border-[#4F46E5]/20 rounded-xl p-4 mb-4">
+                <p className="text-[#64748B] mb-2">
+                  Using template: <span className="font-semibold text-[#4F46E5]">{template.name}</span>
+                </p>
+                <p className="text-sm text-[#64748B]">
+                  {template.description}
+                </p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-sm font-semibold text-blue-900 mb-2">⚠️ Important: Pre-committed Governance Model</p>
+                <p className="text-sm text-blue-800">
+                  Selecting this template is equivalent to accepting a decision constitution for your hackathon. 
+                  The governance rules, integrity guarantees, and outcome logic are pre-committed and cannot be changed after launch.
+                </p>
+              </div>
+            </div>
           )}
           {!template && templateId && (
             <p className="text-[#64748B] mb-6">Loading template...</p>
@@ -261,27 +282,329 @@ function CreateHackathonPageContent() {
                 </div>
               )}
 
-              {/* Form Fields Preview */}
-              {template && template.default_form_fields && template.default_form_fields.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Participation Form Fields</h3>
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                    {template.default_form_fields.map((field: any, index: number) => (
-                      <div key={index} className="flex items-center gap-3 text-sm">
-                        <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-medium text-xs">
-                          {index + 1}
-                        </span>
-                        <span className="font-medium text-gray-900">{field.fieldLabel}</span>
-                        <span className="text-gray-500">({field.fieldType})</span>
-                        {field.isRequired && <span className="text-red-500 text-xs">Required</span>}
+              {/* Template-Specific Configuration Fields */}
+              {template && (() => {
+                const governanceModel = template.governanceModel || template.governance_model;
+                
+                // Centralized Template: Minimum judges
+                if (governanceModel === 'centralized') {
+                  return (
+                    <div className="border border-[#E2E8F0] rounded-xl p-6 bg-white">
+                      <h3 className="text-lg font-semibold text-[#0F172A] mb-4">Judging Configuration</h3>
+                      <Input
+                        label="Minimum Judges Required"
+                        id="centralized_minJudges"
+                        type="number"
+                        min="1"
+                        value={templateConfig.centralized_minJudges || ''}
+                        onChange={(e) => setTemplateConfig({ ...templateConfig, centralized_minJudges: parseInt(e.target.value) || 1 })}
+                        placeholder="e.g., 3"
+                      />
+                    </div>
+                  );
+                }
+
+                // Community-Led Template: Voter settings
+                if (governanceModel === 'community_led') {
+                  return (
+                    <div className="border border-[#E2E8F0] rounded-xl p-6 bg-white">
+                      <h3 className="text-lg font-semibold text-[#0F172A] mb-4">Voting Configuration</h3>
+                      <div className="space-y-4">
+                        <Input
+                          label="Minimum Voters Required"
+                          id="community_minVoters"
+                          type="number"
+                          min="1"
+                          value={templateConfig.community_minVoters || ''}
+                          onChange={(e) => setTemplateConfig({ ...templateConfig, community_minVoters: parseInt(e.target.value) || 10 })}
+                          placeholder="e.g., 10"
+                        />
+                        <div>
+                          <label htmlFor="community_voterEligibility" className="block text-sm font-medium text-[#334155] mb-2">
+                            Voter Eligibility Rules
+                          </label>
+                          <input
+                            id="community_voterEligibility"
+                            type="text"
+                            value={templateConfig.community_voterEligibility || ''}
+                            onChange={(e) => setTemplateConfig({ ...templateConfig, community_voterEligibility: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl border-1.5 border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#EEF2FF] focus:border-[#4F46E5] transition-all"
+                            placeholder="e.g., Registered participants only"
+                          />
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                  <p className="text-sm text-gray-500 mt-2">
-                    You can customize these fields after creating the hackathon
-                  </p>
-                </div>
-              )}
+                    </div>
+                  );
+                }
+
+                // Sponsor-Driven Template: Sponsor tracks
+                if (governanceModel === 'sponsor_driven') {
+                  const tracks = templateConfig.sponsor_tracks || ['General'];
+                  return (
+                    <div className="border border-[#E2E8F0] rounded-xl p-6 bg-white">
+                      <h3 className="text-lg font-semibold text-[#0F172A] mb-4">Sponsor Tracks</h3>
+                      <div className="space-y-3">
+                        {tracks.map((track: string, idx: number) => (
+                          <div key={idx} className="flex gap-2">
+                            <input
+                              type="text"
+                              value={track}
+                              onChange={(e) => {
+                                const newTracks = [...tracks];
+                                newTracks[idx] = e.target.value;
+                                setTemplateConfig({ ...templateConfig, sponsor_tracks: newTracks });
+                              }}
+                              className="flex-1 px-4 py-2.5 rounded-xl border-1.5 border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#EEF2FF] focus:border-[#4F46E5] transition-all"
+                              placeholder="Track name"
+                            />
+                            {tracks.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => {
+                                  const newTracks = tracks.filter((_: any, i: number) => i !== idx);
+                                  setTemplateConfig({ ...templateConfig, sponsor_tracks: newTracks });
+                                }}
+                              >
+                                Remove
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => {
+                            setTemplateConfig({ ...templateConfig, sponsor_tracks: [...tracks, ''] });
+                          }}
+                        >
+                          + Add Track
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // DAO-Managed Template: DAO settings
+                if (governanceModel === 'dao_managed') {
+                  return (
+                    <div className="border border-[#E2E8F0] rounded-xl p-6 bg-white">
+                      <h3 className="text-lg font-semibold text-[#0F172A] mb-4">DAO Configuration</h3>
+                      <div className="space-y-4">
+                        <Input
+                          label="Token Contract Address"
+                          id="dao_tokenContract"
+                          type="text"
+                          value={templateConfig.dao_tokenContract || ''}
+                          onChange={(e) => setTemplateConfig({ ...templateConfig, dao_tokenContract: e.target.value })}
+                          placeholder="0x..."
+                        />
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <Input
+                            label="Quorum Threshold (%)"
+                            id="dao_quorumThreshold"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={templateConfig.dao_quorumThreshold || ''}
+                            onChange={(e) => setTemplateConfig({ ...templateConfig, dao_quorumThreshold: parseFloat(e.target.value) || 0 })}
+                            placeholder="e.g., 50"
+                          />
+                          <Input
+                            label="Voting Threshold (%)"
+                            id="dao_votingThreshold"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={templateConfig.dao_votingThreshold || ''}
+                            onChange={(e) => setTemplateConfig({ ...templateConfig, dao_votingThreshold: parseFloat(e.target.value) || 0 })}
+                            placeholder="e.g., 51"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Hybrid Template: Weight distribution
+                if (governanceModel === 'hybrid') {
+                  const judgeWeight = templateConfig.hybrid_judgeWeight || 0.5;
+                  const sponsorWeight = templateConfig.hybrid_sponsorWeight || 0.3;
+                  const communityWeight = templateConfig.hybrid_communityWeight || 0.2;
+                  const total = judgeWeight + sponsorWeight + communityWeight;
+                  
+                  return (
+                    <div className="border border-[#E2E8F0] rounded-xl p-6 bg-white">
+                      <h3 className="text-lg font-semibold text-[#0F172A] mb-4">Stakeholder Weights</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <label htmlFor="hybrid_judgeWeight" className="block text-sm font-medium text-[#334155] mb-2">
+                            Judge Weight ({judgeWeight * 100}%)
+                          </label>
+                          <input
+                            id="hybrid_judgeWeight"
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value={judgeWeight}
+                            onChange={(e) => {
+                              const newJudge = parseFloat(e.target.value);
+                              const remaining = 1 - newJudge;
+                              const newSponsor = Math.min(sponsorWeight, remaining * (sponsorWeight / (sponsorWeight + communityWeight || 1)));
+                              const newCommunity = remaining - newSponsor;
+                              setTemplateConfig({
+                                ...templateConfig,
+                                hybrid_judgeWeight: newJudge,
+                                hybrid_sponsorWeight: newSponsor,
+                                hybrid_communityWeight: newCommunity,
+                              });
+                            }}
+                            className="w-full"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="hybrid_sponsorWeight" className="block text-sm font-medium text-[#334155] mb-2">
+                            Sponsor Weight ({sponsorWeight * 100}%)
+                          </label>
+                          <input
+                            id="hybrid_sponsorWeight"
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value={sponsorWeight}
+                            onChange={(e) => {
+                              const newSponsor = parseFloat(e.target.value);
+                              const remaining = 1 - judgeWeight;
+                              const newCommunity = remaining - newSponsor;
+                              if (newCommunity >= 0) {
+                                setTemplateConfig({
+                                  ...templateConfig,
+                                  hybrid_sponsorWeight: newSponsor,
+                                  hybrid_communityWeight: newCommunity,
+                                });
+                              }
+                            }}
+                            className="w-full"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="hybrid_communityWeight" className="block text-sm font-medium text-[#334155] mb-2">
+                            Community Weight ({communityWeight * 100}%)
+                          </label>
+                          <input
+                            id="hybrid_communityWeight"
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value={communityWeight}
+                            onChange={(e) => {
+                              const newCommunity = parseFloat(e.target.value);
+                              const remaining = 1 - judgeWeight;
+                              const newSponsor = remaining - newCommunity;
+                              if (newSponsor >= 0) {
+                                setTemplateConfig({
+                                  ...templateConfig,
+                                  hybrid_sponsorWeight: newSponsor,
+                                  hybrid_communityWeight: newCommunity,
+                                });
+                              }
+                            }}
+                            className="w-full"
+                          />
+                        </div>
+                        <div className={`text-sm p-3 rounded-lg ${Math.abs(total - 1.0) < 0.01 ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+                          Total: {(total * 100).toFixed(1)}% {Math.abs(total - 1.0) < 0.01 ? '✓' : '(must equal 100%)'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Rolling Template: Evaluation settings
+                if (governanceModel === 'rolling') {
+                  return (
+                    <div className="border border-[#E2E8F0] rounded-xl p-6 bg-white">
+                      <h3 className="text-lg font-semibold text-[#0F172A] mb-4">Evaluation Schedule</h3>
+                      <div className="space-y-4">
+                        <Input
+                          label="Evaluation Frequency (days)"
+                          id="rolling_evaluationFrequency"
+                          type="number"
+                          min="1"
+                          value={templateConfig.rolling_evaluationFrequency || ''}
+                          onChange={(e) => setTemplateConfig({ ...templateConfig, rolling_evaluationFrequency: parseInt(e.target.value) || 7 })}
+                          placeholder="e.g., 7"
+                        />
+                        <Input
+                          label="Batch Size (submissions per evaluation)"
+                          id="rolling_batchSize"
+                          type="number"
+                          min="1"
+                          value={templateConfig.rolling_batchSize || ''}
+                          onChange={(e) => setTemplateConfig({ ...templateConfig, rolling_batchSize: parseInt(e.target.value) || 10 })}
+                          placeholder="e.g., 10"
+                        />
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            id="rolling_allowResubmission"
+                            checked={templateConfig.rolling_allowResubmission || false}
+                            onChange={(e) => setTemplateConfig({ ...templateConfig, rolling_allowResubmission: e.target.checked })}
+                            className="w-4 h-4 text-[#4F46E5] border-[#E2E8F0] rounded focus:ring-[#4F46E5]"
+                          />
+                          <label htmlFor="rolling_allowResubmission" className="text-sm font-medium text-[#334155]">
+                            Allow resubmission of improved projects
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Pilot Template: Transparency settings
+                if (governanceModel === 'pilot') {
+                  return (
+                    <div className="border border-[#E2E8F0] rounded-xl p-6 bg-white">
+                      <h3 className="text-lg font-semibold text-[#0F172A] mb-4">Transparency Settings</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <label htmlFor="pilot_transparencyLevel" className="block text-sm font-medium text-[#334155] mb-2">
+                            Transparency Level
+                          </label>
+                          <select
+                            id="pilot_transparencyLevel"
+                            value={templateConfig.pilot_transparencyLevel || 'maximum'}
+                            onChange={(e) => setTemplateConfig({ ...templateConfig, pilot_transparencyLevel: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl border-1.5 border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#EEF2FF] focus:border-[#4F46E5] transition-all"
+                          >
+                            <option value="maximum">Maximum (All data public)</option>
+                            <option value="high">High (Most data public)</option>
+                            <option value="standard">Standard (Selected data public)</option>
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            id="pilot_publicAuditLog"
+                            checked={templateConfig.pilot_publicAuditLog !== false}
+                            onChange={(e) => setTemplateConfig({ ...templateConfig, pilot_publicAuditLog: e.target.checked })}
+                            className="w-4 h-4 text-[#4F46E5] border-[#E2E8F0] rounded focus:ring-[#4F46E5]"
+                          />
+                          <label htmlFor="pilot_publicAuditLog" className="text-sm font-medium text-[#334155]">
+                            Enable public audit log
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return null;
+              })()}
+
 
               <div className="flex gap-4 pt-4">
                 <Button

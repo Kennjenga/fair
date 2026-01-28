@@ -34,13 +34,21 @@ export interface DecisionSummary {
   hackathonId: string;
   hackathonName: string;
   description: string | null;
-  status: 'draft' | 'live' | 'closed' | 'finalized';
+  status: 'draft' | 'live' | 'closed' | 'finalized' | 'verified';
   governanceModel: string | null;
   templateName: string | null;
   role: ParticipationRole;
   participatedAt: Date;
   integrityStatus: 'verifiable' | 'pending' | 'unverified';
+  integrityState: 'anchored' | 'pending'; // 🟢 Anchored or 🟡 Pending
   lastActivity: Date;
   startDate: Date | null;
   endDate: Date | null;
+  participationCount: number;
+  canManage: boolean;
+  canVerify: boolean;
+  lockedRules: string[];
+  decisionType?: 'Organizer-Led' | 'Community' | 'Hybrid' | 'DAO' | string;
+  category?: string;
+  outcomeState?: 'published' | 'verified';
 }

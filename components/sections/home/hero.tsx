@@ -8,14 +8,12 @@ import { Button, Badge } from '@/components/ui';
 
 /**
  * Navigation links used in the hero section.
- * Anchor links are used for in-page navigation, while `/templates`
- * is a full page route for browsing decision templates.
+ * Anchor links are used for in-page navigation.
  */
 const navLinks = [
   { label: 'Features', href: '#features', isRoute: false },
   { label: 'Workflow', href: '#workflow', isRoute: false },
   { label: 'Trust', href: '#trust', isRoute: false },
-  { label: 'Templates', href: '/templates', isRoute: true },
   { label: 'FAQ', href: '#faq', isRoute: false },
 ];
 

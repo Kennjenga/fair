@@ -194,53 +194,94 @@ export async function sendVotingTokenEmail(
     <html>
     <head>
       <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%); color: white; padding: 30px; text-align: center; border-radius: 12px 12px 0 0; }
-        .content { background: #f8fafc; padding: 30px; border-radius: 0 0 12px 12px; }
-        .button { display: inline-block; background: #16A34A; color: white; padding: 12px 24px; text-decoration: none; border-radius: 12px; margin: 20px 0; font-weight: 600; }
-        .button-secondary { display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 12px; margin: 20px 0; font-weight: 600; }
-        .token-box { background: white; border: 2px dashed #64748b; padding: 15px; margin: 20px 0; text-align: center; border-radius: 12px; }
-        .footer { text-align: center; margin-top: 30px; color: #64748b; font-size: 12px; }
-        .logo { width: 48px; height: 48px; margin: 0 auto 10px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f1f5f9; }
+        .email-wrapper { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
+        .header { background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%); color: white; padding: 40px 30px; text-align: center; }
+        .header h1 { font-size: 28px; font-weight: 700; margin: 10px 0 5px 0; }
+        .header .logo { font-size: 48px; margin-bottom: 10px; }
+        .content { padding: 40px 30px; background-color: #ffffff; }
+        .greeting { font-size: 18px; color: #0f172a; margin-bottom: 20px; font-weight: 600; }
+        .info-box { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-left: 4px solid #4F46E5; padding: 20px; margin: 25px 0; border-radius: 8px; }
+        .info-box strong { color: #0f172a; display: block; margin-bottom: 8px; font-size: 16px; }
+        .info-box p { color: #475569; margin: 5px 0; }
+        .button { display: inline-block; background: linear-gradient(135deg, #16A34A 0%, #22C55E 100%); color: white; padding: 16px 32px; text-decoration: none; border-radius: 10px; margin: 25px 0; font-weight: 600; font-size: 16px; text-align: center; box-shadow: 0 4px 6px rgba(22, 163, 74, 0.2); transition: transform 0.2s; }
+        .button:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(22, 163, 74, 0.3); }
+        .button-secondary { display: inline-block; background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 10px; margin: 15px 0; font-weight: 600; font-size: 15px; text-align: center; box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2); }
+        .button-container { text-align: center; margin: 30px 0; }
+        .token-box { background: #f8fafc; border: 2px dashed #cbd5e1; padding: 20px; margin: 25px 0; text-align: center; border-radius: 10px; }
+        .token-box code { word-break: break-all; color: #475569; font-size: 14px; font-family: 'Courier New', monospace; }
+        .section-divider { border-top: 2px solid #e2e8f0; margin: 35px 0; padding-top: 25px; }
+        .section-title { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 15px; }
+        .important-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; margin: 25px 0; border-radius: 8px; }
+        .important-box strong { color: #92400e; display: block; margin-bottom: 10px; font-size: 16px; }
+        .important-box ul { margin-left: 20px; color: #78350f; }
+        .important-box li { margin: 8px 0; }
+        .footer { text-align: center; margin-top: 40px; padding: 30px; background-color: #f8fafc; color: #64748b; font-size: 13px; border-top: 1px solid #e2e8f0; }
+        .footer p { margin: 5px 0; }
+        .cta-section { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 30px; border-radius: 12px; margin: 30px 0; text-align: center; }
+        .cta-section p { color: #0c4a6e; margin-bottom: 15px; font-size: 15px; }
       </style>
     </head>
     <body>
-      <div class="container">
+      <div class="email-wrapper">
         <div class="header">
           <div class="logo">🗳️</div>
           <h1>FAIR Voting Platform</h1>
+          <p style="margin-top: 10px; opacity: 0.9; font-size: 14px;">Your Voting Invitation</p>
         </div>
         <div class="content">
-          <h2>Your Voting Token</h2>
-          <p>Hello,</p>
-          <p>You have been registered to vote in the poll: <strong>${pollName}</strong></p>
-          <p>Your team: <strong>${teamName}</strong></p>
-          <p>Click the button below to cast your vote:</p>
-          <div style="text-align: center;">
-            <a href="${votingUrl}" class="button">Cast Your Vote</a>
-          </div>
-          <p>Or copy and paste this link into your browser:</p>
-          <div class="token-box">
-            <code style="word-break: break-all;">${votingUrl}</code>
-          </div>
-          <p style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-            <strong>Team Details:</strong> You can view your team's project information by clicking the link below:
+          <div class="greeting">Hello!</div>
+          
+          <p style="color: #475569; margin-bottom: 20px; font-size: 15px;">
+            You have been registered to participate in voting for the following poll:
           </p>
-          <div style="text-align: center;">
-            <a href="${teamDetailsUrl}" class="button-secondary">View Team Details</a>
+          
+          <div class="info-box">
+            <strong>📊 Poll Name:</strong>
+            <p>${pollName}</p>
+            <strong style="margin-top: 15px;">👥 Your Team:</strong>
+            <p>${teamName}</p>
           </div>
-          <p><strong>Important:</strong></p>
-          <ul>
-            <li>This token can only be used once</li>
-            <li>You cannot vote for your own team</li>
-            <li>Your vote will be recorded on the blockchain for transparency</li>
-          </ul>
-          <p>Thank you for participating!</p>
+          
+          <div class="button-container">
+            <a href="${votingUrl}" class="button">🎯 Cast Your Vote Now</a>
+          </div>
+          
+          <div class="token-box">
+            <p style="color: #64748b; font-size: 13px; margin-bottom: 10px; font-weight: 600;">Or copy this link:</p>
+            <code>${votingUrl}</code>
+          </div>
+          
+          <div class="section-divider">
+            <div class="section-title">📋 Additional Information</div>
+            <div class="cta-section">
+              <p><strong>View Your Team's Project</strong></p>
+              <p style="font-size: 14px; margin-bottom: 20px;">Check out your team's project details and information before voting.</p>
+              <a href="${teamDetailsUrl}" class="button-secondary">View Team Details</a>
+            </div>
+          </div>
+          
+          <div class="important-box">
+            <strong>⚠️ Important Voting Guidelines:</strong>
+            <ul>
+              <li>This voting token can only be used once</li>
+              <li>You cannot vote for your own team</li>
+              <li>Your vote will be securely recorded on the blockchain for full transparency</li>
+              <li>Make sure to vote before the poll deadline</li>
+            </ul>
+          </div>
+          
+          <p style="color: #475569; margin-top: 30px; font-size: 15px; text-align: center;">
+            Thank you for participating in our voting process! 🎉
+          </p>
         </div>
         <div class="footer">
-          <p>This is an automated message from FAIR Voting Platform. Please do not reply to this email.</p>
+          <p><strong>FAIR Voting Platform</strong></p>
+          <p>This is an automated message. Please do not reply to this email.</p>
+          <p style="margin-top: 10px; font-size: 12px;">If you have questions, please contact the poll administrator.</p>
         </div>
       </div>
     </body>
@@ -250,24 +291,38 @@ export async function sendVotingTokenEmail(
   const textContent = `
 FAIR Voting Platform - Your Voting Token
 
-Hello,
+Hello!
 
-You have been registered to vote in the poll: ${pollName}
-Your team: ${teamName}
+You have been registered to participate in voting for the following poll:
 
-Click the link below to cast your vote:
+Poll Name: ${pollName}
+Your Team: ${teamName}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 CAST YOUR VOTE:
 ${votingUrl}
 
-Team Details:
-You can view your team's project information at:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 VIEW YOUR TEAM DETAILS:
 ${teamDetailsUrl}
 
-Important:
-- This token can only be used once
-- You cannot vote for your own team
-- Your vote will be recorded on the blockchain for transparency
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Thank you for participating!
+⚠️ IMPORTANT VOTING GUIDELINES:
+- This voting token can only be used once
+- You cannot vote for your own team
+- Your vote will be securely recorded on the blockchain for full transparency
+- Make sure to vote before the poll deadline
+
+Thank you for participating in our voting process!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is an automated message from FAIR Voting Platform.
+Please do not reply to this email.
+If you have questions, please contact the poll administrator.
   `;
 
   return await sendEmail({

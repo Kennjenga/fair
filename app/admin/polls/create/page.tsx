@@ -6,11 +6,6 @@ import Link from 'next/link';
 import { Button, Card, Input, DateTimeInput } from '@/components/ui';
 import { Sidebar } from '@/components/layouts';
 
-const sidebarItems = [
-  { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
-  { label: 'Hackathons', href: '/admin/hackathons', icon: '🏆' },
-  { label: 'Polls', href: '/admin/polls', icon: '🗳️' },
-];
 
 /**
  * Create poll page
@@ -24,6 +19,7 @@ export default function CreatePollPage() {
   const defaultEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16); // 7 days from now
 
   const [formData, setFormData] = useState({
+    hackathonId: '',
     name: '',
     startTime: defaultStart,
     endTime: defaultEnd,
@@ -33,6 +29,8 @@ export default function CreatePollPage() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hackathons, setHackathons] = useState<Array<{ hackathon_id: string; name: string }>>([]);
+  const [loadingHackathons, setLoadingHackathons] = useState(true);
 
   const [admin, setAdmin] = useState<{ adminId: string; email: string; role: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -48,6 +46,32 @@ export default function CreatePollPage() {
 
     const parsed = JSON.parse(adminData);
     setAdmin(parsed);
+
+    // Fetch hackathons
+    const fetchHackathons = async () => {
+      try {
+        setLoadingHackathons(true);
+        const response = await fetch('/api/v1/admin/hackathons', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setHackathons(data.hackathons || []);
+        } else {
+          setError('Failed to load hackathons');
+        }
+      } catch (err) {
+        console.error('Failed to fetch hackathons:', err);
+        setError('Failed to load hackathons');
+      } finally {
+        setLoadingHackathons(false);
+      }
+    };
+
+    fetchHackathons();
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -58,6 +82,13 @@ export default function CreatePollPage() {
     const token = localStorage.getItem('auth_token');
     if (!token) {
       router.push('/admin/login');
+      return;
+    }
+
+    // Validate hackathon selection
+    if (!formData.hackathonId) {
+      setError('Please select a hackathon');
+      setLoading(false);
       return;
     }
 
@@ -99,6 +130,7 @@ export default function CreatePollPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          hackathonId: formData.hackathonId,
           name: formData.name,
           startTime: startDate.toISOString(),
           endTime: endDate.toISOString(),
@@ -135,7 +167,7 @@ export default function CreatePollPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex">
-      <Sidebar items={sidebarItems} user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+      <Sidebar user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
       <main className="flex-1 p-6 md:p-8 overflow-auto">
         <div className="max-w-3xl mx-auto">
@@ -149,6 +181,32 @@ export default function CreatePollPage() {
 
           <Card>
             <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="w-full">
+                <label className="block text-sm font-medium text-[#334155] mb-2">
+                  Hackathon <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="hackathonId"
+                  value={formData.hackathonId}
+                  onChange={(e) => setFormData({ ...formData, hackathonId: e.target.value })}
+                  required
+                  disabled={loadingHackathons}
+                  className="w-full px-4 py-2.5 rounded-xl border-1.5 border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-offset-0 focus:border-[#4F46E5] focus:ring-[#EEF2FF] bg-white transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">{loadingHackathons ? 'Loading hackathons...' : 'Select a hackathon'}</option>
+                  {hackathons.map((hackathon) => (
+                    <option key={hackathon.hackathon_id} value={hackathon.hackathon_id}>
+                      {hackathon.name}
+                    </option>
+                  ))}
+                </select>
+                {hackathons.length === 0 && !loadingHackathons && (
+                  <p className="text-xs text-[#64748B] mt-1.5">
+                    No hackathons available. Please create a hackathon first.
+                  </p>
+                )}
+              </div>
+
               <Input
                 label="Poll Name *"
                 id="name"
@@ -165,7 +223,7 @@ export default function CreatePollPage() {
                   id="startTime"
                   value={formData.startTime}
                   onChange={(value) => setFormData({ ...formData, startTime: value })}
-                  required
+                  required={false}
                   min={new Date().toISOString().slice(0, 16)}
                 />
 

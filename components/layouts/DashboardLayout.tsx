@@ -8,7 +8,6 @@ import { Card } from '@/components/ui';
 interface DashboardLayoutProps {
   children: ReactNode;
   title?: string;
-  sidebarItems?: Array<{ label: string; href: string; icon: string }>;
   user?: {
     email: string;
     role: string;
@@ -22,7 +21,6 @@ interface DashboardLayoutProps {
 export const DashboardLayout = ({
   children,
   title,
-  sidebarItems = [],
   user,
 }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -34,9 +32,7 @@ export const DashboardLayout = ({
 
       <div className="flex">
         {/* Sidebar */}
-        {sidebarItems.length > 0 && (
-          <Sidebar items={sidebarItems} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
-        )}
+        <Sidebar user={user} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
         {/* Main content */}
         <main className="flex-1 p-6 md:p-8">

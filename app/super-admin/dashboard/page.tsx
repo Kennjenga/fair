@@ -6,11 +6,6 @@ import Link from 'next/link';
 import { Sidebar } from '@/components/layouts';
 import { LoadingSpinner } from '@/components/ui';
 
-const sidebarItems = [
-  { label: 'Dashboard', href: '/super-admin/dashboard', icon: '📊' },
-  { label: 'Manage Admins', href: '/super-admin/admins', icon: '👥' },
-  { label: 'Audit Logs', href: '/super-admin/audit-logs', icon: '📋' },
-];
 
 /**
  * Super admin dashboard page
@@ -159,7 +154,7 @@ export default function SuperAdminDashboard() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex">
       {/* Sidebar */}
-      <Sidebar items={sidebarItems} user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+      <Sidebar user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
       {/* Main content */}
       <main className="flex-1 p-6 md:p-8 overflow-auto">
