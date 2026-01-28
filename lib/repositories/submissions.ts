@@ -52,14 +52,14 @@ export async function createSubmission(
   const result = await query<SubmissionRecord>(
     `INSERT INTO hackathon_submissions 
      (hackathon_id, team_id, poll_id, submission_data, file_references, submission_hash, submitted_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7)
      RETURNING *`,
     [
       hackathonId,
       teamId || null,
       pollId || null,
-      JSON.stringify(submissionData),
-      JSON.stringify(fileReferences),
+      JSON.stringify(submissionData), // Pass as string but cast to JSONB in SQL
+      JSON.stringify(fileReferences), // Pass as string but cast to JSONB in SQL
       submissionHash,
       submittedBy || null,
     ]
@@ -215,7 +215,7 @@ export async function updateSubmission(
   const submissionHash = createSubmissionHash(submissionData);
 
   const fields: string[] = [
-    'submission_data = $1',
+    'submission_data = $1::jsonb',
     'submission_hash = $2',
     'updated_at = CURRENT_TIMESTAMP',
   ];
@@ -223,7 +223,7 @@ export async function updateSubmission(
   let paramIndex = 3;
 
   if (fileReferences !== undefined) {
-    fields.push(`file_references = $${paramIndex++}`);
+    fields.push(`file_references = $${paramIndex++}::jsonb`);
     values.push(JSON.stringify(fileReferences));
   }
 

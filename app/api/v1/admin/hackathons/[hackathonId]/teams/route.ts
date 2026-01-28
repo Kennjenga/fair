@@ -46,9 +46,19 @@ export async function GET(
     let paramIndex = paramsArray.length + 1;
 
     if (search) {
-      // Search in team_name within submission_data
+      // Search in team_name (both snake_case and camelCase) or team member names within submission_data
+      // Note: This will be replaced in the query to use the normalized CTE
       whereClauses.push(
-        `(s.submission_data->>'team_name' ILIKE $${paramIndex})`,
+        `(
+          s.submission_data_jsonb->>'team_name' ILIKE $${paramIndex}
+          OR s.submission_data_jsonb->>'teamName' ILIKE $${paramIndex}
+          OR EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(s.submission_data_jsonb->'team_members') AS member
+            WHERE (member->>'firstName' || ' ' || member->>'lastName') ILIKE $${paramIndex}
+               OR member->>'email' ILIKE $${paramIndex}
+          )
+        )`,
       );
       paramsArray.push(`%${search}%`);
       paramIndex += 1;
@@ -56,34 +66,98 @@ export async function GET(
 
     const whereSql = whereClauses.join(' AND ');
 
+    // Remove debug query - it's causing issues and not needed
+    // The main query below handles everything correctly
+
     // Query to extract unique teams from submissions
-    // We group by team_name to get unique teams, taking the most recent submission
+    // Find all submissions with team_name OR team_members (from forms or CSV imports)
+    // Handle both 'team_name' and 'teamName' field name variations
+    // Some submissions might have team_members but no team_name, so we handle both cases
+    // Normalize submission_data to JSONB first using a CTE to handle TEXT columns
     const teamsQuery = `
-      WITH team_submissions AS (
-        SELECT DISTINCT ON (s.submission_data->>'team_name')
+      WITH normalized_submissions AS (
+        SELECT 
+          s.*,
+          -- Cast to text first, then to jsonb - works for both TEXT and JSONB columns
+          (s.submission_data::text)::jsonb as submission_data_jsonb
+        FROM hackathon_submissions s
+      ),
+      all_team_submissions AS (
+        SELECT 
           s.submission_id,
-          s.submission_data->>'team_name' as team_name,
-          s.submission_data->'team_description' as team_description,
-          s.submission_data->'team_members' as team_members,
+          COALESCE(
+            -- Try team_name first (snake_case - most common)
+            NULLIF(s.submission_data_jsonb->>'team_name', ''),
+            -- Try teamName (camelCase - some forms might use this)
+            NULLIF(s.submission_data_jsonb->>'teamName', ''),
+            -- Generate team name from first member if team_name is missing
+            CASE 
+              WHEN s.submission_data_jsonb->'team_members' IS NOT NULL 
+                AND jsonb_array_length(s.submission_data_jsonb->'team_members') > 0
+              THEN (
+                SELECT COALESCE(
+                  NULLIF(member->>'firstName', '') || ' ' || NULLIF(member->>'lastName', ''),
+                  member->>'email',
+                  'Team Member'
+                )
+                FROM jsonb_array_elements(s.submission_data_jsonb->'team_members') AS member
+                WHERE (member->>'isLead')::boolean = true
+                LIMIT 1
+              ) || '''s Team'
+              ELSE 'Unnamed Team'
+            END
+          ) as team_name,
+          COALESCE(
+            NULLIF(s.submission_data_jsonb->>'team_description', ''),
+            NULLIF(s.submission_data_jsonb->>'teamDescription', '')
+          ) as team_description,
+          s.submission_data_jsonb->'team_members' as team_members,
           s.submitted_by,
           s.submitted_at,
-          s.submission_data as full_submission_data
-        FROM hackathon_submissions s
-        WHERE ${whereSql}
-          AND s.submission_data->>'team_name' IS NOT NULL
-          AND s.submission_data->>'team_name' != ''
-        ORDER BY s.submission_data->>'team_name', s.submitted_at DESC
+          s.submission_data_jsonb as full_submission_data,
+          CASE WHEN s.submission_data_jsonb->'team_members' IS NOT NULL THEN 1 ELSE 0 END as has_members,
+          CASE 
+            WHEN s.submission_data_jsonb->>'team_name' IS NOT NULL AND s.submission_data_jsonb->>'team_name' != '' THEN 1
+            WHEN s.submission_data_jsonb->>'teamName' IS NOT NULL AND s.submission_data_jsonb->>'teamName' != '' THEN 1
+            ELSE 0 
+          END as has_team_name
+        FROM normalized_submissions s
+        WHERE ${whereSql.replace(/CAST\(s\.submission_data AS jsonb\)/g, 's.submission_data_jsonb').replace(/\(CAST\(s\.submission_data AS jsonb\)\)/g, 's.submission_data_jsonb')}
+          AND (
+            -- Has team_name (snake_case or camelCase)
+            (s.submission_data_jsonb->>'team_name' IS NOT NULL AND s.submission_data_jsonb->>'team_name' != '')
+            OR (s.submission_data_jsonb->>'teamName' IS NOT NULL AND s.submission_data_jsonb->>'teamName' != '')
+            -- OR has team_members array
+            OR (s.submission_data_jsonb->'team_members' IS NOT NULL AND jsonb_array_length(s.submission_data_jsonb->'team_members') > 0)
+          )
+      ),
+      team_submissions AS (
+        SELECT DISTINCT ON (team_name)
+          submission_id,
+          team_name,
+          team_description,
+          team_members,
+          submitted_by,
+          submitted_at,
+          full_submission_data
+        FROM all_team_submissions
+        ORDER BY team_name, has_team_name DESC, has_members DESC, submitted_at DESC
       )
       SELECT 
         ts.*,
-        -- Get associated project details from project_details submissions
+        -- Get associated project details from project_details submissions or same submission
         (
-          SELECT ps.submission_data
-          FROM hackathon_submissions ps
-          WHERE ps.hackathon_id = $1
-            AND ps.submission_data->>'team_name' = ts.team_name
-            AND ps.submission_data->>'project_name' IS NOT NULL
-          ORDER BY ps.submitted_at DESC
+          SELECT ps_normalized.submission_data_jsonb
+          FROM (
+            SELECT 
+              ps.*,
+              (ps.submission_data::text)::jsonb as submission_data_jsonb
+            FROM hackathon_submissions ps
+            WHERE ps.hackathon_id = $1
+          ) ps_normalized
+          WHERE ps_normalized.submission_data_jsonb->>'team_name' = ts.team_name
+            AND ps_normalized.submission_data_jsonb->>'project_name' IS NOT NULL
+          ORDER BY ps_normalized.submitted_at DESC
           LIMIT 1
         ) as project_data
       FROM team_submissions ts
@@ -91,51 +165,150 @@ export async function GET(
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
-    const teamsResult = await query(teamsQuery, [...paramsArray, pageSize, offset]);
+    // Add pageSize and offset to params array
+    paramsArray.push(pageSize, offset);
+    const teamsResult = await query(teamsQuery, paramsArray);
 
-    // Get total count
+    // Debug: Log detailed information to help diagnose issues (only if needed)
+    // Removed to avoid type casting issues - the main query handles everything
+    
+    // Always log the query result for debugging
+    console.log(`Teams query returned ${teamsResult.rows.length} teams for hackathon ${hackathonId}`);
+
+    // Get total count - count submissions with team_name OR team_members
+    // Handle both 'team_name' and 'teamName' field name variations
+    // Use double cast (text then jsonb) to handle both JSONB and TEXT column types
+    // Use only the parameters needed for WHERE clause (not pagination params)
+    const countParams: unknown[] = [hackathonId];
+    if (search) {
+      countParams.push(`%${search}%`);
+    }
+    
     const countQuery = `
-      SELECT COUNT(DISTINCT s.submission_data->>'team_name') as count
-      FROM hackathon_submissions s
-      WHERE ${whereSql}
-        AND s.submission_data->>'team_name' IS NOT NULL
-        AND s.submission_data->>'team_name' != ''
+      WITH normalized_submissions AS (
+        SELECT 
+          s.*,
+          (s.submission_data::text)::jsonb as submission_data_jsonb
+        FROM hackathon_submissions s
+      )
+      SELECT COUNT(DISTINCT 
+        COALESCE(
+          NULLIF(s.submission_data_jsonb->>'team_name', ''),
+          NULLIF(s.submission_data_jsonb->>'teamName', ''),
+          CASE 
+            WHEN s.submission_data_jsonb->'team_members' IS NOT NULL 
+              AND jsonb_array_length(s.submission_data_jsonb->'team_members') > 0
+            THEN (
+              SELECT COALESCE(
+                NULLIF(member->>'firstName', '') || ' ' || NULLIF(member->>'lastName', ''),
+                member->>'email',
+                'Team Member'
+              )
+              FROM jsonb_array_elements(s.submission_data_jsonb->'team_members') AS member
+              WHERE (member->>'isLead')::boolean = true
+              LIMIT 1
+            ) || '''s Team'
+            ELSE 'Unnamed Team'
+          END
+        )
+      ) as count
+      FROM normalized_submissions s
+      WHERE ${whereSql.replace(/s\.submission_data_jsonb/g, 's.submission_data_jsonb')}
+        AND (
+          (s.submission_data_jsonb->>'team_name' IS NOT NULL AND s.submission_data_jsonb->>'team_name' != '')
+          OR (s.submission_data_jsonb->>'teamName' IS NOT NULL AND s.submission_data_jsonb->>'teamName' != '')
+          OR (s.submission_data_jsonb->'team_members' IS NOT NULL AND jsonb_array_length(s.submission_data_jsonb->'team_members') > 0)
+        )
     `;
 
-    const countResult = await query<{ count: string }>(countQuery, paramsArray);
+    const countResult = await query<{ count: string }>(countQuery, countParams);
     const total = Number.parseInt(countResult.rows[0]?.count || '0', 10);
 
     // Format teams response
     const teams = teamsResult.rows.map((row: any) => {
-      const teamMembers = row.team_members
-        ? typeof row.team_members === 'string'
-          ? JSON.parse(row.team_members)
-          : row.team_members
-        : [];
+      // Parse team_members - handle both JSONB and string formats
+      let teamMembers: any[] = [];
+      if (row.team_members) {
+        try {
+          if (typeof row.team_members === 'string') {
+            teamMembers = JSON.parse(row.team_members);
+          } else if (Array.isArray(row.team_members)) {
+            teamMembers = row.team_members;
+          } else if (typeof row.team_members === 'object') {
+            // If it's a JSONB object, it might already be parsed
+            teamMembers = Array.isArray(row.team_members) ? row.team_members : [];
+          }
+        } catch (e) {
+          console.error('Error parsing team_members:', e, 'Raw value:', row.team_members);
+          teamMembers = [];
+        }
+      }
 
-      const projectData = row.project_data
-        ? typeof row.project_data === 'string'
-          ? JSON.parse(row.project_data)
-          : row.project_data
-        : null;
+      // Parse project_data from separate project_details submissions
+      let projectData: any = null;
+      if (row.project_data) {
+        try {
+          if (typeof row.project_data === 'string') {
+            projectData = JSON.parse(row.project_data);
+          } else if (typeof row.project_data === 'object') {
+            projectData = row.project_data;
+          }
+        } catch (e) {
+          console.error('Error parsing project_data:', e);
+          projectData = null;
+        }
+      }
 
+      // Also check full_submission_data for project fields (since we now include them in team_formation)
+      let submissionData: any = null;
+      if (row.full_submission_data) {
+        try {
+          if (typeof row.full_submission_data === 'string') {
+            submissionData = JSON.parse(row.full_submission_data);
+          } else if (typeof row.full_submission_data === 'object') {
+            submissionData = row.full_submission_data;
+          }
+        } catch (e) {
+          console.error('Error parsing full_submission_data:', e);
+          submissionData = null;
+        }
+      }
+
+      // Handle team_description which might be stored as JSONB or string
+      let teamDescription = null;
+      if (row.team_description) {
+        if (typeof row.team_description === 'string') {
+          teamDescription = row.team_description;
+        } else if (typeof row.team_description === 'object') {
+          // If it's an object, try to extract a string value or skip it
+          teamDescription = null;
+        }
+      }
+      
+      // Extract project details from submission data (prefer from same submission, fallback to separate project_data)
+      const projectName = submissionData?.project_name || projectData?.project_name || null;
+      const projectDetails = submissionData?.project_details || submissionData?.projectDescription || null;
+      const problemStatement = submissionData?.problem_statement || projectData?.problem_statement || null;
+      const solution = submissionData?.solution || projectData?.solution || null;
+      const githubLink = submissionData?.github_link || submissionData?.githubLink || projectData?.github_link || null;
+      const liveLink = submissionData?.live_link || submissionData?.liveLink || projectData?.live_link || null;
+      const pollId = submissionData?.poll_id || projectData?.poll_id || null;
+      
       return {
         submissionId: row.submission_id,
-        teamName: row.team_name,
-        teamDescription:
-          row.team_description && typeof row.team_description === 'string'
-            ? row.team_description
-            : row.team_description || null,
+        teamName: row.team_name || '',
+        teamDescription,
         teamMembers: Array.isArray(teamMembers) ? teamMembers : [],
         submittedBy: row.submitted_by,
-        submittedAt: row.submitted_at,
-        // Project details from project_details submissions
-        projectName: projectData?.project_name || null,
-        problemStatement: projectData?.problem_statement || null,
-        solution: projectData?.solution || null,
-        githubLink: projectData?.github_link || null,
-        liveLink: projectData?.live_link || null,
-        pollId: projectData?.poll_id || null,
+        submittedAt: row.submitted_at ? new Date(row.submitted_at).toISOString() : new Date().toISOString(),
+        // Project details from same submission or separate project_details submissions
+        projectName,
+        projectDetails,
+        problemStatement,
+        solution,
+        githubLink,
+        liveLink,
+        pollId,
       };
     });
 

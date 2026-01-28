@@ -6,11 +6,6 @@ import Link from 'next/link';
 import { Button, Card, Input } from '@/components/ui';
 import { Sidebar } from '@/components/layouts';
 
-const sidebarItems = [
-  { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
-  { label: 'Hackathons', href: '/admin/hackathons', icon: '🏆' },
-  { label: 'Polls', href: '/admin/polls', icon: '🗳️' },
-];
 
 /**
  * Team details page
@@ -183,7 +178,7 @@ export default function TeamDetailsPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex">
-      <Sidebar items={sidebarItems} user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+      <Sidebar user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
       <main className="flex-1 p-6 md:p-8 overflow-auto">
         <div className="max-w-4xl mx-auto">

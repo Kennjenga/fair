@@ -7,11 +7,6 @@ import { Button, Card, Input } from '@/components/ui';
 import DateTimeInput from '@/components/ui/DateTimeInput';
 import { Sidebar } from '@/components/layouts';
 
-const sidebarItems = [
-  { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
-  { label: 'Hackathons', href: '/admin/hackathons', icon: '🏆' },
-  { label: 'Polls', href: '/admin/polls', icon: '🗳️' },
-];
 
 /**
  * Create poll page within a hackathon
@@ -156,8 +151,8 @@ export default function CreatePollPage() {
         return;
       }
 
-      // Redirect to poll management page
-      router.push(`/admin/polls/${data.poll.poll_id}`);
+      // Redirect back to hackathon page with polls tab active for seamless flow
+      router.push(`/admin/hackathons/${hackathonId}?tab=polls`);
     } catch (err) {
       console.error('Create poll error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred. Please try again.');
@@ -167,7 +162,7 @@ export default function CreatePollPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex">
-      <Sidebar items={sidebarItems} user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+      <Sidebar user={admin || undefined} isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
       <main className="flex-1 p-6 md:p-8 overflow-auto">
         <div className="max-w-3xl mx-auto">

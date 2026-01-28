@@ -33,6 +33,7 @@ function getWallet(): ethers.Wallet | null {
 /**
  * Vote data structure for blockchain
  * Supports all voting modes: single, multiple, and ranked
+ * Enhanced to support template-specific features (tracks, DAO governance, etc.)
  */
 export interface VoteData {
   pollId: string;
@@ -54,6 +55,13 @@ export interface VoteData {
   // Metadata
   judgeEmail?: string;
   tokenHash?: string;
+  // Template-specific metadata (for integrity and traceability)
+  hackathonId?: string;
+  templateId?: string;
+  governanceModel?: string;
+  trackId?: string; // For sponsor-driven templates: track isolation
+  daoProposalId?: string; // For DAO-managed templates: proposal reference
+  tokenWeight?: number; // For DAO-managed templates: token-weighted voting
 }
 
 /**
@@ -94,6 +102,13 @@ export async function submitVoteToBlockchain(voteData: VoteData): Promise<string
     ...(voteData.teams && { teams: voteData.teams }),
     ...(voteData.rankings && { rankings: voteData.rankings }),
     ...(voteData.judgeEmail && { judgeEmail: voteData.judgeEmail }),
+    // Template-specific metadata for integrity and traceability
+    ...(voteData.hackathonId && { hackathonId: voteData.hackathonId }),
+    ...(voteData.templateId && { templateId: voteData.templateId }),
+    ...(voteData.governanceModel && { governanceModel: voteData.governanceModel }),
+    ...(voteData.trackId && { trackId: voteData.trackId }), // Track isolation for sponsor-driven
+    ...(voteData.daoProposalId && { daoProposalId: voteData.daoProposalId }), // DAO proposal reference
+    ...(voteData.tokenWeight && { tokenWeight: voteData.tokenWeight }), // Token-weighted voting
     // Don't include tokenHash for privacy, but include a hash if needed for verification
     version: '1.0',
     protocol: 'FAIR_VOTING',

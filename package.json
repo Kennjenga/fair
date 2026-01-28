@@ -15,6 +15,7 @@
     "generate-jwt-secret": "tsx scripts/generate-jwt-secret.ts"
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.36.10",
     "@getbrevo/brevo": "^1.0.0",
     "@types/pg": "^8.15.6",
     "bcryptjs": "^3.0.3",

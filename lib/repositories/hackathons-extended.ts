@@ -48,8 +48,26 @@ export async function createHackathonFromTemplate(
     throw new Error('Template not found');
   }
 
-  // Use template config or custom config
-  const governanceConfig = customConfig || template.config;
+  // Merge template config with custom config
+  // Start with template config as base
+  let governanceConfig = JSON.parse(JSON.stringify(template.config)); // Deep copy
+  
+  if (customConfig) {
+    // If customConfig has templateSettings, extract and merge them
+    if (customConfig.templateSettings) {
+      // Merge template-specific settings into the config
+      // These are stored at the root level with prefixed names to avoid conflicts
+      Object.assign(governanceConfig, customConfig.templateSettings);
+    }
+    // Merge any other top-level custom config properties (but preserve template structure)
+    // Only merge properties that don't conflict with template structure
+    const templateKeys = ['roles', 'permissions', 'evaluationLogic', 'integrityRules', 'outcomeLogic'];
+    for (const [key, value] of Object.entries(customConfig)) {
+      if (key !== 'templateSettings' && !templateKeys.includes(key)) {
+        governanceConfig[key] = value;
+      }
+    }
+  }
 
   // Create hackathon
   const result = await query<HackathonRecordExtended>(

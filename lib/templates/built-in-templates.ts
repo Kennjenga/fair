@@ -7,13 +7,15 @@ import type { TemplateConfig, FormFieldDefinition } from '@/types/template';
 
 /**
  * Template 1: Centralized Hackathon (Integrity Overlay)
- * Organizer has full control with transparency overlay
+ * Governance Model: Integrity Overlay
+ * Preserve traditional organizer- and judge-led hackathons while removing the need for blind trust.
+ * This template assumes centralized authority, but enforces decentralized integrity.
  */
 export const CENTRALIZED_TEMPLATE = {
   name: 'Centralized Hackathon',
-  description: 'Traditional hackathon with organizer control and integrity overlay for transparency. Best for corporate hackathons and internal events.',
+  description: 'Preserve traditional organizer- and judge-led hackathons while removing the need for blind trust. This template assumes centralized authority, but enforces decentralized integrity.',
   governanceModel: 'centralized' as const,
-  intendedUse: 'Corporate hackathons, internal innovation challenges, controlled environments',
+  intendedUse: 'Corporate hackathons, university demo days, accelerators & incubators, internal innovation challenges',
   complexityLevel: 'beginner' as const,
   config: {
     roles: [
@@ -48,13 +50,15 @@ export const CENTRALIZED_TEMPLATE = {
 
 /**
  * Template 2: Community-Led Hackathon (Collective Integrity)
- * Community voting determines winners
+ * Governance Model: Collective Integrity
+ * Enable community-driven outcomes without vote manipulation, brigading, or opacity.
+ * This template prioritizes participatory legitimacy.
  */
 export const COMMUNITY_LED_TEMPLATE = {
   name: 'Community-Led Hackathon',
-  description: 'Democratic hackathon where community voting determines winners. Ideal for open-source communities and grassroots events.',
+  description: 'Enable community-driven outcomes without vote manipulation, brigading, or opacity. This template prioritizes participatory legitimacy.',
   governanceModel: 'community_led' as const,
-  intendedUse: 'Open-source communities, grassroots events, public hackathons',
+  intendedUse: 'Student hackathons, open-source communities, public innovation challenges, grassroots tech events',
   complexityLevel: 'intermediate' as const,
   config: {
     roles: [
@@ -94,13 +98,15 @@ export const COMMUNITY_LED_TEMPLATE = {
 
 /**
  * Template 3: Sponsor-Driven Hackathon (Conflict-Aware Governance)
- * Sponsors vote with conflict tracking
+ * Governance Model: Conflict-Aware Governance
+ * Allow sponsors to participate without compromising fairness or influencing unrelated outcomes.
+ * This template explicitly assumes conflicts of interest and neutralizes them structurally.
  */
 export const SPONSOR_DRIVEN_TEMPLATE = {
   name: 'Sponsor-Driven Hackathon',
-  description: 'Hackathon where sponsors evaluate projects with conflict-of-interest tracking. Perfect for multi-sponsor events.',
+  description: 'Allow sponsors to participate without compromising fairness or influencing unrelated outcomes. This template explicitly assumes conflicts of interest and neutralizes them structurally.',
   governanceModel: 'sponsor_driven' as const,
-  intendedUse: 'Multi-sponsor events, prize-driven hackathons, corporate partnerships',
+  intendedUse: 'Multi-sponsor hackathons, ecosystem or platform launches, API-focused events, corporate partnerships',
   complexityLevel: 'intermediate' as const,
   config: {
     roles: [
@@ -140,13 +146,15 @@ export const SPONSOR_DRIVEN_TEMPLATE = {
 
 /**
  * Template 4: DAO-Managed Hackathon (Native Governance)
- * DAO token holders vote
+ * Governance Model: Native Governance
+ * Run hackathons as on-chain-aligned governance processes, without sacrificing usability.
+ * This template treats the hackathon as a collective decision system, not an event.
  */
 export const DAO_MANAGED_TEMPLATE = {
   name: 'DAO-Managed Hackathon',
-  description: 'Hackathon governed by DAO token holders with token-weighted voting. For Web3 communities and DAO grants.',
+  description: 'Run hackathons as on-chain-aligned governance processes, without sacrificing usability. This template treats the hackathon as a collective decision system, not an event.',
   governanceModel: 'dao_managed' as const,
-  intendedUse: 'Web3 communities, DAO grants, decentralized organizations',
+  intendedUse: 'DAO ecosystems, protocol grant programs, Web3 communities, token-governed collectives',
   complexityLevel: 'advanced' as const,
   config: {
     roles: [
@@ -187,13 +195,15 @@ export const DAO_MANAGED_TEMPLATE = {
 
 /**
  * Template 5: Hybrid Hackathon (Multi-Stakeholder Governance)
- * Combination of judges, community, and sponsors
+ * Governance Model: Multi-Stakeholder Governance
+ * Balance multiple sources of authority without ambiguity or power drift.
+ * This template assumes shared legitimacy, enforced by math and rules.
  */
 export const HYBRID_TEMPLATE = {
   name: 'Hybrid Hackathon',
-  description: 'Multi-stakeholder governance combining judges, community votes, and sponsor input. For large-scale diverse events.',
+  description: 'Balance multiple sources of authority without ambiguity or power drift. This template assumes shared legitimacy, enforced by math and rules.',
   governanceModel: 'hybrid' as const,
-  intendedUse: 'Large-scale events, diverse stakeholders, complex evaluation criteria',
+  intendedUse: 'Universities + sponsors, accelerators + community voting, public–private partnerships',
   complexityLevel: 'advanced' as const,
   config: {
     roles: [
@@ -236,13 +246,15 @@ export const HYBRID_TEMPLATE = {
 
 /**
  * Template 6: Rolling/Continuous Hackathon (Long-Horizon Integrity)
- * Continuous submissions with periodic evaluations
+ * Governance Model: Long-Horizon Integrity
+ * Ensure fairness over time, not just at a single deadline.
+ * This template treats decisions as ongoing processes, not events.
  */
 export const ROLLING_TEMPLATE = {
   name: 'Rolling Hackathon',
-  description: 'Continuous hackathon with ongoing submissions and periodic batch evaluations. For long-term innovation programs.',
+  description: 'Ensure fairness over time, not just at a single deadline. This template treats decisions as ongoing processes, not events.',
   governanceModel: 'rolling' as const,
-  intendedUse: 'Ongoing innovation programs, continuous improvement initiatives, grant programs',
+  intendedUse: 'Continuous grant programs, long-term innovation funds, rolling demo submissions',
   complexityLevel: 'intermediate' as const,
   config: {
     roles: [
@@ -278,13 +290,15 @@ export const ROLLING_TEMPLATE = {
 
 /**
  * Template 7: Pilot/Trust-Building Hackathon (Proof-of-Integrity)
- * Maximum transparency for first-time organizers
+ * Governance Model: Proof-of-Integrity
+ * Demonstrate FAIR's integrity guarantees in the open.
+ * This template exists to prove, not promise.
  */
 export const PILOT_TEMPLATE = {
   name: 'Pilot Hackathon',
-  description: 'Maximum transparency hackathon for building trust. All data public, perfect for first-time organizers.',
+  description: 'Demonstrate FAIR\'s integrity guarantees in the open. This template exists to prove, not promise.',
   governanceModel: 'pilot' as const,
-  intendedUse: 'First-time organizers, trust-building events, proof-of-concept hackathons',
+  intendedUse: 'First-time FAIR users, institutional pilots, public demos and showcases',
   complexityLevel: 'beginner' as const,
   config: {
     roles: [
