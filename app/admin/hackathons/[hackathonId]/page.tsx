@@ -91,6 +91,9 @@ function HackathonDetailPageContent() {
   const [pollSelectedReassignTeam, setPollSelectedReassignTeam] = useState('');
   const [pollEditingTeam, setPollEditingTeam] = useState<any>(null);
   const [pollReassigningVoter, setPollReassigningVoter] = useState<any>(null);
+  // Edit team member (within poll teams): which team + member index and form state
+  const [editingMember, setEditingMember] = useState<{ team: any; teamMembers: any[]; memberIndex: number } | null>(null);
+  const [editMemberForm, setEditMemberForm] = useState<{ firstName: string; lastName: string; email: string; phone: string; role: string; isLead: boolean }>({ firstName: '', lastName: '', email: '', phone: '', role: '', isLead: false });
   
   // Poll edit form states
   const [editPollName, setEditPollName] = useState('');
@@ -152,7 +155,7 @@ function HackathonDetailPageContent() {
 
   /**
    * Local state for template-based form creation.
-   * Users can only create forms from predefined templates (Team Formation, Project Details).
+   * Users can create forms from templates: Team Registration, Project Submission, or Additional form.
    */
   const [creatingField, setCreatingField] = useState(false);
   const [formError, setFormError] = useState('');
@@ -1159,10 +1162,12 @@ function HackathonDetailPageContent() {
   const handleDeleteForm = async (formKey: string) => {
     const formLabel =
       formKey === 'team_formation'
-        ? 'Team Formation Form'
+        ? 'Team Registration Form'
         : formKey === 'project_details'
-          ? 'Project Details Form'
-          : 'Default Form';
+          ? 'Project Submission Form'
+          : formKey === 'default'
+            ? 'Additional Form'
+            : 'Default Form';
 
     if (!confirm(`Are you sure you want to delete the entire "${formLabel}"? This will remove all ${formFields.filter((f) => (f.form_key || 'default') === formKey).length} field(s) and cannot be undone.`)) {
       return;
@@ -1208,6 +1213,69 @@ function HackathonDetailPageContent() {
     } catch (error) {
       console.error('Error deleting form:', error);
       setFormError('Failed to delete form. Please try again.');
+    }
+  };
+
+  /**
+   * Create a form from a template (team_formation, project_details, or default).
+   * Adds all preset fields with the given formKey and updates form list state.
+   */
+  const createFormFromTemplate = async (
+    formKey: 'team_formation' | 'project_details' | 'default',
+    templateFields: Array<{ fieldName: string; fieldLabel: string; fieldType: string; isRequired: boolean; fieldDescription: string }>,
+    label: string
+  ) => {
+    if (templateFields.length === 0) {
+      setFormError('No template available for this form type.');
+      return;
+    }
+    try {
+      setFormError('');
+      setCreatingField(true);
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        router.push('/admin/login');
+        return;
+      }
+      const createdFields: AdminFormField[] = [];
+      for (const preset of templateFields) {
+        const response = await fetch(`/api/v1/admin/hackathons/${hackathonId}/form`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            hackathonId,
+            formKey,
+            fieldName: preset.fieldName,
+            fieldType: preset.fieldType,
+            fieldLabel: preset.fieldLabel,
+            isRequired: preset.isRequired,
+            fieldDescription: preset.fieldDescription,
+            displayOrder: createdFields.length,
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          console.error('Failed to create field', preset.fieldName, data);
+          continue;
+        }
+        createdFields.push(data.field as AdminFormField);
+      }
+      if (createdFields.length > 0) {
+        setFormFields((previous) => [...previous, ...createdFields]);
+        const newFormKeys = Array.from(new Set([...formKeys, formKey]));
+        setFormKeys(newFormKeys.sort());
+        setFormError('');
+      } else {
+        setFormError(`Failed to create ${label} form. Please try again.`);
+      }
+    } catch (error) {
+      console.error('Error creating form template:', error);
+      setFormError(`Failed to create ${label} form. Please try again.`);
+    } finally {
+      setCreatingField(false);
     }
   };
 
@@ -1357,7 +1425,7 @@ function HackathonDetailPageContent() {
                 }`}
               >
                 <Users className="w-4 h-4" />
-                Teams
+                Teams ({teams.length})
               </button>
               <button
                 onClick={() => setActiveTab('submissions')}
@@ -1367,7 +1435,7 @@ function HackathonDetailPageContent() {
                     : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
                 }`}
               >
-                Submissions ({submissions.length})
+                Submissions ({submissionsPagination.total})
               </button>
               <button
                 onClick={() => setActiveTab('polls')}
@@ -1392,13 +1460,13 @@ function HackathonDetailPageContent() {
                   Overview
                 </h3>
                 
-                {/* Description */}
-                {hackathon.description && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-semibold text-[#64748B] uppercase tracking-wide mb-2">Description</h4>
-                    <p className="text-[#334155] leading-relaxed">{hackathon.description}</p>
-                  </div>
-                )}
+                {/* Description - always show so overview is complete; placeholder when empty */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-[#64748B] uppercase tracking-wide mb-2">Description</h4>
+                  <p className="text-[#334155] leading-relaxed">
+                    {hackathon.description && hackathon.description.trim() ? hackathon.description : 'No description'}
+                  </p>
+                </div>
 
                 {/* Hackathon Details Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -1622,122 +1690,129 @@ function HackathonDetailPageContent() {
                     </div>
                   )}
 
-                  <div className="mb-4">
-                    {/* Team Formation Template Card - Only Option */}
-                    <div className="p-4 rounded-lg border-2 border-blue-500 bg-blue-100 shadow-md">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    {/* Template 1: Team Registration (team only – no project fields) */}
+                    <div className="p-4 rounded-lg border-2 border-blue-500 bg-blue-50 shadow-md">
                       <div className="flex items-start justify-between mb-2">
-                        <h5 className="font-semibold text-gray-900">Team Formation Form</h5>
-                        <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                          <Check className="w-3 h-3 text-white" />
-                        </div>
+                        <h5 className="font-semibold text-gray-900">Team Registration Form</h5>
+                        {formKeys.includes('team_formation') ? (
+                          <Badge variant="success" className="text-xs">Created</Badge>
+                        ) : (
+                          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                            <Check className="w-3 h-3 text-white" />
+                          </div>
+                        )}
                       </div>
                       <p className="text-xs text-gray-600 mb-3">
-                        Collect team name, description, member information, and project details
+                        Register a team: name, description, and members. Designate one member as Team Lead; only they can later submit the Project Submission form for this team.
                       </p>
-                      <div className="text-xs text-gray-500">
-                        <span className="font-medium">Fields:</span> Team Name (required), Team Description, Team Members, Project Name, Project Details, Problem Statement, Solution, GitHub Link, Live Link
+                      <div className="text-xs text-gray-500 mb-3">
+                        <span className="font-medium">Fields:</span> Team Name (required), Team Description, Team Members
                       </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={creatingField || formKeys.includes('team_formation')}
+                        onClick={async () => {
+                          if (formKeys.includes('team_formation')) {
+                            setFormError('Team Registration form already exists. You can edit existing fields.');
+                            return;
+                          }
+                          const templateFields = [
+                            { fieldName: 'team_name', fieldLabel: 'Team Name', fieldType: 'text', isRequired: true, fieldDescription: 'Enter your team name (required)' },
+                            { fieldName: 'team_description', fieldLabel: 'Team Description', fieldType: 'long_text', isRequired: false, fieldDescription: 'Brief description of your team' },
+                            { fieldName: 'team_members', fieldLabel: 'Team Members', fieldType: 'team_members', isRequired: true, fieldDescription: 'Add each member with email, name, phone, role. Mark one as Team Lead — only they can submit the project for this team.' },
+                          ];
+                          await createFormFromTemplate('team_formation', templateFields, 'Team Registration');
+                        }}
+                      >
+                        {creatingField ? 'Creating...' : formKeys.includes('team_formation') ? 'Already created' : 'Create Form'}
+                      </Button>
+                    </div>
+
+                    {/* Template 2: Project Submission (team lead only – linked to existing team) */}
+                    <div className="p-4 rounded-lg border-2 border-emerald-500 bg-emerald-50 shadow-md">
+                      <div className="flex items-start justify-between mb-2">
+                        <h5 className="font-semibold text-gray-900">Project Submission Form</h5>
+                        {formKeys.includes('project_details') ? (
+                          <Badge variant="success" className="text-xs">Created</Badge>
+                        ) : (
+                          <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                            <Check className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-600 mb-3">
+                        Only the <strong>Team Lead</strong> can submit. The project is automatically linked to the team they registered. Create the Team Registration form first.
+                      </p>
+                      <div className="text-xs text-gray-500 mb-3">
+                        <span className="font-medium">Fields:</span> Project Name, Project Details, Problem Statement, Solution, GitHub Link, Live Link
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="border-emerald-600 text-emerald-700 hover:bg-emerald-100"
+                        disabled={creatingField || formKeys.includes('project_details')}
+                        onClick={async () => {
+                          if (formKeys.includes('project_details')) {
+                            setFormError('Project Submission form already exists. You can edit existing fields.');
+                            return;
+                          }
+                          const templateFields = [
+                            { fieldName: 'project_name', fieldLabel: 'Project Name', fieldType: 'text', isRequired: true, fieldDescription: 'Name of your project' },
+                            { fieldName: 'project_details', fieldLabel: 'Project Details', fieldType: 'long_text', isRequired: true, fieldDescription: 'Detailed description of your project' },
+                            { fieldName: 'problem_statement', fieldLabel: 'Problem Statement', fieldType: 'long_text', isRequired: false, fieldDescription: 'Describe the problem your project solves' },
+                            { fieldName: 'solution', fieldLabel: 'Solution', fieldType: 'long_text', isRequired: false, fieldDescription: 'Explain your solution approach' },
+                            { fieldName: 'github_link', fieldLabel: 'GitHub Link', fieldType: 'url', isRequired: false, fieldDescription: 'Link to your project repository' },
+                            { fieldName: 'live_link', fieldLabel: 'Live Link', fieldType: 'url', isRequired: false, fieldDescription: 'Link to live demo or deployed project' },
+                          ];
+                          await createFormFromTemplate('project_details', templateFields, 'Project Submission');
+                        }}
+                      >
+                        {creatingField ? 'Creating...' : formKeys.includes('project_details') ? 'Already created' : 'Create Form'}
+                      </Button>
+                    </div>
+
+                    {/* Template 3: Additional Form (custom / default) */}
+                    <div className="p-4 rounded-lg border-2 border-slate-400 bg-slate-50 shadow-md">
+                      <div className="flex items-start justify-between mb-2">
+                        <h5 className="font-semibold text-gray-900">Additional Form</h5>
+                        {formKeys.includes('default') ? (
+                          <Badge variant="success" className="text-xs">Created</Badge>
+                        ) : (
+                          <div className="w-5 h-5 bg-slate-500 rounded-full flex items-center justify-center">
+                            <Check className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-600 mb-3">
+                        A simple extra form (e.g. feedback, consent, or custom questions). You can add more fields after creating it.
+                      </p>
+                      <div className="text-xs text-gray-500 mb-3">
+                        <span className="font-medium">Starts with:</span> One optional text field — edit or add fields as needed.
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="border-slate-600 text-slate-700 hover:bg-slate-100"
+                        disabled={creatingField || formKeys.includes('default')}
+                        onClick={async () => {
+                          if (formKeys.includes('default')) {
+                            setFormError('An additional form already exists. You can edit existing fields.');
+                            return;
+                          }
+                          const templateFields = [
+                            { fieldName: 'additional_info', fieldLabel: 'Additional information', fieldType: 'long_text', isRequired: false, fieldDescription: 'Optional notes or responses' },
+                          ];
+                          await createFormFromTemplate('default', templateFields, 'Additional');
+                        }}
+                      >
+                        {creatingField ? 'Creating...' : formKeys.includes('default') ? 'Already created' : 'Create Form'}
+                      </Button>
                     </div>
                   </div>
-
-                <div className="flex justify-end gap-3">
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={creatingField || formKeys.includes('team_formation')}
-                      onClick={async () => {
-                      // Check if form already exists
-                      if (formKeys.includes('team_formation')) {
-                        setFormError('Team Formation form already exists. You can edit existing fields.');
-                        return;
-                      }
-
-                      // Team Formation Form Template (only option)
-                      const templateFields = [
-                        { fieldName: 'team_name', fieldLabel: 'Team Name', fieldType: 'text', isRequired: true, fieldDescription: 'Enter your team name (required)' },
-                        { fieldName: 'team_description', fieldLabel: 'Team Description', fieldType: 'long_text', isRequired: false, fieldDescription: 'Brief description of your team' },
-                        {
-                          fieldName: 'team_members',
-                          fieldLabel: 'Team Members',
-                          fieldType: 'team_members',
-                          isRequired: true,
-                          fieldDescription: 'Add each team member with email, first name, last name, phone number (include country code), role, and mark one as Team Lead',
-                        },
-                        { fieldName: 'project_name', fieldLabel: 'Project Name', fieldType: 'text', isRequired: false, fieldDescription: 'Name of your project' },
-                        { fieldName: 'project_details', fieldLabel: 'Project Details', fieldType: 'long_text', isRequired: false, fieldDescription: 'Detailed description of your project' },
-                        { fieldName: 'problem_statement', fieldLabel: 'Problem Statement', fieldType: 'long_text', isRequired: false, fieldDescription: 'Describe the problem your project solves' },
-                        { fieldName: 'solution', fieldLabel: 'Solution', fieldType: 'long_text', isRequired: false, fieldDescription: 'Explain your solution approach' },
-                        { fieldName: 'github_link', fieldLabel: 'GitHub Link', fieldType: 'url', isRequired: false, fieldDescription: 'Link to your project repository (optional)' },
-                        { fieldName: 'live_link', fieldLabel: 'Live Link', fieldType: 'url', isRequired: false, fieldDescription: 'Link to live demo or deployed project (optional)' },
-                      ];
-
-                      if (templateFields.length === 0) {
-                        setFormError('No template available for this form type.');
-                        return;
-                      }
-
-                      try {
-                        setFormError('');
-                        setCreatingField(true);
-                        const token = localStorage.getItem('auth_token');
-                        if (!token) {
-                          router.push('/admin/login');
-                          return;
-                        }
-
-                        const createdFields: AdminFormField[] = [];
-
-                        for (const preset of templateFields) {
-                          const response = await fetch(
-                            `/api/v1/admin/hackathons/${hackathonId}/form`,
-                            {
-                              method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                                Authorization: `Bearer ${token}`,
-                              },
-                                body: JSON.stringify({
-                                  hackathonId,
-                                  formKey: 'team_formation',
-                                  fieldName: preset.fieldName,
-                                  fieldType: preset.fieldType,
-                                  fieldLabel: preset.fieldLabel,
-                                  isRequired: preset.isRequired,
-                                  fieldDescription: preset.fieldDescription,
-                                  displayOrder: createdFields.length,
-                                }),
-                            },
-                          );
-
-                          const data = await response.json();
-                          if (!response.ok) {
-                            console.error('Failed to create field', preset.fieldName, data);
-                            continue;
-                          }
-
-                          createdFields.push(data.field as AdminFormField);
-                        }
-
-                          if (createdFields.length > 0) {
-                            setFormFields((previous) => [...previous, ...createdFields]);
-                            // Update formKeys if new form was created
-                            const newFormKeys = Array.from(new Set([...formKeys, 'team_formation']));
-                            setFormKeys(newFormKeys.sort());
-                            setFormError('');
-                          } else {
-                            setFormError('Failed to create form. Please try again.');
-                          }
-                        } catch (error) {
-                          console.error('Error creating form template:', error);
-                          setFormError('Failed to create Team Formation form. Please try again.');
-                      } finally {
-                        setCreatingField(false);
-                      }
-                    }}
-                  >
-                    {creatingField ? 'Creating...' : 'Create Form'}
-                  </Button>
-                </div>
               </Card>
 
               {/* Existing Forms Section */}
@@ -1750,7 +1825,7 @@ function HackathonDetailPageContent() {
                 <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
                   <p className="text-gray-600 mb-2">No forms created yet.</p>
                   <p className="text-sm text-gray-500 mb-4">
-                    Click "Use Form Template" above to create a Team Formation or Project Details form.
+                    Create a form from a template above: Team Registration, Project Submission, or Additional form.
                   </p>
                 </div>
               ) : (
@@ -1762,10 +1837,12 @@ function HackathonDetailPageContent() {
                     );
                     const formLabel =
                       formKey === 'team_formation'
-                        ? 'Team Formation Form'
+                        ? 'Team Registration Form'
                         : formKey === 'project_details'
-                          ? 'Project Details Form'
-                          : 'Default Form';
+                          ? 'Project Submission Form'
+                          : formKey === 'default'
+                            ? 'Additional Form'
+                            : 'Default Form';
                     // Generate submission link for this form (all forms get their own link)
                     const submissionLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/hackathons/${hackathonId}/submit${formKey !== 'default' ? `?form=${formKey}` : ''}`;
 
@@ -2742,10 +2819,10 @@ function HackathonDetailPageContent() {
                       let submissionTypeColor = 'bg-gray-100 text-gray-700';
                       
                       if (hasTeamMembers) {
-                        submissionType = 'Team Formation';
+                        submissionType = 'Team Registration';
                         submissionTypeColor = 'bg-blue-100 text-blue-700';
                       } else if (hasProjectDetails) {
-                        submissionType = 'Project Details';
+                        submissionType = 'Project Submission';
                         submissionTypeColor = 'bg-green-100 text-green-700';
                       }
 
@@ -2801,7 +2878,7 @@ function HackathonDetailPageContent() {
                       </div>
                           </div>
 
-                          {/* Team Formation Details */}
+                          {/* Team Registration details */}
                           {hasTeamMembers && (
                             <div className="mt-3 pt-3 border-t border-gray-200">
                               {teamName && (
@@ -3334,6 +3411,9 @@ function HackathonDetailPageContent() {
                                     }
                                     
                                     const isTeamExpanded = expandedPollTeamId === team.team_id;
+                                    // Project details from API (snake_case)
+                                    const hasProjectDetails = !!(team.project_name || team.project_description || team.pitch || team.live_site_url || team.github_url);
+                                    const canExpand = teamMembers.length > 0 || hasProjectDetails;
                                     
                                     return (
                                       <div key={team.team_id} className="border border-gray-200 rounded-lg overflow-hidden hover:border-[#4F46E5]/50 transition-colors">
@@ -3345,10 +3425,13 @@ function HackathonDetailPageContent() {
                                               {teamMembers.length > 0 && (
                                                 <span className="ml-2">• {teamMembers.length} team member(s) from database</span>
                                               )}
+                                              {hasProjectDetails && (
+                                                <span className="ml-2">• Project submitted</span>
+                                              )}
                                             </div>
                                           </div>
                                           <div className="flex gap-2">
-                                            {teamMembers.length > 0 && (
+                                            {canExpand && (
                                               <Button
                                                 size="sm"
                                                 variant="ghost"
@@ -3360,12 +3443,12 @@ function HackathonDetailPageContent() {
                                                 {isTeamExpanded ? (
                                                   <>
                                                     <ChevronUp className="w-4 h-4 mr-1" />
-                                                    Hide Members
+                                                    Hide Details
                                                   </>
                                                 ) : (
                                                   <>
                                                     <ChevronDown className="w-4 h-4 mr-1" />
-                                                    Show Members
+                                                    View Details
                                                   </>
                                                 )}
                                               </Button>
@@ -3408,49 +3491,125 @@ function HackathonDetailPageContent() {
                                           </div>
                                         </div>
                                         
-                                        {/* Expanded Team Members Section */}
-                                        {isTeamExpanded && teamMembers.length > 0 && (
-                                          <div className="border-t border-gray-200 bg-gray-50 p-4">
-                                            <h5 className="text-sm font-semibold text-gray-900 mb-3">Team Members from Database</h5>
-                                            <div className="space-y-2">
-                                              {teamMembers.map((member: any, index: number) => (
-                                                <div key={index} className="bg-white border border-gray-200 rounded-lg p-3">
-                                                  <div className="flex items-start justify-between">
-                                                    <div className="flex-1">
-                                                      <div className="font-medium text-gray-900">
-                                                        {member.firstName || member.first_name ? 
-                                                          `${member.firstName || member.first_name} ${member.lastName || member.last_name || ''}`.trim() 
-                                                          : 'Unnamed Member'}
-                                                      </div>
-                                                      <div className="text-sm text-gray-600 mt-1">
-                                                        {member.email && (
-                                                          <div className="flex items-center gap-1">
-                                                            <Mail className="w-3 h-3" />
-                                                            {member.email}
-                                                          </div>
-                                                        )}
-                                                        {member.phone && (
-                                                          <div className="flex items-center gap-1 mt-1">
-                                                            <Phone className="w-3 h-3" />
-                                                            {member.phone}
-                                                          </div>
-                                                        )}
-                                                        {member.role && (
-                                                          <div className="mt-1">
-                                                            <span className="text-xs font-medium text-gray-500">Role:</span> {member.role}
-                                                          </div>
-                                                        )}
-                                                      </div>
+                                        {/* Expanded: Project details and/or Team members */}
+                                        {isTeamExpanded && canExpand && (
+                                          <div className="border-t border-gray-200 bg-gray-50 p-4 space-y-4">
+                                            {/* Project details section - organized view of submission data */}
+                                            <div>
+                                              <h5 className="text-sm font-semibold text-gray-900 mb-3">Project Details</h5>
+                                              {hasProjectDetails ? (
+                                                <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                                                  {team.project_name && (
+                                                    <div>
+                                                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Project Name</span>
+                                                      <p className="text-gray-900 font-medium mt-0.5">{team.project_name}</p>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                      {member.isLead || member.is_lead ? (
-                                                        <Badge variant="success" className="text-xs">Team Lead</Badge>
-                                                      ) : null}
+                                                  )}
+                                                  {team.project_description && (
+                                                    <div>
+                                                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Description</span>
+                                                      <p className="text-gray-900 whitespace-pre-wrap mt-0.5">{team.project_description}</p>
                                                     </div>
-                                                  </div>
+                                                  )}
+                                                  {team.pitch && (
+                                                    <div>
+                                                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pitch</span>
+                                                      <p className="text-gray-900 whitespace-pre-wrap mt-0.5">{team.pitch}</p>
+                                                    </div>
+                                                  )}
+                                                  {(team.live_site_url || team.github_url) && (
+                                                    <div className="flex flex-wrap gap-3 pt-1">
+                                                      {team.live_site_url && (
+                                                        <a
+                                                          href={team.live_site_url.startsWith('http') ? team.live_site_url : `https://${team.live_site_url}`}
+                                                          target="_blank"
+                                                          rel="noopener noreferrer"
+                                                          className="text-sm text-[#059669] hover:underline font-medium"
+                                                        >
+                                                          Live site →
+                                                        </a>
+                                                      )}
+                                                      {team.github_url && (
+                                                        <a
+                                                          href={team.github_url.startsWith('http') ? team.github_url : `https://${team.github_url}`}
+                                                          target="_blank"
+                                                          rel="noopener noreferrer"
+                                                          className="text-sm text-[#059669] hover:underline font-medium"
+                                                        >
+                                                          GitHub →
+                                                        </a>
+                                                      )}
+                                                    </div>
+                                                  )}
                                                 </div>
-                                              ))}
+                                              ) : (
+                                                <p className="text-sm text-gray-500 italic">No project details submitted yet.</p>
+                                              )}
                                             </div>
+                                            {/* Team members from database */}
+                                            {teamMembers.length > 0 && (
+                                              <>
+                                                <h5 className="text-sm font-semibold text-gray-900 mb-3">Team Members from Database</h5>
+                                                <div className="space-y-2">
+                                                  {teamMembers.map((member: any, index: number) => (
+                                                    <div key={index} className="bg-white border border-gray-200 rounded-lg p-3">
+                                                      <div className="flex items-start justify-between gap-2">
+                                                        <div className="flex-1 min-w-0">
+                                                          <div className="font-medium text-gray-900">
+                                                            {member.firstName || member.first_name ? 
+                                                              `${member.firstName || member.first_name} ${member.lastName || member.last_name || ''}`.trim() 
+                                                              : 'Unnamed Member'}
+                                                          </div>
+                                                          <div className="text-sm text-gray-600 mt-1">
+                                                            {member.email && (
+                                                              <div className="flex items-center gap-1">
+                                                                <Mail className="w-3 h-3 shrink-0" />
+                                                                {member.email}
+                                                              </div>
+                                                            )}
+                                                            {member.phone && (
+                                                              <div className="flex items-center gap-1 mt-1">
+                                                                <Phone className="w-3 h-3 shrink-0" />
+                                                                {member.phone}
+                                                              </div>
+                                                            )}
+                                                            {member.role && (
+                                                              <div className="mt-1">
+                                                                <span className="text-xs font-medium text-gray-500">Role:</span> {member.role}
+                                                              </div>
+                                                            )}
+                                                          </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                          {member.isLead || member.is_lead ? (
+                                                            <Badge variant="success" className="text-xs">Team Lead</Badge>
+                                                          ) : null}
+                                                          <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            onClick={() => {
+                                                              setEditMemberForm({
+                                                                firstName: member.firstName ?? member.first_name ?? '',
+                                                                lastName: member.lastName ?? member.last_name ?? '',
+                                                                email: member.email ?? '',
+                                                                phone: member.phone ?? '',
+                                                                role: member.role ?? '',
+                                                                isLead: !!(member.isLead ?? member.is_lead),
+                                                              });
+                                                              setEditingMember({ team, teamMembers, memberIndex: index });
+                                                            }}
+                                                            className="text-[#0891b2] hover:text-[#0e7490] hover:bg-[#ecfeff]"
+                                                            title="Edit member"
+                                                          >
+                                                            <Edit2 className="w-4 h-4" />
+                                                          </Button>
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </>
+                                            )}
                                           </div>
                                         )}
                                       </div>
@@ -3797,9 +3956,16 @@ function HackathonDetailPageContent() {
                                 <div className="space-y-3">
                                   <h3 className="font-semibold text-[#0F172A]">Rankings</h3>
                                   {pollResults.results.teams
-                                    .sort((a: any, b: any) => b.totalScore - a.totalScore)
+                                    .sort((a: any, b: any) => {
+                                      const scoreA = Number(a.totalScore);
+                                      const scoreB = Number(b.totalScore);
+                                      return (Number.isNaN(scoreB) ? 0 : scoreB) - (Number.isNaN(scoreA) ? 0 : scoreA);
+                                    })
                                     .slice(0, 5)
-                                    .map((team: any, index: number) => (
+                                    .map((team: any, index: number) => {
+                                      const points = Number(team.totalScore);
+                                      const displayPoints = typeof points === 'number' && !Number.isNaN(points) ? points.toFixed(2) : '0.00';
+                                      return (
                                       <div key={team.teamId || team.team_id} className="flex items-center justify-between p-4 border border-[#E2E8F0] rounded-xl">
                                         <div className="flex items-center gap-4">
                                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${index === 0 ? 'bg-[#059669]' : index === 1 ? 'bg-[#0891b2]' : index === 2 ? 'bg-[#1e40af]' : 'bg-[#64748B]'}`}>
@@ -3819,11 +3985,11 @@ function HackathonDetailPageContent() {
                                           </div>
                                         </div>
                                         <div className="text-right">
-                                          <div className="font-bold text-[#1e40af]">{Number(team.totalScore || 0).toFixed(2)}</div>
+                                          <div className="font-bold text-[#1e40af]">{displayPoints}</div>
                                           <div className="text-xs text-[#64748B]">points</div>
                                         </div>
                                       </div>
-                                    ))}
+                                    );})}
                                 </div>
                               </div>
                             ) : (
@@ -4315,6 +4481,104 @@ function HackathonDetailPageContent() {
                       await fetchPollManagementData(selectedPollId);
                     } catch (err) {
                       setPollError('Failed to update team');
+                    } finally {
+                      setPollSubmitting(false);
+                    }
+                  }}
+                  isLoading={pollSubmitting}
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit team member modal: update a single member's details in the team's metadata */}
+      {editingMember && selectedPollId && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md p-6">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Edit Team Member</h3>
+            <p className="text-sm text-gray-600 mb-4">Team: {editingMember.team.team_name}</p>
+            <div className="space-y-4">
+              <Input
+                label="First Name *"
+                value={editMemberForm.firstName}
+                onChange={(e) => setEditMemberForm((f) => ({ ...f, firstName: e.target.value }))}
+                placeholder="First name"
+              />
+              <Input
+                label="Last Name"
+                value={editMemberForm.lastName}
+                onChange={(e) => setEditMemberForm((f) => ({ ...f, lastName: e.target.value }))}
+                placeholder="Last name"
+              />
+              <Input
+                label="Email *"
+                type="email"
+                value={editMemberForm.email}
+                onChange={(e) => setEditMemberForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="email@example.com"
+              />
+              <Input
+                label="Phone"
+                value={editMemberForm.phone}
+                onChange={(e) => setEditMemberForm((f) => ({ ...f, phone: e.target.value }))}
+                placeholder="+1234567890"
+              />
+              <Input
+                label="Role"
+                value={editMemberForm.role}
+                onChange={(e) => setEditMemberForm((f) => ({ ...f, role: e.target.value }))}
+                placeholder="e.g. Developer, Designer"
+              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="edit-member-is-lead"
+                  checked={editMemberForm.isLead}
+                  onChange={(e) => setEditMemberForm((f) => ({ ...f, isLead: e.target.checked }))}
+                  className="rounded border-gray-300 text-[#059669] focus:ring-[#059669]"
+                />
+                <label htmlFor="edit-member-is-lead" className="text-sm font-medium text-gray-700">Team Lead</label>
+              </div>
+              <div className="flex gap-3 justify-end mt-6">
+                <Button variant="outline" onClick={() => setEditingMember(null)}>Cancel</Button>
+                <Button
+                  onClick={async () => {
+                    if (!editMemberForm.email?.trim()) {
+                      setPollError('Email is required');
+                      return;
+                    }
+                    const token = localStorage.getItem('auth_token');
+                    if (!token || !selectedPollId) return;
+                    const { team, teamMembers, memberIndex } = editingMember;
+                    const updatedMembers = [...teamMembers];
+                    updatedMembers[memberIndex] = {
+                      ...updatedMembers[memberIndex],
+                      firstName: editMemberForm.firstName.trim(),
+                      lastName: editMemberForm.lastName.trim(),
+                      email: editMemberForm.email.trim(),
+                      phone: editMemberForm.phone.trim() || undefined,
+                      role: editMemberForm.role.trim() || undefined,
+                      isLead: editMemberForm.isLead,
+                    };
+                    const existingMetadata = typeof team.metadata === 'string' ? (() => { try { return JSON.parse(team.metadata); } catch { return {}; } })() : (team.metadata || {});
+                    const metadata = { ...existingMetadata, teamMembers: updatedMembers };
+                    setPollSubmitting(true);
+                    try {
+                      const response = await fetch(`/api/v1/admin/polls/${selectedPollId}/teams/${team.team_id}`, {
+                        method: 'PATCH',
+                        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ metadata }),
+                      });
+                      if (!response.ok) throw new Error('Failed');
+                      setPollSuccess('Team member updated successfully');
+                      setEditingMember(null);
+                      await fetchPollManagementData(selectedPollId);
+                    } catch (err) {
+                      setPollError('Failed to update team member');
                     } finally {
                       setPollSubmitting(false);
                     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/auth/middleware';
 import { createHackathonSchema, updateHackathonSchema } from '@/lib/validation/schemas';
 import { createHackathon, getHackathonsByAdmin, getAllHackathons, updateHackathon, deleteHackathon } from '@/lib/repositories/hackathons';
+import { getEffectiveAdminId } from '@/lib/repositories/admins';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
 import type { AuthenticatedRequest } from '@/lib/auth/middleware';
 
@@ -21,11 +22,11 @@ export async function GET(req: NextRequest) {
   return withAdmin(async (req: AuthenticatedRequest) => {
     try {
       const admin = req.admin!;
-      
-      // Regular admins only see their own hackathons, super admins see all
+
+      // Regular admins only see their own hackathons (use resolved admin_id so stale session works)
       const hackathons = admin.role === 'super_admin'
         ? await getAllHackathons()
-        : await getHackathonsByAdmin(admin.adminId);
+        : await getHackathonsByAdmin((await getEffectiveAdminId(admin)) ?? admin.adminId);
       
       return NextResponse.json({ hackathons });
     } catch (error) {
@@ -61,14 +62,17 @@ export async function POST(req: NextRequest) {
     try {
       const admin = req.admin!;
       const body = await req.json();
-      
+
       // Validate request
       const validated = createHackathonSchema.parse(body);
-      
+
+      // Resolve admin_id that exists in admins table (fixes FK when session adminId is stale)
+      const createdBy = (await getEffectiveAdminId(admin)) ?? admin.adminId;
+
       // Create hackathon
       const hackathon = await createHackathon(
         validated.name,
-        admin.adminId,
+        createdBy,
         validated.description,
         validated.startDate ? new Date(validated.startDate) : undefined,
         validated.endDate ? new Date(validated.endDate) : undefined,

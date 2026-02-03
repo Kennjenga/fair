@@ -1161,7 +1161,8 @@ function PollManagementPageContent() {
                       setTieBreakerEndTime(oneHourLater.toISOString().slice(0, 16));
                       // Pre-select top 2 teams if available
                       if (results?.results?.teams?.length >= 2) {
-                        const sorted = [...results.results.teams].sort((a: any, b: any) => b.totalScore - a.totalScore);
+                        const safeScore = (t: any) => { const n = Number(t.totalScore); return Number.isNaN(n) ? 0 : n; };
+                        const sorted = [...results.results.teams].sort((a: any, b: any) => safeScore(b) - safeScore(a));
                         // Handle potential property name differences (teamId vs team_id)
                         const team1Id = sorted[0].teamId || sorted[0].team_id;
                         const team2Id = sorted[1].teamId || sorted[1].team_id;
@@ -1198,9 +1199,16 @@ function PollManagementPageContent() {
                   <div className="space-y-3">
                     <h3 className="font-semibold text-[#0F172A]">Rankings</h3>
                     {results.results.teams
-                      .sort((a: any, b: any) => b.totalScore - a.totalScore)
+                      .sort((a: any, b: any) => {
+                        const scoreA = Number(a.totalScore);
+                        const scoreB = Number(b.totalScore);
+                        return (Number.isNaN(scoreB) ? 0 : scoreB) - (Number.isNaN(scoreA) ? 0 : scoreA);
+                      })
                       .slice(0, 5)
-                      .map((team: any, index: number) => (
+                      .map((team: any, index: number) => {
+                        const points = Number(team.totalScore);
+                        const displayPoints = typeof points === 'number' && !Number.isNaN(points) ? points.toFixed(2) : '0.00';
+                        return (
                         <div key={team.teamId} className="flex items-center justify-between p-4 border border-[#E2E8F0] rounded-xl">
                           <div className="flex items-center gap-4">
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${index === 0 ? 'bg-[#059669]' : index === 1 ? 'bg-[#0891b2]' : index === 2 ? 'bg-[#1e40af]' : 'bg-[#64748B]'}`}>
@@ -1220,11 +1228,11 @@ function PollManagementPageContent() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="font-bold text-[#1e40af]">{Number(team.totalScore || 0).toFixed(2)}</div>
+                            <div className="font-bold text-[#1e40af]">{displayPoints}</div>
                             <div className="text-xs text-[#64748B]">points</div>
                           </div>
                         </div>
-                      ))}
+                      );})}
                   </div>
                 </div>
               ) : (

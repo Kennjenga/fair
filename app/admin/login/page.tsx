@@ -14,13 +14,24 @@ function AdminLoginContent() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loginAsVoter, setLoginAsVoter] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Pre-check "Login as voter" when arriving via /voter/login redirect (?as=voter)
+  useEffect(() => {
+    if (searchParams.get('as') === 'voter') {
+      setLoginAsVoter(true);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     if (searchParams.get('signup') === 'success') {
       setSuccess('Account created successfully! Please login.');
+    }
+    if (searchParams.get('registered') === '1') {
+      setSuccess('Account created. You can now sign in.');
     }
   }, [searchParams]);
 
@@ -30,6 +41,26 @@ function AdminLoginContent() {
     setLoading(true);
 
     try {
+      if (loginAsVoter) {
+        // Voter login: call voter auth API and redirect to voter dashboard
+        const response = await fetch('/api/v1/voter/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          setError(data.error || 'Login failed');
+          setLoading(false);
+          return;
+        }
+        localStorage.setItem('voter_token', data.token);
+        localStorage.setItem('voter', JSON.stringify(data.voter));
+        router.push('/voter/dashboard');
+        return;
+      }
+
+      // Admin login: existing flow
       const response = await fetch('/api/v1/admin/auth/login', {
         method: 'POST',
         headers: {
@@ -226,6 +257,17 @@ function AdminLoginContent() {
                 required
               />
 
+              {/* Checkbox: login as voter instead of admin */}
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={loginAsVoter}
+                  onChange={(e) => setLoginAsVoter(e.target.checked)}
+                  className="w-4 h-4 rounded border-[#E2E8F0] text-[#6366F1] focus:ring-[#6366F1]"
+                />
+                <span className="text-sm text-[#334155]">Login as voter</span>
+              </label>
+
               <Button
                 type="submit"
                 disabled={loading}
@@ -239,17 +281,30 @@ function AdminLoginContent() {
 
             {/* Links */}
             <div className="mt-6 space-y-3 text-center">
-              <Link
-                href="/admin/forgot-password"
-                className="block text-[#4F46E5] hover:text-[#4338CA] text-sm font-medium transition-colors"
-              >
-                Forgot Password?
-              </Link>
-              <p className="text-[#334155] text-sm">
-                Don't have an account?{' '}
-                <Link href="/signup" className="text-[#4F46E5] hover:text-[#4338CA] font-semibold transition-colors">
-                  Sign up
+              {!loginAsVoter && (
+                <Link
+                  href="/admin/forgot-password"
+                  className="block text-[#4F46E5] hover:text-[#4338CA] text-sm font-medium transition-colors"
+                >
+                  Forgot Password?
                 </Link>
+              )}
+              <p className="text-[#334155] text-sm">
+                {loginAsVoter ? (
+                  <>
+                    No account?{' '}
+                    <Link href="/voter/register" className="text-[#4F46E5] hover:text-[#4338CA] font-semibold transition-colors">
+                      Register as voter
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    Don't have an account?{' '}
+                    <Link href="/signup" className="text-[#4F46E5] hover:text-[#4338CA] font-semibold transition-colors">
+                      Sign up
+                    </Link>
+                  </>
+                )}
               </p>
             </div>
           </motion.div>

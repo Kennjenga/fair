@@ -317,6 +317,18 @@ export async function getTokensByTeam(teamId: string): Promise<TokenRecord[]> {
 }
 
 /**
+ * Get all voting tokens for an email (across all polls).
+ * Used by voter dashboard to list participations and link to votes.
+ */
+export async function getTokensByEmail(email: string): Promise<TokenRecord[]> {
+  const result = await query<TokenRecord>(
+    'SELECT * FROM tokens WHERE LOWER(TRIM(email)) = LOWER(TRIM($1)) ORDER BY created_at DESC',
+    [email]
+  );
+  return result.rows;
+}
+
+/**
  * Delete token (and invalidate it)
  * This will also cascade delete votes if foreign key constraints are set up
  */

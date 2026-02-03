@@ -4,7 +4,7 @@ import { getFormFields } from '@/lib/repositories/form-fields';
 import { trackParticipation } from '@/lib/repositories/participation';
 import { uploadFile } from '@/lib/cloudinary';
 import { getTeamByName, updateTeam } from '@/lib/repositories/teams';
-import { getPollById } from '@/lib/repositories/polls';
+import { getPollById, getPollsByHackathon } from '@/lib/repositories/polls';
 import type { FileReference } from '@/types/submission';
 
 /**
@@ -19,25 +19,20 @@ export async function POST(
     // Resolve dynamic route params
     const { hackathonId } = await params;
     
-    // Get form_key from URL query parameter (e.g., ?form=project_details)
+    // Get form_key from URL query (e.g. ?form=team_formation) so we validate the right form
     const url = new URL(request.url);
-    const formKey = url.searchParams.get('form') || undefined;
-    
+    let formKey = url.searchParams.get('form') || undefined;
+
     const formData = await request.formData();
-    
+
     // Extract submission data
     const submissionData: Record<string, any> = {};
     const files: Array<{ fieldName: string; file: File }> = [];
-    
-    // Get form fields to validate, filtered by form_key if provided
-    const formFields = await getFormFields(hackathonId, formKey);
-    
-    // Process form data
+
     for (const [key, value] of formData.entries()) {
       if (value instanceof File) {
         files.push({ fieldName: key, file: value });
       } else {
-        // Try to parse JSON for complex fields
         try {
           submissionData[key] = JSON.parse(value as string);
         } catch {
@@ -46,7 +41,15 @@ export async function POST(
       }
     }
 
-    // Determine the form type from the form_key parameter
+    // Fallback: form_key from body if not in URL (ensures team_formation / project_details work)
+    if (!formKey && submissionData.form_key) {
+      formKey = String(submissionData.form_key);
+      delete submissionData.form_key;
+    }
+
+    // Get form fields for this form only so required validation matches what the user submitted
+    const formFields = await getFormFields(hackathonId, formKey);
+
     const isProjectDetailsForm = formKey === 'project_details';
     
     // For project_details form, verify that the submitter is a team lead
@@ -179,27 +182,42 @@ export async function POST(
     }
 
     // For project_details form, update the poll team with project information
-    if (isProjectDetailsForm && pollId && teamName) {
+    if (isProjectDetailsForm && teamName) {
+      const updatePayload = {
+        projectName: submissionData.project_name || undefined,
+        projectDescription:
+          submissionData.project_description ||
+          submissionData.project_details ||
+          submissionData.problem_statement ||
+          undefined,
+        pitch: submissionData.pitch || submissionData.solution || undefined,
+        liveSiteUrl: submissionData.live_site_url || submissionData.live_link || undefined,
+        githubUrl: submissionData.github_url || submissionData.github_link || undefined,
+      };
       try {
-        // Verify poll exists and belongs to the hackathon
-        const poll = await getPollById(pollId);
-        if (poll && poll.hackathon_id === hackathonId) {
-          // Find the team in the poll by team name
-          const pollTeam = await getTeamByName(pollId, teamName);
-          
-          if (pollTeam) {
-            // Update the team with project details from submission
-            await updateTeam(pollTeam.team_id, {
-              projectName: submissionData.project_name || undefined,
-              projectDescription: submissionData.problem_statement || submissionData.project_description || undefined,
-              pitch: submissionData.solution || submissionData.pitch || undefined,
-              liveSiteUrl: submissionData.live_link || submissionData.live_site_url || undefined,
-              githubUrl: submissionData.github_link || submissionData.github_url || undefined,
-            });
+        let updated = false;
+        if (pollId) {
+          const poll = await getPollById(pollId);
+          if (poll && poll.hackathon_id === hackathonId) {
+            const pollTeam = await getTeamByName(pollId, teamName);
+            if (pollTeam) {
+              await updateTeam(pollTeam.team_id, updatePayload);
+              updated = true;
+            }
+          }
+        }
+        // Fallback: if no poll_id or team not found, try each hackathon poll by team name
+        if (!updated) {
+          const polls = await getPollsByHackathon(hackathonId);
+          for (const poll of polls) {
+            const pollTeam = await getTeamByName(poll.poll_id, teamName);
+            if (pollTeam) {
+              await updateTeam(pollTeam.team_id, updatePayload);
+              break;
+            }
           }
         }
       } catch (error: any) {
-        // Log error but don't fail the submission if team update fails
         console.error('Error updating poll team details:', error);
       }
     }

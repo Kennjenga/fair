@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/auth/middleware';
-import { getPollById, hasPollAccess } from '@/lib/repositories/polls';
-import { getTokensByPoll, getTokenById } from '@/lib/repositories/tokens';
+import { getPollById, hasPollAccessForAdmin } from '@/lib/repositories/polls';
+import { getTokensByPoll } from '@/lib/repositories/tokens';
 import { sendVotingTokenEmail } from '@/lib/email/brevo';
 import { getTeamsByPoll } from '@/lib/repositories/teams';
+import { findTeamByTeamLead } from '@/lib/repositories/submissions';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
 import type { AuthenticatedRequest } from '@/lib/auth/middleware';
 
@@ -36,7 +37,7 @@ export async function POST(
       }
       
       // Check access: admins can access polls they created OR polls in hackathons they created
-      const hasAccess = await hasPollAccess(poll, admin.adminId, admin.role);
+      const hasAccess = await hasPollAccessForAdmin(poll, admin);
       if (!hasAccess) {
         return NextResponse.json(
           { error: 'Access denied' },
@@ -50,48 +51,54 @@ export async function POST(
       // Get teams for team name lookup
       const teams = await getTeamsByPoll(pollId);
       const teamMap = new Map(teams.map(t => [t.team_id, t.team_name]));
-      
+      const hackathonId = poll.hackathon_id || undefined;
+
       // Filter tokens that haven't been sent yet (status is 'queued' or 'failed')
-      const tokensToSend = tokens.filter(t => 
+      const tokensToSend = tokens.filter(t =>
         (t.delivery_status === 'queued' || t.delivery_status === 'failed') && !t.used
       );
-      
+
       if (tokensToSend.length === 0) {
         return NextResponse.json(
           { message: 'No pending emails to send', sent: 0, failed: 0 },
           { status: 200 }
         );
       }
-      
+
       const { getPlainTokenFromRecord, updateTokenDeliveryStatus } = await import('@/lib/repositories/tokens');
-      
+
       const results = {
         sent: 0,
         failed: 0,
         errors: [] as string[],
       };
-      
+
       // Send emails to all tokens that need to be sent
       for (const tokenRecord of tokensToSend) {
         try {
-          // Get plain token from encrypted storage
           const plainToken = getPlainTokenFromRecord(tokenRecord);
-          
+
           if (!plainToken) {
-            // Token doesn't have plain token stored (old token created before migration)
             results.failed++;
             results.errors.push(`${tokenRecord.email}: Plain token not available (token created before migration)`);
             continue;
           }
-          
-          // Send email with plain token
+
+          const teamNameForEmail = teamMap.get(tokenRecord.team_id) || 'Unknown Team';
+          let isTeamLead = false;
+          if (hackathonId) {
+            const teamInfo = await findTeamByTeamLead(hackathonId, tokenRecord.email);
+            isTeamLead = !!(teamInfo && teamInfo.teamName && teamNameForEmail && teamInfo.teamName.trim().toLowerCase() === teamNameForEmail.trim().toLowerCase());
+          }
+
           await sendVotingTokenEmail(
             tokenRecord.email,
             plainToken,
             poll.name,
-            teamMap.get(tokenRecord.team_id) || 'Unknown Team',
+            teamNameForEmail,
             pollId,
-            tokenRecord.team_id
+            tokenRecord.team_id,
+            { hackathonId, isTeamLead }
           );
           
           // Update delivery status

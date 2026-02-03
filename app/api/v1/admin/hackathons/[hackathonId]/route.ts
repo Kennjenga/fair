@@ -3,6 +3,7 @@ import { withAdmin } from '@/lib/auth/middleware';
 import { updateHackathonSchema } from '@/lib/validation/schemas';
 import { getHackathonById, updateHackathon, deleteHackathon } from '@/lib/repositories/hackathons';
 import { getHackathonByIdExtended } from '@/lib/repositories/hackathons-extended';
+import { canAccessResource } from '@/lib/repositories/admins';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
 import type { AuthenticatedRequest } from '@/lib/auth/middleware';
 
@@ -33,15 +34,16 @@ export async function GET(
           { status: 404 }
         );
       }
-      
-      // Check access: regular admins can only access their own hackathons
-      if (admin.role === 'admin' && hackathon.created_by !== admin.adminId) {
+
+      // Check access: regular admins can only access their own hackathons (use resolved admin_id so stale session works)
+      const allowed = await canAccessResource(admin, hackathon.created_by);
+      if (!allowed) {
         return NextResponse.json(
           { error: 'Access denied' },
           { status: 403 }
         );
       }
-      
+
       return NextResponse.json({ hackathon });
     } catch (error) {
       console.error('Get hackathon error:', error);
@@ -80,14 +82,15 @@ export async function PUT(
           { status: 404 }
         );
       }
-      
-      if (admin.role === 'admin' && hackathon.created_by !== admin.adminId) {
+
+      const allowedPut = await canAccessResource(admin, hackathon.created_by);
+      if (!allowedPut) {
         return NextResponse.json(
           { error: 'Access denied' },
           { status: 403 }
         );
       }
-      
+
       // Validate request
       const validated = updateHackathonSchema.parse(body);
       
@@ -154,14 +157,15 @@ export async function DELETE(
           { status: 404 }
         );
       }
-      
-      if (admin.role === 'admin' && hackathon.created_by !== admin.adminId) {
+
+      const allowedDel = await canAccessResource(admin, hackathon.created_by);
+      if (!allowedDel) {
         return NextResponse.json(
           { error: 'Access denied' },
           { status: 403 }
         );
       }
-      
+
       // Delete hackathon
       await deleteHackathon(hackathonId);
       

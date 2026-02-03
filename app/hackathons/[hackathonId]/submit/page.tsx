@@ -20,7 +20,7 @@ export default function HackathonSubmitPage() {
   const router = useRouter();
   const hackathonId = params.hackathonId as string;
 
-  // Extract form type from URL query parameter (e.g., ?form=team_formation)
+  // Extract form type and optional poll_id from URL (e.g., ?form=project_details&poll_id=xxx)
   const [searchParams] = useState(() => {
     if (typeof window !== 'undefined') {
       return new URLSearchParams(window.location.search);
@@ -28,6 +28,7 @@ export default function HackathonSubmitPage() {
     return new URLSearchParams();
   });
   const formKey = searchParams.get('form') || 'default';
+  const pollIdFromUrl = searchParams.get('poll_id') || null;
 
   const [hackathon, setHackathon] = useState<any>(null);
   const [formFields, setFormFields] = useState<FormField[]>([]);
@@ -43,6 +44,16 @@ export default function HackathonSubmitPage() {
   useEffect(() => {
     fetchHackathonAndForm();
   }, [hackathonId, formKey]);
+
+  // Pre-fill poll_id and optionally email for project_details when present in URL
+  useEffect(() => {
+    if (formKey !== 'project_details') return;
+    setFormData((prev) => {
+      const next = { ...prev };
+      if (pollIdFromUrl) next.poll_id = pollIdFromUrl;
+      return next;
+    });
+  }, [formKey, pollIdFromUrl]);
 
   const fetchHackathonAndForm = async () => {
     try {
@@ -197,12 +208,16 @@ export default function HackathonSubmitPage() {
         submitFormData.append('poll_id', pollId);
       }
 
+      // Add form key so the API validates and stores the correct form type (team_formation, project_details, etc.)
+      submitFormData.append('form_key', formKey);
+
       // Add files
       for (const [key, file] of Object.entries(files)) {
         submitFormData.append(key, file);
       }
 
-      const response = await fetch(`/api/v1/public/hackathons/${hackathonId}/submit`, {
+      const submitUrl = `/api/v1/public/hackathons/${hackathonId}/submit${formKey && formKey !== 'default' ? `?form=${encodeURIComponent(formKey)}` : ''}`;
+      const response = await fetch(submitUrl, {
         method: 'POST',
         body: submitFormData,
       });
@@ -639,7 +654,30 @@ export default function HackathonSubmitPage() {
 
         {/* Submission Form */}
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Project Submission</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6">
+            {formKey === 'team_formation' ? 'Team Registration' : formKey === 'project_details' ? 'Project Submission' : 'Submission'}
+          </h2>
+
+          {/* Required team lead email for project_details (used by API to verify and link to team) */}
+          {formKey === 'project_details' && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+              <label htmlFor="submitted_by" className="block text-sm font-medium text-amber-900 mb-2">
+                Your email (team lead) <span className="text-red-500">*</span>
+              </label>
+              <p className="text-xs text-amber-800 mb-2">
+                Only the team lead can submit project details. Enter the same email you used when registering your team.
+              </p>
+              <input
+                id="submitted_by"
+                type="email"
+                required
+                value={formData.submitted_by ?? ''}
+                onChange={(e) => handleInputChange('submitted_by', e.target.value)}
+                placeholder="teamlead@example.com"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          )}
 
           <div className="space-y-6">
             {formFields.map((field) => (
@@ -670,7 +708,11 @@ export default function HackathonSubmitPage() {
               ) : (
                 <>
                   <Send className="w-5 h-5" />
-                  Submit Project
+                  {formKey === 'team_formation'
+                    ? 'Submit Team Details'
+                    : formKey === 'project_details'
+                      ? 'Submit Project'
+                      : 'Submit'}
                 </>
               )}
             </button>

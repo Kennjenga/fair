@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/auth/middleware';
-import { getPollById, hasPollAccess } from '@/lib/repositories/polls';
+import { getPollById, hasPollAccessForAdmin } from '@/lib/repositories/polls';
 import { query } from '@/lib/db';
 import type { AuthenticatedRequest } from '@/lib/auth/middleware';
 
@@ -28,7 +28,7 @@ export async function GET(
       }
       
       // Check access: admins can access polls they created OR polls in hackathons they created
-      const hasAccess = await hasPollAccess(poll, admin.adminId, admin.role);
+      const hasAccess = await hasPollAccessForAdmin(poll, admin);
       if (!hasAccess) {
         return NextResponse.json(
           { error: 'Access denied' },

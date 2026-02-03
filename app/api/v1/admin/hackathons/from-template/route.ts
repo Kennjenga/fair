@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth/jwt';
 import { createHackathonFromTemplate } from '@/lib/repositories/hackathons-extended';
+import { getEffectiveAdminId } from '@/lib/repositories/admins';
 
 /**
  * POST /api/v1/admin/hackathons/from-template
@@ -20,7 +21,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    const adminId = payload.adminId;
+    // Resolve admin_id that exists in admins table (fixes FK when session adminId is stale)
+    const adminId = await getEffectiveAdminId(payload);
+    if (!adminId) {
+      return NextResponse.json(
+        { error: 'Admin account not found; re-login or contact support' },
+        { status: 403 }
+      );
+    }
 
     // Parse request body
     const body = await request.json();

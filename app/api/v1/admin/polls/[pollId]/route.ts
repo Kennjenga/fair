@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/auth/middleware';
 import { updatePollSchema } from '@/lib/validation/schemas';
-import { getPollById, updatePoll, deletePoll, hasPollAccess } from '@/lib/repositories/polls';
+import { getPollById, updatePoll, deletePoll, hasPollAccessForAdmin } from '@/lib/repositories/polls';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
 import type { AuthenticatedRequest } from '@/lib/auth/middleware';
 
@@ -32,15 +32,15 @@ export async function GET(
         );
       }
       
-      // Check access: admins can access polls they created OR polls in hackathons they created
-      const hasAccess = await hasPollAccess(poll, admin.adminId, admin.role);
+      // Check access using resolved admin id so stale session can still manage polls
+      const hasAccess = await hasPollAccessForAdmin(poll, admin);
       if (!hasAccess) {
         return NextResponse.json(
           { error: 'Access denied' },
           { status: 403 }
         );
       }
-      
+
       return NextResponse.json({ poll });
     } catch (error) {
       console.error('Get poll error:', error);
@@ -80,15 +80,14 @@ export async function PATCH(
         );
       }
       
-      // Check access: admins can access polls they created OR polls in hackathons they created
-      const hasAccess = await hasPollAccess(existingPoll, admin.adminId, admin.role);
+      const hasAccess = await hasPollAccessForAdmin(existingPoll, admin);
       if (!hasAccess) {
         return NextResponse.json(
           { error: 'Access denied' },
           { status: 403 }
         );
       }
-      
+
       // Validate request
       const validated = updatePollSchema.parse(body);
       
@@ -201,15 +200,14 @@ export async function DELETE(
         );
       }
       
-      // Check access: admins can access polls they created OR polls in hackathons they created
-      const hasAccess = await hasPollAccess(existingPoll, admin.adminId, admin.role);
+      const hasAccess = await hasPollAccessForAdmin(existingPoll, admin);
       if (!hasAccess) {
         return NextResponse.json(
           { error: 'Access denied' },
           { status: 403 }
         );
       }
-      
+
       // Delete poll
       await deletePoll(pollId);
       
