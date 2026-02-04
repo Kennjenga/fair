@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth/jwt';
 import { createHackathonFromTemplate } from '@/lib/repositories/hackathons-extended';
 import { getEffectiveAdminId } from '@/lib/repositories/admins';
+import { isAdminPayload } from '@/types/auth';
 
 /**
  * POST /api/v1/admin/hackathons/from-template
@@ -17,8 +18,9 @@ export async function POST(request: NextRequest) {
 
     const token = authHeader.substring(7);
     const payload = verifyToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    // Admin-only route: require admin JWT (reject voter tokens)
+    if (!isAdminPayload(payload)) {
+      return NextResponse.json({ error: 'Admin token required' }, { status: 401 });
     }
 
     // Resolve admin_id that exists in admins table (fixes FK when session adminId is stale)

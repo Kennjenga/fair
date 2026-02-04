@@ -6,6 +6,7 @@ import { calculatePollResults } from '@/lib/utils/results';
 import { getExplorerUrl } from '@/lib/blockchain/avalanche';
 import { withAdmin } from '@/lib/auth/middleware';
 import type { AuthenticatedRequest } from '@/lib/auth/middleware';
+import { isAdminPayload } from '@/types/auth';
 
 /**
  * @swagger
@@ -56,9 +57,9 @@ export async function GET(
         const token = authHeader.replace('Bearer ', '');
         const decoded = verifyToken(token);
         
-        if (decoded) {
+        if (decoded && isAdminPayload(decoded)) {
           isAdmin = true;
-          // Check if super admin or poll creator
+          // Check if super admin or poll creator (admin payload only)
           const { findAdminById } = await import('@/lib/repositories/admins');
           const admin = await findAdminById(decoded.adminId);
           

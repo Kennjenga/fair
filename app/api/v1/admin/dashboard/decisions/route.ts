@@ -3,6 +3,7 @@ import { verifyToken } from '@/lib/auth/jwt';
 import { getDecisionsCreated, getDecisionsParticipated } from '@/lib/repositories/participation';
 import { getEffectiveAdminId } from '@/lib/repositories/admins';
 import type { DecisionSummary } from '@/types/participation';
+import { isAdminPayload } from '@/types/auth';
 
 /**
  * GET /api/v1/admin/dashboard/decisions
@@ -19,11 +20,12 @@ export async function GET(request: NextRequest) {
 
     const token = authHeader.substring(7);
     const payload = verifyToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    // Admin dashboard requires admin JWT (reject voter tokens)
+    if (!isAdminPayload(payload)) {
+      return NextResponse.json({ error: 'Admin token required' }, { status: 401 });
     }
 
-    const email = payload.email as string;
+    const email = payload.email;
     if (!email) {
       console.error('[Dashboard API] Missing email in token payload');
       return NextResponse.json({ error: 'Invalid token payload' }, { status: 401 });

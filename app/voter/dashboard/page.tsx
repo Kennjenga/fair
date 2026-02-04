@@ -184,7 +184,9 @@ export default function VoterDashboardPage() {
                     </div>
                     {v.txHash && v.explorerUrl && (
                       <div className="flex items-center gap-2">
-                        <Shield className="w-5 h-5 text-[#059669]" title="Recorded on blockchain" />
+                        <span title="Recorded on blockchain">
+                          <Shield className="w-5 h-5 text-[#059669]" />
+                        </span>
                         <a
                           href={v.explorerUrl}
                           target="_blank"

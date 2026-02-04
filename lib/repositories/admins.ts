@@ -201,9 +201,7 @@ export async function updateAdminProfile(
   }
 
   updates.push('updated_at = CURRENT_TIMESTAMP');
-  values.push(adminId);
-
-  const result = await query<AdminRecord>(
+  values.push(adminId);  const result = await query<AdminRecord>(
     `UPDATE admins SET ${updates.join(', ')}
      WHERE admin_id = $${paramIndex}
      RETURNING *`,
