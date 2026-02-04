@@ -208,8 +208,5 @@ export async function updateAdminProfile(
      WHERE admin_id = $${paramIndex}
      RETURNING *`,
     values
-  );
-
-  return result.rows[0];
+  );  return result.rows[0];
 }
-

@@ -229,6 +229,7 @@ export default function AdminDashboard() {
               <div className="mb-12">
                 <DecisionTabs 
                   decisions={decisions}
+                  integrityMetrics={integrityMetrics}
                   admin={admin}
                   onRefresh={handleRefresh}
                 />
@@ -297,10 +298,12 @@ function DashboardLoadingSkeleton() {
  */
 function DecisionTabs({ 
   decisions, 
+  integrityMetrics,
   admin,
   onRefresh
 }: { 
   decisions: { created: DecisionSummary[]; participated: DecisionSummary[] };
+  integrityMetrics: IntegrityMetrics;
   admin: { adminId: string; email: string; role: string } | null;
   onRefresh: () => void;
 }) {
@@ -348,13 +351,13 @@ function DecisionTabs({
           <div className="flex items-center justify-center gap-2">
             <Settings size={16} />
             <span>My Decisions</span>
-            {decisions.created.length > 0 && (
+            {integrityMetrics.decisionsInitiated > 0 && (
               <span className={`px-2 py-0.5 rounded-full text-xs ${
                 activeTab === 'my-decisions'
                   ? 'bg-white/20 text-white'
                   : 'bg-[#EEF2FF] text-[#4F46E5]'
               }`}>
-                {decisions.created.length}
+                {integrityMetrics.decisionsInitiated}
               </span>
             )}
           </div>
@@ -373,13 +376,13 @@ function DecisionTabs({
           <div className="flex items-center justify-center gap-2">
             <Users size={16} />
             <span>Participated In</span>
-            {decisions.participated.length > 0 && (
+            {integrityMetrics.decisionsParticipatedIn > 0 && (
               <span className={`px-2 py-0.5 rounded-full text-xs ${
                 activeTab === 'participated'
                   ? 'bg-white/20 text-white'
                   : 'bg-[#EEF2FF] text-[#4F46E5]'
               }`}>
-                {decisions.participated.length}
+                {integrityMetrics.decisionsParticipatedIn}
               </span>
             )}
           </div>

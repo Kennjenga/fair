@@ -116,15 +116,23 @@ export default function VoterDashboardPage() {
           </p>
         </motion.div>
 
-        {/* Participations (hackathons) */}
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold text-[#0F172A] mb-4 flex items-center gap-2">
+        {/* Participated In — hackathons/decisions the voter participated in */}
+        <section id="participated-in" className="mb-8">
+          <h2 className="text-lg font-semibold text-[#0F172A] mb-1 flex items-center gap-2">
             <Award className="w-5 h-5 text-[#4F46E5]" />
-            Hackathon participation
+            Participated In
+            {data.participations.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-xs bg-[#EEF2FF] text-[#4F46E5] font-medium">
+                {data.participations.length}
+              </span>
+            )}
           </h2>
+          <p className="text-sm text-[#64748B] mb-4">
+            Hackathons and decisions you participated in (e.g. as participant or via submission).
+          </p>
           {data.participations.length === 0 ? (
             <Card className="p-6 text-center text-[#64748B]">
-              No hackathon participation recorded yet. Participate in a hackathon (e.g. submit a form) to see it here.
+              No participation recorded yet. Participate in a hackathon (e.g. submit a form) to see it here.
             </Card>
           ) : (
             <div className="space-y-3">

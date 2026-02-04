@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layouts';
 import { Card } from '@/components/ui';
+import { COUNTRY_CODES as ALL_COUNTRY_CODES } from '@/lib/data/country-codes';
 
 /** Profile shape returned by GET /api/v1/admin/profile */
 interface AdminProfile {
@@ -26,45 +27,21 @@ interface ProfileForm {
   organization: string;
 }
 
-/** Common country codes for phone (value includes +) */
-const COUNTRY_CODES = [
-  { value: '+254', label: 'Kenya (+254)' },
-  { value: '+255', label: 'Tanzania (+255)' },
-  { value: '+256', label: 'Uganda (+256)' },
-  { value: '+1', label: 'US/Canada (+1)' },
-  { value: '+44', label: 'UK (+44)' },
-  { value: '+91', label: 'India (+91)' },
-  { value: '+86', label: 'China (+86)' },
-  { value: '+33', label: 'France (+33)' },
-  { value: '+49', label: 'Germany (+49)' },
-  { value: '+81', label: 'Japan (+81)' },
-  { value: '+234', label: 'Nigeria (+234)' },
-  { value: '+27', label: 'South Africa (+27)' },
-  { value: '+61', label: 'Australia (+61)' },
-  { value: '+971', label: 'UAE (+971)' },
-  { value: '+353', label: 'Ireland (+353)' },
-  { value: '+31', label: 'Netherlands (+31)' },
-  { value: '+46', label: 'Sweden (+46)' },
-  { value: '+48', label: 'Poland (+48)' },
-  { value: '+39', label: 'Italy (+39)' },
-  { value: '+34', label: 'Spain (+34)' },
-  { value: '+55', label: 'Brazil (+55)' },
-  { value: '+52', label: 'Mexico (+52)' },
-  { value: '+7', label: 'Russia (+7)' },
-] as const;
+/** Single country code entry for type-safe use in parsePhone */
+type CountryCodeEntry = { value: string; label: string };
 
 /**
  * Parse stored phone (e.g. "+254728593820" or "254728593820") into country code and national number.
- * Falls back to Kenya (+254) if no match.
+ * Uses full country list; falls back to Kenya (+254) if no match.
  */
-function parsePhone(phone: string | null): { code: string; national: string } {
+function parsePhone(phone: string | null, countryCodes: ReadonlyArray<CountryCodeEntry>): { code: string; national: string } {
   if (!phone || !phone.trim()) {
     return { code: '+254', national: '' };
   }
   const digits = phone.replace(/\D/g, '');
   if (!digits.length) return { code: '+254', national: '' };
   // Sort by code length descending so +254 matches before +25
-  const sorted = [...COUNTRY_CODES].sort((a, b) => b.value.length - a.value.length);
+  const sorted = [...countryCodes].sort((a, b) => b.value.length - a.value.length);
   const toCodeDigits = (x: { value: string }) => x.value.replace(/\D/g, '');
   for (const c of sorted) {
     const codeDigs = toCodeDigits(c);
@@ -106,35 +83,82 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  /** Searchable country dropdown: open state and search query */
+  const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
+  const [countrySearch, setCountrySearch] = useState('');
+  const countryDropdownRef = useRef<HTMLDivElement>(null);
+  const countryListRef = useRef<HTMLUListElement>(null);
+
+  /** Filtered country list for search (all countries, filtered by search string) */
+  const filteredCountries = useMemo(() => {
+    const q = countrySearch.trim().toLowerCase();
+    if (!q) return ALL_COUNTRY_CODES;
+    // Extract country name from label (everything before the opening parenthesis)
+    // Format: "Country Name (+NN)" -> "Country Name"
+    const getCountryName = (label: string): string => {
+      const match = label.match(/^([^(]+)/);
+      return match ? match[1].trim().toLowerCase() : label.toLowerCase();
+    };
+    // Extract digits from query for code search (only if query contains digits)
+    const codeDigits = q.replace(/\D/g, '');
+    const filtered = ALL_COUNTRY_CODES.filter((c) => {
+      // Primary search: match country name (prioritize this)
+      const countryName = getCountryName(c.label);
+      if (countryName.includes(q)) {
+        return true;
+      }
+      // Secondary search: match country code only if query contains digits
+      if (codeDigits.length > 0 && c.value.includes(codeDigits)) {
+        return true;
+      }
+      return false;
+    });
+    console.log('[Profile] Filtering countries:', { query: q, total: ALL_COUNTRY_CODES.length, filtered: filtered.length, first5: filtered.slice(0, 5).map(c => c.label) });
+    return filtered;
+  }, [countrySearch]);
+
+  /** Selected country label for display */
+  const selectedCountryLabel =
+    ALL_COUNTRY_CODES.find((c) => c.value === form.phoneCountryCode)?.label ?? form.phoneCountryCode;
 
   const fetchProfile = useCallback(async () => {
     const token = localStorage.getItem('auth_token');
     if (!token) {
+      console.error('[Profile] No auth token found');
       router.push('/admin/login');
       return;
     }
     try {
+      console.log('[Profile] Fetching profile...');
       const res = await fetch('/api/v1/admin/profile', {
         headers: { Authorization: `Bearer ${token}` },
       });
+      console.log('[Profile] Response status:', res.status);
       if (res.status === 401) {
+        console.error('[Profile] Unauthorized - redirecting to login');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('admin');
         router.push('/admin/login');
         return;
       }
       if (!res.ok) {
+        const errorText = await res.text();
+        console.error('[Profile] Profile fetch failed:', res.status, errorText);
         setProfile(null);
         return;
       }
       const data: AdminProfile = await res.json();
+      console.log('[Profile] Profile loaded:', data.email);
       setProfile(data);
-      const { code, national } = parsePhone(data.phone ?? null);
+      const { code, national } = parsePhone(data.phone ?? null, ALL_COUNTRY_CODES);
       setForm({
         displayName: data.displayName ?? '',
         phoneCountryCode: code,
         phoneNational: national,
         organization: data.organization ?? '',
       });
-    } catch {
+    } catch (error) {
+      console.error('[Profile] Error fetching profile:', error);
       setProfile(null);
     } finally {
       setLoading(false);
@@ -150,9 +174,28 @@ export default function ProfilePage() {
     fetchProfile();
   }, [router, fetchProfile]);
 
+  /** Close country dropdown when clicking outside */
+  useEffect(() => {
+    if (!countryDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (countryDropdownRef.current && !countryDropdownRef.current.contains(e.target as Node)) {
+        setCountryDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [countryDropdownOpen]);
+
+  /** Scroll country list to top when search changes */
+  useEffect(() => {
+    if (countryListRef.current) {
+      countryListRef.current.scrollTop = 0;
+    }
+  }, [countrySearch]);
+
   const handleStartEdit = () => {
     if (profile) {
-      const { code, national } = parsePhone(profile.phone ?? null);
+      const { code, national } = parsePhone(profile.phone ?? null, ALL_COUNTRY_CODES);
       setForm({
         displayName: profile.displayName ?? '',
         phoneCountryCode: code,
@@ -280,23 +323,71 @@ export default function ProfilePage() {
                   <p className="text-[#0F172A]">{profile?.email}</p>
                 </div>
 
-                {/* Phone (country code + national number) */}
+                {/* Phone (country code + national number) — searchable country list */}
                 <div>
                   <label className="block text-sm font-medium text-[#334155] mb-2">Phone</label>
                   {editing ? (
-                    <div className="flex gap-2 max-w-md">
-                      <select
-                        value={form.phoneCountryCode}
-                        onChange={(e) => setForm((f) => ({ ...f, phoneCountryCode: e.target.value }))}
-                        className="px-3 py-2 border border-[#E2E8F0] rounded-lg text-[#0F172A] focus:ring-2 focus:ring-[#6366F1] focus:border-transparent min-w-[140px]"
-                        aria-label="Country code"
-                      >
-                        {COUNTRY_CODES.map((c) => (
-                          <option key={c.value} value={c.value}>
-                            {c.label}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="flex gap-2 max-w-md" ref={countryDropdownRef}>
+                      {/* Searchable country combobox: trigger shows selected; dropdown has search + list */}
+                      <div className="relative min-w-[180px]">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCountryDropdownOpen((o) => !o);
+                            setCountrySearch('');
+                          }}
+                          className="w-full px-3 py-2 border border-[#E2E8F0] rounded-lg text-left text-[#0F172A] focus:ring-2 focus:ring-[#6366F1] focus:border-transparent bg-white flex items-center justify-between"
+                          aria-label="Country code"
+                          aria-expanded={countryDropdownOpen}
+                          aria-haspopup="listbox"
+                        >
+                          <span className="truncate">{selectedCountryLabel}</span>
+                          <svg className="w-4 h-4 text-[#64748B] shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={countryDropdownOpen ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'} />
+                          </svg>
+                        </button>
+                        {countryDropdownOpen && (
+                          <div
+                            className="absolute z-10 mt-1 w-full max-h-[280px] flex flex-col rounded-lg border border-[#E2E8F0] bg-white shadow-lg"
+                            role="listbox"
+                          >
+                            <input
+                              type="text"
+                              value={countrySearch}
+                              onChange={(e) => setCountrySearch(e.target.value)}
+                              placeholder="Search countries..."
+                              className="mx-2 mt-2 px-3 py-2 border border-[#E2E8F0] rounded-md text-sm text-[#0F172A] focus:ring-2 focus:ring-[#6366F1] focus:border-transparent"
+                              aria-label="Search countries"
+                              autoFocus
+                            />
+                            <ul ref={countryListRef} className="overflow-y-auto py-2 max-h-[220px]" aria-label="Country list">
+                              {filteredCountries.length === 0 ? (
+                                <li className="px-4 py-2 text-sm text-[#64748B]">No countries match</li>
+                              ) : (
+                                filteredCountries.map((c, idx) => (
+                                  <li
+                                    key={`${c.value}-${c.label}-${idx}`}
+                                    role="option"
+                                    aria-selected={form.phoneCountryCode === c.value}
+                                    onClick={() => {
+                                      setForm((f) => ({ ...f, phoneCountryCode: c.value }));
+                                      setCountryDropdownOpen(false);
+                                      setCountrySearch('');
+                                    }}
+                                    className={`px-4 py-2 text-sm cursor-pointer ${
+                                      form.phoneCountryCode === c.value
+                                        ? 'bg-[#6366F1] text-white'
+                                        : 'text-[#0F172A] hover:bg-[#F1F5F9]'
+                                    }`}
+                                  >
+                                    {c.label}
+                                  </li>
+                                ))
+                              )}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
                       <input
                         type="tel"
                         value={form.phoneNational}

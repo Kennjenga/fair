@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import type { HackathonTemplate, CreateTemplateRequest, UpdateTemplateRequest, FormFieldDefinition, TemplateConfig } from '@/types/template';
 import type { QueryRow } from '@/types/database';
+import { BUILT_IN_TEMPLATES } from '@/lib/templates/built-in-templates';
 
 /**
  * Template database record
@@ -112,6 +113,17 @@ export async function getBuiltInTemplates(): Promise<TemplateRecord[]> {
   );
 
   return result.rows.map(parseTemplate);
+}
+
+/**
+ * Get a single built-in template by governance model (for idempotent seeding).
+ */
+export async function getBuiltInTemplateByGovernanceModel(governanceModel: string): Promise<TemplateRecord | null> {
+  const result = await query<TemplateRecord>(
+    'SELECT * FROM hackathon_templates WHERE is_built_in = true AND governance_model = $1 LIMIT 1',
+    [governanceModel]
+  );
+  return result.rows[0] ? parseTemplate(result.rows[0]) : null;
 }
 
 /**
@@ -282,4 +294,32 @@ function parseTemplate(record: TemplateRecord): TemplateRecord {
     record.default_form_fields = JSON.parse(record.default_form_fields);
   }
   return record;
+}
+
+/**
+ * Seed built-in templates into the database only if they do not already exist (idempotent).
+ * Inserts by governance_model so Centralized, Community-Led, Sponsor-Driven, etc. all appear.
+ * Returns counts of seeded and skipped templates.
+ */
+export async function seedBuiltInTemplatesIfMissing(): Promise<{ seeded: number; skipped: number }> {
+  let seeded = 0;
+  let skipped = 0;
+  for (const template of BUILT_IN_TEMPLATES) {
+    const existing = await getBuiltInTemplateByGovernanceModel(template.governanceModel);
+    if (existing) {
+      skipped++;
+      continue;
+    }
+    await createBuiltInTemplate(
+      template.name,
+      template.governanceModel,
+      template.config,
+      template.description,
+      template.intendedUse,
+      template.complexityLevel,
+      template.defaultFormFields
+    );
+    seeded++;
+  }
+  return { seeded, skipped };
 }

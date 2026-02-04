@@ -29,10 +29,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token payload' }, { status: 401 });
     }
 
-    // Resolve effective admin_id for "created" so dashboard shows hackathons created by this user
-    const adminId = await getEffectiveAdminId(payload);
-    if (!adminId) {
-      console.warn('[Dashboard API] No admin record for token; returning empty created list');
+    // Resolve effective admin_id for "created" so dashboard shows hackathons created by this user.
+    // On DB timeout/failure, treat as no admin so we can still return 200 with empty data (graceful degradation).
+    let adminId: string | null = null;
+    try {
+      adminId = await getEffectiveAdminId(payload);
+      if (!adminId) {
+        console.warn('[Dashboard API] No admin record for token; returning empty created list');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      console.error('[Dashboard API] getEffectiveAdminId failed (e.g. connection timeout):', msg);
+      // Continue with adminId = null so created list is empty; participated may still be fetched below
     }
 
     // Fetch decisions created (by resolved adminId) and participated (by email) in parallel
@@ -51,18 +59,17 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    // Ensure we always have arrays for accurate counts (defensive)
+    // Return all decisions (no limit) so every hackathon the user created or participated in is visible
     const created: DecisionSummary[] = Array.isArray(createdRaw) ? createdRaw : [];
     const participated: DecisionSummary[] = Array.isArray(participatedRaw) ? participatedRaw : [];
 
     console.log('[Dashboard API] Decisions created:', created.length, 'participated:', participated.length);
 
-    // Integrity metrics: integrityStatus comes from integrity_commitments (verifiable = has row(s), else pending)
+    // Integrity metrics from full lists
     const decisionsInitiated = created.length;
     const decisionsInitiatedVerifiable = created.filter((d) => d.integrityStatus === 'verifiable').length;
     const decisionsParticipatedIn = participated.length;
     const decisionsParticipatedInVerifiable = participated.filter((d) => d.integrityStatus === 'verifiable').length;
-    // Pending commitments = initiated decisions with no integrity_commitments row (same as integrityStatus === 'pending')
     const pendingCommitments = created.filter((d) => d.integrityStatus === 'pending').length;
 
     // Consistency check: verifiable + pending (for initiated) should equal total initiated
