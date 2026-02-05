@@ -1,4 +1,5 @@
 import { query } from '@/lib/db';
+import { getEffectiveAdminId } from '@/lib/repositories/admins';
 import type { Poll } from '@/types/poll';
 import type { QueryRow } from '@/types/database';
 
@@ -68,6 +69,18 @@ export async function hasPollAccess(
   }
   
   return false;
+}
+
+/**
+ * Check poll access using the effective admin id (resolved by email when session adminId is stale).
+ * Use this in API routes so admins can manage polls for hackathons they own.
+ */
+export async function hasPollAccessForAdmin(
+  poll: PollRecord,
+  admin: { adminId: string; email: string; role: string }
+): Promise<boolean> {
+  const effectiveId = (await getEffectiveAdminId(admin)) ?? admin.adminId;
+  return hasPollAccess(poll, effectiveId, admin.role);
 }
 
 /**

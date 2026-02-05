@@ -87,10 +87,10 @@ function getDbConfig() {
     
     return {
       ...config,
-      // Connection pool settings
+      // Connection pool settings (Neon/serverless may need longer timeouts on cold start)
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000, // Increased for cloud databases (Neon, etc.)
+      connectionTimeoutMillis: 20000, // 20s for cloud DBs (Neon, etc.) to reduce timeout errors
       // SSL configuration
       ssl: sslConfig,
     };
@@ -112,10 +112,10 @@ function getDbConfig() {
     database: process.env.DB_NAME || 'fair_db',
     user: process.env.DB_USER || 'postgres',
     password: password, // Always a string
-    // Connection pool settings
+    // Connection pool settings (allow longer connect for remote/serverless DBs)
     max: 20,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000, // Increased for cloud databases
+    connectionTimeoutMillis: 20000, // 20s for cloud databases
   };
 }
 

@@ -282,6 +282,7 @@ export default function CategoryTemplatesPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
@@ -305,36 +306,46 @@ export default function CategoryTemplatesPage() {
   const fetchTemplates = async (token: string) => {
     try {
       setError(null);
-      console.log('Fetching templates from API...');
       const response = await fetch('/api/v1/admin/templates?filter=built-in', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      console.log('Response status:', response.status);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('API error:', errorData);
         throw new Error(errorData.error || `Failed to fetch templates: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('Templates data received:', data);
       const fetchedTemplates = data.templates || [];
-      
-      console.log('Number of templates:', fetchedTemplates.length);
-      
-      if (fetchedTemplates.length === 0) {
-        console.warn('No templates found in database. Templates need to be seeded.');
-        setError('No templates found. Templates may need to be seeded into the database. Run: npm run seed-templates');
-      }
-      
+      if (fetchedTemplates.length === 0) setError(null);
       setTemplates(fetchedTemplates);
-    } catch (error) {
-      console.error('Error fetching templates:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load templates');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load templates');
     } finally {
       setLoading(false);
+    }
+  };
+
+  /** Load default built-in templates (Centralized, Community-Led, etc.) then refetch list */
+  const handleLoadDefaultTemplates = async () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    setSeeding(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/v1/admin/templates/seed', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to load templates');
+      }
+      await fetchTemplates(token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load default templates');
+    } finally {
+      setSeeding(false);
     }
   };
 
@@ -436,7 +447,7 @@ export default function CategoryTemplatesPage() {
     );
   }
 
-  // Show error or empty state
+  // Show error or empty state (no templates yet — offer one-click load of default templates)
   if (error || templates.length === 0) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex">
@@ -447,59 +458,49 @@ export default function CategoryTemplatesPage() {
               <ArrowLeft size={16} />
               Back to Dashboard
             </Link>
-            
+
             <div className="bg-white rounded-lg border border-[#E2E8F0] p-8 shadow-sm">
               <div className="text-center mb-6">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 mb-4">
-                  <Shield className="w-8 h-8 text-amber-600" />
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#EEF2FF] mb-4">
+                  <Shield className="w-8 h-8 text-[#4F46E5]" />
                 </div>
-                <h2 className="text-2xl font-bold text-[#0F172A] mb-2">No Templates Found</h2>
+                <h2 className="text-2xl font-bold text-[#0F172A] mb-2">No templates yet</h2>
                 <p className="text-[#64748B] mb-6">
-                  {error || 'Templates need to be seeded into the database.'}
+                  {error
+                    ? error
+                    : 'Load the default hackathon templates (Centralized, Community-Led, Sponsor-Driven, DAO-Managed, Hybrid, Rolling, Pilot) to get started.'}
                 </p>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
-                <h3 className="font-semibold text-blue-900 mb-3">How to Fix This</h3>
-                <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800 mb-4">
-                  <li>Open your terminal in the project root directory: <code className="bg-blue-100 px-2 py-1 rounded text-xs">c:\Users\ivynj\Desktop\clones\fair</code></li>
-                  <li>Make sure your database is running and connected</li>
-                  <li>Run the seed script: <code className="bg-blue-100 px-2 py-1 rounded text-xs font-mono">npm run seed-templates</code></li>
-                  <li>Wait for the seeding to complete (you should see 7 templates created)</li>
-                  <li>Refresh this page</li>
-                </ol>
-                <div className="bg-white rounded-lg p-4 border border-blue-300">
-                  <p className="text-xs font-mono text-blue-900 mb-2">Expected output:</p>
-                  <pre className="text-xs text-blue-800 bg-blue-50 p-2 rounded overflow-x-auto">
-{`✅ Created: [template-id] - Centralized Hackathon
-✅ Created: [template-id] - Community-Led Hackathon
-✅ Created: [template-id] - Sponsor-Driven Hackathon
-✅ Created: [template-id] - DAO-Managed Hackathon
-✅ Created: [template-id] - Hybrid Hackathon
-✅ Created: [template-id] - Rolling Hackathon
-✅ Created: [template-id] - Pilot Hackathon
-🎉 All built-in templates seeded successfully!`}
-                  </pre>
+              <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-6 mb-6">
+                <h3 className="font-semibold text-[#0F172A] mb-2">Available templates after loading</h3>
+                <p className="text-sm text-[#64748B] mb-4">
+                  Centralized (Organizer-Led), Community-Led, Sponsor-Driven, DAO-Managed, Hybrid, Rolling, Pilot.
+                </p>
+                <div className="flex flex-wrap gap-4 justify-center">
+                  <Button
+                    onClick={handleLoadDefaultTemplates}
+                    disabled={seeding}
+                    className="bg-gradient-to-r from-[#4F46E5] to-[#6366F1]"
+                  >
+                    {seeding ? 'Loading templates...' : 'Load default templates'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setLoading(true);
+                      setError(null);
+                      const token = localStorage.getItem('auth_token');
+                      if (token) fetchTemplates(token);
+                    }}
+                    disabled={seeding}
+                  >
+                    Retry
+                  </Button>
+                  <Link href="/admin/dashboard">
+                    <Button variant="secondary">Back to Dashboard</Button>
+                  </Link>
                 </div>
-              </div>
-
-              <div className="flex gap-4 justify-center">
-                <Button
-                  onClick={() => {
-                    setLoading(true);
-                    setError(null);
-                    const token = localStorage.getItem('auth_token');
-                    if (token) {
-                      fetchTemplates(token);
-                    }
-                  }}
-                  className="bg-gradient-to-r from-[#4F46E5] to-[#6366F1]"
-                >
-                  Retry Loading Templates
-                </Button>
-                <Link href="/admin/dashboard">
-                  <Button variant="secondary">Back to Dashboard</Button>
-                </Link>
               </div>
             </div>
           </div>

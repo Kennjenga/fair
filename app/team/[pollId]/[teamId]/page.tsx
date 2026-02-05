@@ -60,7 +60,7 @@ export default function PublicTeamDetailsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#1e40af] via-[#0891b2] to-[#059669] flex items-center justify-center">
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
         <LoadingSpinner size="lg" message="Loading team details..." />
       </div>
     );
@@ -68,21 +68,19 @@ export default function PublicTeamDetailsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#1e40af] via-[#0891b2] to-[#059669] flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
-          <div className="text-center">
-            <div className="text-red-500 text-5xl mb-4">⚠️</div>
-            <h2 className="text-xl font-semibold text-[#0f172a] mb-2">Access Denied</h2>
-            <p className="text-[#64748b] mb-4">{error}</p>
-            {token && (
-              <Link
-                href={`/vote?token=${encodeURIComponent(token)}`}
-                className="inline-block bg-[#1e40af] text-white px-6 py-2 rounded-lg font-semibold hover:bg-[#1e3a8a] transition-colors"
-              >
-                Return to Voting Page
-              </Link>
-            )}
-          </div>
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 max-w-md w-full text-center">
+          <div className="text-red-500 text-5xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          {token && (
+            <Link
+              href={`/vote?token=${encodeURIComponent(token)}`}
+              className="inline-block bg-[#4F46E5] text-white px-6 py-2.5 rounded-lg font-medium hover:bg-[#4338CA] transition-colors"
+            >
+              Return to Voting Page
+            </Link>
+          )}
         </div>
       </div>
     );
@@ -92,118 +90,103 @@ export default function PublicTeamDetailsPage() {
     return null;
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1e40af] via-[#0891b2] to-[#059669] py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-lg shadow-xl p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-[#1e40af] mb-2">
-              FAIR Voting Portal
-            </h1>
-            <p className="text-[#64748b]">Team Details</p>
-          </div>
+  const hasProjectDetails = !!(team.project_name || team.project_description || team.pitch || team.live_site_url || team.github_url);
 
-          <div className="mb-6">
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] py-12 px-4">
+      <div className="max-w-2xl mx-auto">
+        {/* Main card - matches submit and vote layout */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          {/* Header block */}
+          <div className="p-6 border-b border-gray-200">
             <Link
               href={`/vote?token=${encodeURIComponent(token || '')}`}
-              className="text-[#1e40af] hover:underline inline-flex items-center gap-2 text-sm"
+              className="text-[#4F46E5] hover:text-[#4338CA] font-medium text-sm inline-flex items-center gap-1 mb-4"
             >
               ← Back to Voting
             </Link>
+            <h1 className="text-2xl font-bold text-gray-900">{team.team_name}</h1>
+            <p className="text-sm text-gray-500 mt-1">{members.length} member(s) registered</p>
           </div>
 
-          <div className="mb-6 pb-6 border-b border-[#e2e8f0]">
-            <h2 className="text-2xl font-bold text-[#0f172a] mb-2">{team.team_name}</h2>
-            <p className="text-[#64748b]">{members.length} member(s) registered</p>
-          </div>
-
-          <div className="mb-6">
-            <h3 className="text-xl font-semibold text-[#0f172a] mb-4">Project Information</h3>
-            <div className="space-y-4">
-              {team.project_name ? (
-                <div className="p-3 bg-[#f8fafc] rounded border border-[#e2e8f0]">
-                  <span className="text-sm font-semibold text-[#0f172a]">Project Name: </span>
-                  <span className="text-sm text-[#64748b]">{team.project_name}</span>
-                </div>
-              ) : (
-                <p className="text-[#94a3b8] italic text-sm">Not provided</p>
-              )}
-
-              {team.project_description ? (
-                <div className="p-3 bg-[#f8fafc] rounded border border-[#e2e8f0]">
-                  <span className="text-sm font-semibold text-[#0f172a] block mb-1">Description: </span>
-                  <p className="text-sm text-[#64748b] whitespace-pre-wrap">{team.project_description}</p>
-                </div>
-              ) : (
-                <p className="text-[#94a3b8] italic text-sm">Not provided</p>
-              )}
-
-              {team.pitch ? (
-                <div className="p-3 bg-[#f8fafc] rounded border border-[#e2e8f0]">
-                  <span className="text-sm font-semibold text-[#0f172a] block mb-1">Pitch: </span>
-                  <p className="text-sm text-[#64748b] whitespace-pre-wrap">{team.pitch}</p>
-                </div>
-              ) : (
-                <p className="text-[#94a3b8] italic text-sm">Not provided</p>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {team.live_site_url ? (
-                  <div className="p-3 bg-[#f8fafc] rounded border border-[#e2e8f0]">
-                    <a
-                      href={team.live_site_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-[#0891b2] hover:underline"
-                    >
-                      🔗 Live Site
-                    </a>
+          {/* Project Information - single organized section */}
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Project Information</h2>
+            {hasProjectDetails ? (
+              <div className="space-y-4">
+                {team.project_name && (
+                  <div>
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Project Name</span>
+                    <p className="text-gray-900 font-medium mt-0.5">{team.project_name}</p>
                   </div>
-                ) : (
-                  <p className="text-[#94a3b8] italic text-sm">Not provided</p>
                 )}
-
-                {team.github_url ? (
-                  <div className="p-3 bg-[#f8fafc] rounded border border-[#e2e8f0]">
-                    <a
-                      href={team.github_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-[#0891b2] hover:underline"
-                    >
-                      💻 GitHub
-                    </a>
+                {team.project_description && (
+                  <div>
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Description</span>
+                    <p className="text-gray-700 text-sm mt-0.5 whitespace-pre-wrap">{team.project_description}</p>
                   </div>
-                ) : (
-                  <p className="text-[#94a3b8] italic text-sm">Not provided</p>
+                )}
+                {team.pitch && (
+                  <div>
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pitch</span>
+                    <p className="text-gray-700 text-sm mt-0.5 whitespace-pre-wrap">{team.pitch}</p>
+                  </div>
+                )}
+                {(team.live_site_url || team.github_url) && (
+                  <div className="flex flex-wrap gap-4 pt-1">
+                    {team.live_site_url && (
+                      <a
+                        href={team.live_site_url.startsWith('http') ? team.live_site_url : `https://${team.live_site_url}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium text-[#4F46E5] hover:underline"
+                      >
+                        Live site →
+                      </a>
+                    )}
+                    {team.github_url && (
+                      <a
+                        href={team.github_url.startsWith('http') ? team.github_url : `https://${team.github_url}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium text-[#4F46E5] hover:underline"
+                      >
+                        GitHub →
+                      </a>
+                    )}
+                  </div>
                 )}
               </div>
-            </div>
+            ) : (
+              <p className="text-sm text-gray-500 italic">No project details submitted yet.</p>
+            )}
           </div>
 
-          <div className="pt-6 border-t border-[#e2e8f0]">
-            <h3 className="text-xl font-semibold text-[#0f172a] mb-4">Team Members ({members.length})</h3>
-            <div className="space-y-2">
-              {members.length === 0 ? (
-                <p className="text-[#64748b] text-center py-4">No members registered</p>
-              ) : (
-                members.map((member: any) => (
-                  <div key={member.tokenId} className="p-3 border border-[#e2e8f0] rounded-lg bg-[#f8fafc]">
-                    <div>
-                      <p className="font-medium text-[#0f172a] text-sm">{member.email}</p>
-                      <div className="mt-2 flex gap-4 text-xs">
-                        <span className={`font-medium ${member.used ? 'text-[#059669]' : 'text-[#dc2626]'}`}>
-                          Status: {member.used ? 'Voted' : 'Not Voted'}
-                        </span>
-                        <span className="text-[#64748b]">
-                          Registered: {new Date(member.issuedAt).toLocaleDateString()}
-                        </span>
-                      </div>
+          {/* Team Members - same card style as rest of app */}
+          <div className="p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Team Members ({members.length})</h2>
+            {members.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">No members registered</p>
+            ) : (
+              <div className="space-y-3">
+                {members.map((member: any) => (
+                  <div
+                    key={member.tokenId}
+                    className="p-4 rounded-xl border border-gray-200 bg-gray-50/50"
+                  >
+                    <p className="font-medium text-gray-900 text-sm">{member.email}</p>
+                    <div className="mt-2 flex flex-wrap gap-4 text-xs">
+                      <span className={member.used ? 'text-[#059669] font-medium' : 'text-red-600 font-medium'}>
+                        Status: {member.used ? 'Voted' : 'Not Voted'}
+                      </span>
+                      <span className="text-gray-500">
+                        Registered: {new Date(member.issuedAt).toLocaleDateString()}
+                      </span>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

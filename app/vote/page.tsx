@@ -24,6 +24,8 @@ function VotePageContent() {
   const [token, setToken] = useState(tokenFromUrl || '');
   const [teamName, setTeamName] = useState('');
   const [showProjectInfo, setShowProjectInfo] = useState(false);
+  // Judge reason for single/multiple vote (required when judge votes in those modes)
+  const [judgeVoteReason, setJudgeVoteReason] = useState('');
 
   // Voting state - supports all three modes
   const [selectedTeamId, setSelectedTeamId] = useState('');
@@ -202,14 +204,26 @@ function VotePageContent() {
         setLoading(false);
         return;
       }
+      if (isJudge && !judgeVoteReason?.trim()) {
+        setError('Please provide a reason for your vote');
+        setLoading(false);
+        return;
+      }
       votePayload.teamIdTarget = selectedTeamId;
+      if (isJudge && judgeVoteReason?.trim()) votePayload.reason = judgeVoteReason.trim();
     } else if (pollData?.votingMode === 'multiple') {
       if (selectedTeams.length === 0) {
         setError('Please select at least one team to vote for');
         setLoading(false);
         return;
       }
+      if (isJudge && !judgeVoteReason?.trim()) {
+        setError('Please provide a reason for your vote');
+        setLoading(false);
+        return;
+      }
       votePayload.teams = selectedTeams;
+      if (isJudge && judgeVoteReason?.trim()) votePayload.reason = judgeVoteReason.trim();
     } else if (pollData?.votingMode === 'ranked') {
       if (rankings.length === 0) {
         setError('Please rank at least one team');
@@ -279,9 +293,13 @@ function VotePageContent() {
 
   const canSubmit = () => {
     if (pollData?.votingMode === 'single') {
-      return !!selectedTeamId;
+      const hasSelection = !!selectedTeamId;
+      const hasReason = !isJudge || !!judgeVoteReason?.trim();
+      return hasSelection && hasReason;
     } else if (pollData?.votingMode === 'multiple') {
-      return selectedTeams.length > 0;
+      const hasSelection = selectedTeams.length > 0;
+      const hasReason = !isJudge || !!judgeVoteReason?.trim();
+      return hasSelection && hasReason;
     } else if (pollData?.votingMode === 'ranked') {
       return rankings.length > 0;
     }
@@ -367,7 +385,9 @@ function VotePageContent() {
               </p>
               {isJudge && (
                 <p className="text-sm text-[#DC2626] mt-2">
-                  ⚠️ As a judge, you must provide reasons for all rankings
+                  {pollData?.votingMode === 'ranked'
+                    ? '⚠️ As a judge, you must provide reasons for all rankings'
+                    : '⚠️ As a judge, you must provide a reason for your vote'}
                 </p>
               )}
             </div>
@@ -543,6 +563,23 @@ function VotePageContent() {
                   ))}
                 </div>
 
+                {/* Judge reason (required for single vote when judge) */}
+                {isJudge && (
+                  <div className="pt-4 border-t border-[#E2E8F0]">
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Reason for your vote <span className="text-[#DC2626]">*</span>
+                    </label>
+                    <textarea
+                      value={judgeVoteReason}
+                      onChange={(e) => setJudgeVoteReason(e.target.value)}
+                      rows={3}
+                      required
+                      placeholder="Explain why you are voting for this team (required for judges)"
+                      className="w-full px-4 py-3 border border-[#E2E8F0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent transition-all"
+                    />
+                  </div>
+                )}
+
                 <div className="pt-4 border-t border-[#E2E8F0]">
                   <Button
                     onClick={handleVoteSubmit}
@@ -555,6 +592,9 @@ function VotePageContent() {
                   </Button>
                   {!selectedTeamId && (
                     <p className="text-center text-sm text-[#DC2626] mt-2">Please select a team to vote for</p>
+                  )}
+                  {isJudge && selectedTeamId && !judgeVoteReason?.trim() && (
+                    <p className="text-center text-sm text-[#DC2626] mt-2">Please provide a reason for your vote</p>
                   )}
                 </div>
               </div>
@@ -664,6 +704,23 @@ function VotePageContent() {
                   ))}
                 </div>
 
+                {/* Judge reason (required for multiple vote when judge) */}
+                {isJudge && (
+                  <div className="pt-4 border-t border-[#E2E8F0]">
+                    <label className="block text-sm font-medium text-[#0F172A] mb-2">
+                      Reason for your selection <span className="text-[#DC2626]">*</span>
+                    </label>
+                    <textarea
+                      value={judgeVoteReason}
+                      onChange={(e) => setJudgeVoteReason(e.target.value)}
+                      rows={3}
+                      required
+                      placeholder="Explain why you selected these teams (required for judges)"
+                      className="w-full px-4 py-3 border border-[#E2E8F0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent transition-all"
+                    />
+                  </div>
+                )}
+
                 <Button
                   onClick={handleVoteSubmit}
                   disabled={loading || !canSubmit()}
@@ -673,6 +730,9 @@ function VotePageContent() {
                 >
                   {loading ? 'Submitting Vote...' : 'Submit Vote'}
                 </Button>
+                {isJudge && selectedTeams.length > 0 && !judgeVoteReason?.trim() && (
+                  <p className="text-center text-sm text-[#DC2626] mt-2">Please provide a reason for your vote</p>
+                )}
               </div>
             )}
 

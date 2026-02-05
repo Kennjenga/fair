@@ -233,6 +233,21 @@ export async function POST(req: NextRequest) {
         );
       }
       
+      // Judges must provide a reason for their vote in single mode
+      if (voteType === 'judge') {
+        const reason = validated.reason?.trim();
+        if (!reason) {
+          return NextResponse.json(
+            { error: 'Judges must provide a reason for their vote' },
+            { status: 400 }
+          );
+        }
+        voteOptions.rankings = processRankings(
+          [{ teamId: validated.teamIdTarget, rank: 1, reason }],
+          allTeams.length
+        );
+      }
+      
       // Verify target team exists and belongs to poll
       if (!teamIds.has(validated.teamIdTarget)) {
         return NextResponse.json(
@@ -256,6 +271,21 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           { error: 'teams array is required for multiple vote mode' },
           { status: 400 }
+        );
+      }
+      
+      // Judges must provide a reason for their selection in multiple mode
+      if (voteType === 'judge') {
+        const reason = validated.reason?.trim();
+        if (!reason) {
+          return NextResponse.json(
+            { error: 'Judges must provide a reason for their vote' },
+            { status: 400 }
+          );
+        }
+        voteOptions.rankings = processRankings(
+          validated.teams.map((teamId, i) => ({ teamId, rank: i + 1, reason })),
+          allTeams.length
         );
       }
       

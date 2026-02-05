@@ -26,6 +26,7 @@ export const Footer = () => {
             <h4 className="font-semibold text-white mb-4">Product</h4>
             <ul className="space-y-2 text-[#9CA3AF]">
               <li><Link href="/vote" className="hover:text-[#818CF8] transition-colors">Cast Vote</Link></li>
+              <li><Link href="/admin/login?as=voter" className="hover:text-[#818CF8] transition-colors">Voter login</Link></li>
               <li><Link href="/results" className="hover:text-[#818CF8] transition-colors">Results</Link></li>
               <li><Link href="/docs" className="hover:text-[#818CF8] transition-colors">Documentation</Link></li>
             </ul>

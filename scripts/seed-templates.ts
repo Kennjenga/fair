@@ -1,58 +1,34 @@
 /**
- * Seed built-in hackathon templates into the database
+ * Seed built-in hackathon templates into the database (idempotent).
  * Run with: npm run seed-templates
+ * Only inserts templates that do not already exist (by governance_model), so Centralized,
+ * Community-Led, Sponsor-Driven, DAO-Managed, Hybrid, Rolling, and Pilot all appear.
  */
 
-import { BUILT_IN_TEMPLATES } from '../lib/templates/built-in-templates';
-import { createBuiltInTemplate } from '../lib/repositories/templates';
+import { seedBuiltInTemplatesIfMissing } from '../lib/repositories/templates';
 import dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config({ path: '.env.local' });
 
 async function seedTemplates() {
-  console.log('🌱 Seeding built-in hackathon templates...\n');
+  console.log('🌱 Seeding built-in hackathon templates (idempotent)...\n');
 
-  let successCount = 0;
-  let errorCount = 0;
+  try {
+    const { seeded, skipped } = await seedBuiltInTemplatesIfMissing();
 
-  for (const template of BUILT_IN_TEMPLATES) {
-    try {
-      console.log(`📝 Creating template: ${template.name}`);
-      
-      const created = await createBuiltInTemplate(
-        template.name,
-        template.governanceModel,
-        template.config,
-        template.description,
-        template.intendedUse,
-        template.complexityLevel,
-        template.defaultFormFields
-      );
+    console.log('\n📊 Seeding Summary:');
+    console.log(`   ✅ Seeded: ${seeded} new template(s)`);
+    console.log(`   ⏭️  Skipped (already exist): ${skipped} template(s)`);
 
-      console.log(`✅ Created: ${created.template_id} - ${template.name}`);
-      console.log(`   Governance: ${template.governanceModel}`);
-      console.log(`   Complexity: ${template.complexityLevel}`);
-      console.log(`   Form Fields: ${template.defaultFormFields.length}`);
-      console.log('');
-      
-      successCount++;
-    } catch (error: any) {
-      console.error(`❌ Error creating ${template.name}:`, error.message);
-      errorCount++;
+    if (seeded > 0) {
+      console.log('\n🎉 New built-in templates added. All templates (e.g. Centralized, Community-Led) are now available.');
+    } else if (skipped > 0) {
+      console.log('\n✅ All built-in templates already present. Nothing to do.');
     }
-  }
-
-  console.log('\n📊 Seeding Summary:');
-  console.log(`   ✅ Success: ${successCount} templates`);
-  console.log(`   ❌ Errors: ${errorCount} templates`);
-  console.log(`   📦 Total: ${BUILT_IN_TEMPLATES.length} templates`);
-
-  if (successCount === BUILT_IN_TEMPLATES.length) {
-    console.log('\n🎉 All built-in templates seeded successfully!');
     process.exit(0);
-  } else {
-    console.log('\n⚠️  Some templates failed to seed. Please check the errors above.');
+  } catch (error: any) {
+    console.error('❌ Seeding failed:', error.message);
     process.exit(1);
   }
 }

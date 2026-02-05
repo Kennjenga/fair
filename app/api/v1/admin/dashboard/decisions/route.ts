@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth/jwt';
 import { getDecisionsCreated, getDecisionsParticipated } from '@/lib/repositories/participation';
+import { getEffectiveAdminId } from '@/lib/repositories/admins';
+import type { DecisionSummary } from '@/types/participation';
+import { isAdminPayload } from '@/types/auth';
 
 /**
  * GET /api/v1/admin/dashboard/decisions
- * Get user's decision participation data with integrity metrics
+ * Get user's decision participation data with integrity metrics.
+ * Integrity status (verifiable/pending) is derived from integrity_commitments table.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -16,61 +20,95 @@ export async function GET(request: NextRequest) {
 
     const token = authHeader.substring(7);
     const payload = verifyToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    // Admin dashboard requires admin JWT (reject voter tokens)
+    if (!isAdminPayload(payload)) {
+      return NextResponse.json({ error: 'Admin token required' }, { status: 401 });
     }
 
-    const adminId = payload.adminId;
     const email = payload.email;
+    if (!email) {
+      console.error('[Dashboard API] Missing email in token payload');
+      return NextResponse.json({ error: 'Invalid token payload' }, { status: 401 });
+    }
 
-    // Get decisions created and participated in
-    // Created: Use adminId to get all decision types (hackathons, polls, etc.)
-    // Participated: Use email to get all participations
-    console.log('[Dashboard API] Fetching decisions for adminId:', adminId, 'email:', email);
-    
-    const [created, participated] = await Promise.all([
-      getDecisionsCreated(adminId).catch((err) => {
+    // Resolve effective admin_id for "created" so dashboard shows hackathons created by this user.
+    // On DB timeout/failure, treat as no admin so we can still return 200 with empty data (graceful degradation).
+    let adminId: string | null = null;
+    try {
+      adminId = await getEffectiveAdminId(payload);
+      if (!adminId) {
+        console.warn('[Dashboard API] No admin record for token; returning empty created list');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      console.error('[Dashboard API] getEffectiveAdminId failed (e.g. connection timeout):', msg);
+      // Continue with adminId = null so created list is empty; participated may still be fetched below
+    }
+
+    // Fetch decisions created (by resolved adminId) and participated (by email) in parallel
+    console.log('[Dashboard API] Fetching decisions for adminId:', adminId ?? payload.adminId, 'email:', email);
+
+    const [createdRaw, participatedRaw] = await Promise.all([
+      getDecisionsCreated(adminId ?? payload.adminId).catch((err: unknown) => {
         console.error('[Dashboard API] Error fetching decisions created:', err);
-        console.error('[Dashboard API] Error stack:', err.stack);
-        return [];
+        if (err instanceof Error) console.error('[Dashboard API] Stack:', err.stack);
+        return [] as DecisionSummary[];
       }),
-      getDecisionsParticipated(email).catch((err) => {
+      getDecisionsParticipated(email).catch((err: unknown) => {
         console.error('[Dashboard API] Error fetching decisions participated:', err);
-        console.error('[Dashboard API] Error stack:', err.stack);
-        return [];
+        if (err instanceof Error) console.error('[Dashboard API] Stack:', err.stack);
+        return [] as DecisionSummary[];
       }),
     ]);
 
-    console.log('[Dashboard API] Found decisions created:', created.length);
-    console.log('[Dashboard API] Found decisions participated:', participated.length);
+    // Return all decisions (no limit) so every hackathon the user created or participated in is visible
+    const created: DecisionSummary[] = Array.isArray(createdRaw) ? createdRaw : [];
+    const participated: DecisionSummary[] = Array.isArray(participatedRaw) ? participatedRaw : [];
 
-    // Calculate integrity metrics
+    console.log('[Dashboard API] Decisions created:', created.length, 'participated:', participated.length);
+
+    // Integrity metrics from full lists
     const decisionsInitiated = created.length;
-    const decisionsInitiatedVerifiable = created.filter(d => d.integrityStatus === 'verifiable').length;
+    const decisionsInitiatedVerifiable = created.filter((d) => d.integrityStatus === 'verifiable').length;
     const decisionsParticipatedIn = participated.length;
-    const decisionsParticipatedInVerifiable = participated.filter(d => d.integrityStatus === 'verifiable').length;
-    
-    // Count pending commitments (decisions with pending integrity state)
-    const pendingCommitments = created.filter(d => d.integrityState === 'pending').length;
+    const decisionsParticipatedInVerifiable = participated.filter((d) => d.integrityStatus === 'verifiable').length;
+    const pendingCommitments = created.filter((d) => d.integrityStatus === 'pending').length;
+
+    // Consistency check: verifiable + pending (for initiated) should equal total initiated
+    const initiatedSum = decisionsInitiatedVerifiable + pendingCommitments;
+    if (initiatedSum !== decisionsInitiated) {
+      console.warn(
+        '[Dashboard API] Integrity count mismatch: initiated verifiable + pending =',
+        initiatedSum,
+        'expected',
+        decisionsInitiated
+      );
+    }
+
+    const integrityMetrics = {
+      decisionsInitiated,
+      decisionsInitiatedVerifiable,
+      decisionsParticipatedIn,
+      decisionsParticipatedInVerifiable,
+      pendingCommitments,
+    };
+    console.log('[Dashboard API] Integrity metrics:', JSON.stringify(integrityMetrics));
 
     return NextResponse.json(
       {
         decisionsCreated: created,
         decisionsParticipated: participated,
-        integrityMetrics: {
-          decisionsInitiated,
-          decisionsInitiatedVerifiable,
-          decisionsParticipatedIn,
-          decisionsParticipatedInVerifiable,
-          pendingCommitments,
-        },
+        integrityMetrics,
       },
       { status: 200 }
     );
-  } catch (error: any) {
-    console.error('Error fetching dashboard decisions:', error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error('[Dashboard API] Unhandled error fetching dashboard decisions:', message, stack);
+
     return NextResponse.json(
-      { error: 'Failed to fetch decisions', details: error.message },
+      { error: 'Failed to fetch decisions', details: process.env.NODE_ENV === 'development' ? message : undefined },
       { status: 500 }
     );
   }

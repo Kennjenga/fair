@@ -1,5 +1,5 @@
 import jwt, { type SignOptions } from 'jsonwebtoken';
-import type { JWTPayload } from '@/types/auth';
+import type { AdminJWTPayload, JWTPayload, VoterJWTPayload } from '@/types/auth';
 
 /**
  * JWT secret from environment variables
@@ -9,15 +9,25 @@ const JWT_SECRET: string = process.env.JWT_SECRET || 'default-secret-change-in-p
 const JWT_EXPIRES_IN: string = process.env.JWT_EXPIRES_IN || '24h';
 
 /**
- * Generate a JWT token for an admin
- * @param payload - JWT payload containing admin information
+ * Generate a JWT token for an admin (type-safe admin payload)
+ * @param payload - Admin JWT payload (adminId, email, role)
  * @returns Signed JWT token
  */
-export function generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
+export function generateToken(payload: Omit<AdminJWTPayload, 'iat' | 'exp'>): string {
   const options: SignOptions = {
-    expiresIn: JWT_EXPIRES_IN as any,
+    expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'],
   };
   return jwt.sign(payload, JWT_SECRET, options);
+}
+
+/**
+ * Generate a JWT token for a voter (for voter login)
+ */
+export function generateVoterToken(payload: Omit<VoterJWTPayload, 'iat' | 'exp'>): string {
+  const options: SignOptions = {
+    expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'],
+  };
+  return jwt.sign({ ...payload, type: 'voter' as const }, JWT_SECRET, options);
 }
 
 /**
@@ -29,7 +39,7 @@ export function generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string 
 export function verifyToken(token: string): JWTPayload {
   try {
     const decoded = jwt.verify(token, JWT_SECRET as string) as JWTPayload;
-    return decoded;
+    return decoded as JWTPayload;
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
       throw new Error('Token has expired');

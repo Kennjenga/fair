@@ -47,9 +47,15 @@ export async function getUserParticipation(userIdentifier: string): Promise<Part
 }
 
 /**
+ * Integrity status is determined by integrity_commitments: verifiable if at least one row
+ * exists for the hackathon_id, otherwise pending. Used consistently in getDecisionsCreated
+ * and getDecisionsParticipated for dashboard metrics.
+ */
+
+/**
  * Get decisions created by a user (organizer role)
  * Includes ALL decision types: hackathons, polls, etc.
- * 
+ *
  * Query Strategy:
  * 1. Get hackathons where created_by = adminId (direct ownership)
  * 2. Get polls where created_by = adminId (direct ownership)
@@ -199,6 +205,7 @@ export async function getDecisionsCreated(adminId: string): Promise<DecisionSumm
   console.log('[getDecisionsCreated] Unique rows after deduplication:', uniqueRows.length);
 
   const mapped = uniqueRows.map((row) => {
+    // integrity_status from SQL: verifiable if integrity_commitments has row(s) for this hackathon
     const hasCommitments = row.integrity_status === 'verifiable';
     const isFinalized = row.status === 'finalized';
     const canManage = row.created_by === adminId && !isFinalized;
@@ -254,24 +261,22 @@ export async function getDecisionsCreated(adminId: string): Promise<DecisionSumm
 
 /**
  * Get decisions a user participated in (any role except organizer)
- * 
- * Query Strategy - Checks multiple participation methods:
+ *
+ * Query Strategy - Checks all participation methods so "Participated In" is complete:
  * 1. user_participation table (explicit participation tracking)
  * 2. tokens table (user received a voting token by email)
- * 3. votes table (user voted as judge via judge_email, or as voter via token lookup)
+ * 3. votes table (user voted as judge via judge_email)
  * 4. submissions table (user submitted something via submitted_by email)
- * 
+ * 5. poll_judges table (user is listed as judge on a poll, even if not yet voted)
+ *
  * Note: user_identifier in user_participation can be stored as either:
  * - The user's email address (most common for participants)
  * - The admin's adminId UUID (if they participated as an admin)
- * 
- * This function checks all participation methods to ensure all decisions are found.
  */
 export async function getDecisionsParticipated(email: string): Promise<DecisionSummary[]> {
   console.log('[getDecisionsParticipated] Starting query for email:', email);
-  
-  // Get adminId if this email belongs to an admin
-  // This allows us to find participations stored with either email or adminId
+
+  // Get adminId if this email belongs to an admin (for user_participation lookup by email or adminId)
   const adminResult = await query<{ admin_id: string }>(
     'SELECT admin_id FROM admins WHERE email = $1',
     [email]
@@ -279,17 +284,12 @@ export async function getDecisionsParticipated(email: string): Promise<DecisionS
   const adminId = adminResult.rows[0]?.admin_id || null;
   console.log('[getDecisionsParticipated] AdminId found:', adminId);
 
-  // Build participation conditions - check both email and adminId if available
   const userIdentifiers = adminId ? [email, adminId] : [email];
-  const userIdentifierCondition = adminId 
+  const userIdentifierCondition = adminId
     ? `(up.user_identifier = $1 OR up.user_identifier = $2)`
     : `up.user_identifier = $1`;
 
-  // Comprehensive query that checks all participation methods:
-  // 1. user_participation table (explicit tracking)
-  // 2. tokens table (voting tokens issued to email) - via polls -> hackathons
-  // 3. votes table (judge votes via judge_email) - via polls -> hackathons
-  // 4. submissions table (submissions via submitted_by email)
+  // Query all participation methods so user can view every decision they participated in
   const result = await query<any>(
     `SELECT DISTINCT
        h.hackathon_id,
@@ -303,9 +303,9 @@ export async function getDecisionsParticipated(email: string): Promise<DecisionS
        t.name as template_name,
        COALESCE(
          up.participation_role,
-         CASE 
+         CASE
            WHEN tok.token_id IS NOT NULL THEN 'voter'
-           WHEN v.judge_email IS NOT NULL THEN 'judge'
+           WHEN v.judge_email IS NOT NULL OR pj.poll_id IS NOT NULL THEN 'judge'
            WHEN sub.submission_id IS NOT NULL THEN 'participant'
            ELSE 'participant'
          END
@@ -314,54 +314,65 @@ export async function getDecisionsParticipated(email: string): Promise<DecisionS
          up.participated_at,
          tok.issued_at,
          v.timestamp,
-         sub.submitted_at
+         sub.submitted_at,
+         pj.created_at
        ) as participated_at,
-       CASE 
-         WHEN EXISTS (SELECT 1 FROM integrity_commitments ic WHERE ic.hackathon_id = h.hackathon_id) 
+       CASE
+         WHEN EXISTS (SELECT 1 FROM integrity_commitments ic WHERE ic.hackathon_id = h.hackathon_id)
          THEN 'verifiable'
          ELSE 'pending'
        END as integrity_status,
        (SELECT COUNT(DISTINCT user_identifier) FROM user_participation WHERE hackathon_id = h.hackathon_id) as participation_count
      FROM hackathons h
      LEFT JOIN hackathon_templates t ON h.template_id = t.template_id
-     
+
      -- Method 1: user_participation table (explicit tracking)
-     LEFT JOIN user_participation up ON h.hackathon_id = up.hackathon_id 
+     LEFT JOIN user_participation up ON h.hackathon_id = up.hackathon_id
        AND ${userIdentifierCondition}
        AND up.participation_role != 'organizer'
-     
+
      -- Method 2: tokens table (voting tokens issued to email) - via polls
      LEFT JOIN polls p_tok ON p_tok.hackathon_id = h.hackathon_id
      LEFT JOIN tokens tok ON tok.poll_id = p_tok.poll_id AND tok.email = $1
-     
+
      -- Method 3: votes table (judge votes via judge_email) - via polls
      LEFT JOIN polls p_vote ON p_vote.hackathon_id = h.hackathon_id
      LEFT JOIN votes v ON v.poll_id = p_vote.poll_id AND v.judge_email = $1
-     
+
      -- Method 4: submissions table (submissions via submitted_by email)
-     LEFT JOIN hackathon_submissions sub ON sub.hackathon_id = h.hackathon_id 
+     LEFT JOIN hackathon_submissions sub ON sub.hackathon_id = h.hackathon_id
        AND sub.submitted_by = $1
-     
+
+     -- Method 5: poll_judges table (listed as judge on a poll, even before voting)
+     LEFT JOIN polls p_judge ON p_judge.hackathon_id = h.hackathon_id
+     LEFT JOIN poll_judges pj ON pj.poll_id = p_judge.poll_id AND pj.email = $1
+
      WHERE (
-       -- User has explicit participation record (non-organizer)
        up.participation_id IS NOT NULL
-       -- OR user has a voting token
        OR tok.token_id IS NOT NULL
-       -- OR user voted as judge
        OR v.vote_id IS NOT NULL
-       -- OR user submitted something
        OR sub.submission_id IS NOT NULL
+       OR pj.poll_id IS NOT NULL
      )
      ORDER BY h.updated_at DESC`,
     userIdentifiers
   );
   
-  console.log('[getDecisionsParticipated] Participations found:', result.rows.length);
-  if (result.rows.length > 0) {
-    console.log('[getDecisionsParticipated] Sample participation:', JSON.stringify(result.rows[0], null, 2));
+  console.log('[getDecisionsParticipated] Raw rows before deduplication:', result.rows.length);
+
+  // Deduplicate by hackathon_id: multiple participation methods (token, vote, submission)
+  // can produce multiple rows per hackathon; we need one row per decision for accurate counts
+  const uniqueRows = Array.from(
+    new Map(result.rows.map((row) => [row.hackathon_id, row])).values()
+  );
+  console.log('[getDecisionsParticipated] Unique participations after deduplication:', uniqueRows.length);
+
+  if (uniqueRows.length > 0) {
+    console.log('[getDecisionsParticipated] Sample participation:', JSON.stringify(uniqueRows[0], null, 2));
   }
 
-  const mapped = result.rows.map((row) => {
+  const mapped = uniqueRows.map((row) => {
+    // integrity_status comes from EXISTS on integrity_commitments (verifiable = has row(s), else pending)
     const hasCommitments = row.integrity_status === 'verifiable';
     const isFinalized = row.status === 'finalized';
     

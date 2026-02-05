@@ -171,12 +171,15 @@ export async function getBrevoClient(): Promise<any> {
 }
 
 /**
- * Send voting token email to a voter
+ * Send voting token email to a voter.
+ * When isTeamLead and hackathonId are provided, includes the project submission form link for their team.
  * @param email - Recipient email address
  * @param token - Voting token
  * @param pollName - Name of the poll
  * @param teamName - Voter's team name
- * @returns Email send result
+ * @param pollId - Poll ID for voting and team details links
+ * @param teamId - Team ID for team details link
+ * @param options - Optional: hackathonId and isTeamLead; when both set and isTeamLead, adds project submission link
  */
 export async function sendVotingTokenEmail(
   email: string,
@@ -184,10 +187,15 @@ export async function sendVotingTokenEmail(
   pollName: string,
   teamName: string,
   pollId: string,
-  teamId: string
+  teamId: string,
+  options?: { hackathonId?: string; isTeamLead?: boolean }
 ): Promise<any> {
   const votingUrl = `${APP_URL}/vote?token=${encodeURIComponent(token)}`;
   const teamDetailsUrl = `${APP_URL}/team/${pollId}/${teamId}?token=${encodeURIComponent(token)}`;
+  const isTeamLead = options?.isTeamLead === true && options?.hackathonId;
+  const projectSubmissionUrl = isTeamLead && options?.hackathonId
+    ? `${APP_URL}/hackathons/${options.hackathonId}/submit?form=project_details`
+    : null;
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -262,6 +270,13 @@ export async function sendVotingTokenEmail(
               <p style="font-size: 14px; margin-bottom: 20px;">Check out your team's project details and information before voting.</p>
               <a href="${teamDetailsUrl}" class="button-secondary">View Team Details</a>
             </div>
+            ${projectSubmissionUrl ? `
+            <div class="cta-section" style="margin-top: 20px; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); padding: 24px; border-radius: 12px; border-left: 4px solid #10b981;">
+              <p style="color: #065f46; font-weight: 600; margin-bottom: 8px;">As Team Lead for ${teamName}</p>
+              <p style="color: #047857; font-size: 14px; margin-bottom: 16px;">You can submit or update your project details (project name, description, solution, links) here. Only team leads can submit.</p>
+              <a href="${projectSubmissionUrl}" style="display: inline-block; background: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600;">Submit Project Details</a>
+            </div>
+            ` : ''}
           </div>
           
           <div class="important-box">
@@ -307,6 +322,11 @@ ${votingUrl}
 
 📋 VIEW YOUR TEAM DETAILS:
 ${teamDetailsUrl}
+${projectSubmissionUrl ? `
+
+As Team Lead for ${teamName}, you can submit project details here (only team leads can submit):
+${projectSubmissionUrl}
+` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

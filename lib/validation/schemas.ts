@@ -13,6 +13,33 @@ export const loginSchema = z.object({
 });
 
 /**
+ * Phone must start with + followed by country code digits (e.g. +254, +1).
+ * Optional; when provided and non-empty, must match international format.
+ */
+const phoneWithCountryCodeSchema = z
+  .string()
+  .max(50)
+  .nullable()
+  .optional()
+  .refine(
+    (val) => {
+      if (val === null || val === undefined) return true;
+      const t = val.trim();
+      return t === '' || /^\+[1-9]\d{0,3}\d{6,}$/.test(t);
+    },
+    { message: 'Phone must start with a country code (e.g. +254, +1)' }
+  );
+
+/**
+ * Update admin profile schema (display name, phone, organization)
+ */
+export const updateAdminProfileSchema = z.object({
+  displayName: z.string().max(255).nullable().optional(),
+  phone: phoneWithCountryCodeSchema,
+  organization: z.string().max(255).nullable().optional(),
+});
+
+/**
  * Create hackathon schema
  */
 export const createHackathonSchema = z.object({
@@ -332,6 +359,8 @@ export const submitVoteSchema = z.object({
   teams: z.array(z.string().uuid('Invalid team ID')).optional(),
   // Ranked vote mode
   rankings: z.array(voteRankingSchema).optional(),
+  // Judge reason for single/multiple mode (required when judge votes in single or multiple)
+  reason: z.string().max(2000, 'Reason too long').optional(),
 }).refine(
   (data) => {
     // Must have either token (voter) or judgeEmail (judge)
