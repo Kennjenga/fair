@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withExternalApiKey } from '@/lib/auth/external-api';
 import type { ExternalApiRequest } from '@/lib/auth/external-api';
 import { handleSubmitVote } from '@/lib/vote/submit-handler';
@@ -8,7 +8,7 @@ import { handleSubmitVote } from '@/lib/vote/submit-handler';
  * Submit a vote (voter or judge). Same request/response as the public vote submit.
  * Requires X-API-Key or Authorization: Bearer <key>. Usage and rate limits apply.
  */
-export async function POST(req: ExternalApiRequest) {
+export async function POST(req: NextRequest) {
   return withExternalApiKey(async (request: ExternalApiRequest) => {
     return handleSubmitVote(request);
   })(req);

@@ -7,7 +7,7 @@ import { hashToken } from '@/lib/utils/token';
 import { createVote, getVoteByTokenHash, getVoteByJudgeEmail, updateVote } from '@/lib/repositories/votes';
 import { isJudgeForPoll } from '@/lib/repositories/judges';
 import { processRankings } from '@/lib/utils/ranked-voting';
-import { createVoteHash, submitVoteToBlockchain, getExplorerUrl } from '@/lib/blockchain/avalanche';
+import { createVoteHash, submitVoteToBlockchain, getExplorerUrl, type VoteData } from '@/lib/blockchain/avalanche';
 import { logAudit, getClientIp } from '@/lib/utils/audit';
 import { getHackathonByIdExtended } from '@/lib/repositories/hackathons-extended';
 import crypto from 'crypto';
@@ -210,18 +210,18 @@ export async function handleSubmitVote(req: NextRequest): Promise<NextResponse> 
       } else {
         voteHash = crypto.createHash('sha256').update(`${validated.token ?? judgeEmail ?? ''}:${poll.poll_id}:${timestamp}`).digest('hex');
       }
-      const blockchainVoteData: Record<string, unknown> = {
+      const blockchainVoteData: VoteData = {
         pollId: poll.poll_id,
         voteType,
         votingMode: poll.voting_mode,
         timestamp,
         voteHash,
+        ...(voteOptions.teamIdTarget && { teamIdTarget: voteOptions.teamIdTarget }),
+        ...(voteOptions.teams && { teams: voteOptions.teams }),
+        ...(voteOptions.rankings && { rankings: voteOptions.rankings }),
+        ...(judgeEmail && { judgeEmail }),
+        ...(tokenHash && { tokenHash }),
       };
-      if (voteOptions.teamIdTarget) blockchainVoteData.teamIdTarget = voteOptions.teamIdTarget;
-      if (voteOptions.teams) blockchainVoteData.teams = voteOptions.teams;
-      if (voteOptions.rankings) blockchainVoteData.rankings = voteOptions.rankings;
-      if (judgeEmail) blockchainVoteData.judgeEmail = judgeEmail;
-      if (tokenHash) blockchainVoteData.tokenHash = tokenHash;
       txHash = await submitVoteToBlockchain(blockchainVoteData);
     } catch (error) {
       console.error('Blockchain submission failed:', error);

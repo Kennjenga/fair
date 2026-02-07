@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withExternalApiKey } from '@/lib/auth/external-api';
 import type { ExternalApiRequest } from '@/lib/auth/external-api';
 import { getHackathonsByAdmin } from '@/lib/repositories/hackathons';
@@ -8,7 +8,7 @@ import { getHackathonsByAdmin } from '@/lib/repositories/hackathons';
  * List hackathons for the organization (admin that owns the API key).
  * Requires X-API-Key or Authorization: Bearer <key>.
  */
-export async function GET(req: ExternalApiRequest) {
+export async function GET(req: NextRequest) {
   return withExternalApiKey(async (request: ExternalApiRequest) => {
     try {
       const { adminId } = request.externalClient;
