@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Menu, X, Home, User, Settings, LogOut, ArrowRight } from 'lucide-react';
+import { Menu, X, Home, User, Settings, LogOut, ArrowRight, Key } from 'lucide-react';
 import Image from 'next/image';
 
 interface SidebarProps {
@@ -188,6 +188,20 @@ export const Sidebar = ({ user, isOpen = true, onToggle }: SidebarProps) => {
               >
                 <User size={16} className="text-[#64748B]" />
                 <span className="text-sm font-medium">Profile</span>
+              </motion.div>
+            </Link>
+            <Link href="/admin/integrations">
+              <motion.div
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all cursor-pointer ${
+                  pathname === '/admin/integrations' || pathname.startsWith('/admin/integrations/')
+                    ? 'bg-gradient-to-r from-[#4F46E5]/10 to-[#6366F1]/10 text-[#4F46E5] font-semibold'
+                    : 'text-[#334155] hover:bg-[#F8FAFC] hover:text-[#4F46E5]'
+                }`}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Key size={16} className="text-[#64748B]" />
+                <span className="text-sm font-medium">Integrations</span>
               </motion.div>
             </Link>
             <Link href="/admin/settings">
