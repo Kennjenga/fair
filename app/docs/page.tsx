@@ -156,6 +156,11 @@ export default function DocsPage() {
 
             {/* Desktop CTA */}
             <div className="hidden md:flex items-center gap-3">
+              <Link href="/docs/external-api">
+                <button className="px-4 py-2 rounded-xl text-sm font-medium text-[#4F46E5] hover:bg-[#EEF2FF] transition-colors">
+                  External API
+                </button>
+              </Link>
               <Link href="/">
                 <button className="px-4 py-2 rounded-xl text-sm font-medium text-[#334155] hover:bg-[#F8FAFC] transition-colors">
                   Home

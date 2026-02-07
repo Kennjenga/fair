@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import SwaggerUI from 'swagger-ui-react';
 import 'swagger-ui-react/swagger-ui.css';
 
@@ -73,14 +74,22 @@ export default function SwaggerPage() {
     }
 
     return (
-        <div className="swagger-container">
-            <SwaggerUI
+        <div>
+            <div className="bg-[#F8FAFC] border-b border-[#E2E8F0] px-6 py-3 flex items-center justify-between">
+                <span className="text-sm text-[#64748B]">FAIR API (internal/admin)</span>
+                <Link href="/docs/external-api" className="text-sm font-medium text-[#4F46E5] hover:underline">
+                    External API (organizations)
+                </Link>
+            </div>
+            <div className="swagger-container">
+                <SwaggerUI
                 spec={spec}
                 deepLinking={true}
                 displayOperationId={false}
                 defaultModelsExpandDepth={1}
                 defaultModelExpandDepth={1}
             />
+            </div>
         </div>
     );
 }
